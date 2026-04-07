@@ -1,0 +1,76 @@
+{
+  "name": "pretext-pdf",
+  "version": "0.1.0",
+  "description": "Declarative JSON → PDF generation with professional typography. Built on pretext's precision text layout engine.",
+  "keywords": ["pdf", "pdf-generation", "pretext", "typography", "invoice", "report", "document"],
+  "author": "Himanshu Jain <himanshu@antigravity.dev>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Himanshu-Jain-32/pretext-pdf.git"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist/", "README.md", "LICENSE", "CHANGELOG.md"],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test:unit": "node --experimental-strip-types --test test/paginate-basic.test.ts",
+    "test:validate": "node --experimental-strip-types --test test/validate.test.ts test/builder.test.ts",
+    "test:e2e": "node --experimental-strip-types --test test/e2e.test.ts",
+    "test:phases": "node --experimental-strip-types --test test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts",
+    "test": "npm run test:unit && npm run test:validate && npm run test:e2e && npm run test:phases",
+    "test:rich": "node --experimental-strip-types --test test/rich-text.test.ts",
+    "test:visual": "node --experimental-strip-types --test test/visual/visual.test.ts",
+    "test:visual:update": "cross-env UPDATE_BASELINES=1 node --experimental-strip-types test/visual/visual.test.ts",
+    "example": "node --experimental-strip-types examples/invoice.ts",
+    "example:watermark": "node --experimental-strip-types examples/phase7-watermark.ts",
+    "example:bookmarks": "node --experimental-strip-types examples/phase7-bookmarks.ts",
+    "example:toc": "node --experimental-strip-types examples/phase7-toc.ts",
+    "example:rtl": "node --experimental-strip-types examples/phase7-rtl.ts",
+    "example:encryption": "node --experimental-strip-types examples/phase7-encryption.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@chenglou/pretext": "^0.0.3",
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource/inter": "^5.0.0",
+    "@pdf-lib/fontkit": "^1.1.1",
+    "bidi-js": "^1.0.3",
+    "hyphenation.en-us": "^0.2.1",
+    "hypher": "^0.2.5",
+    "pdf-lib": "^1.17.1",
+    "subset-font": "^2.5.0"
+  },
+  "peerDependencies": {
+    "@cantoo/pdf-lib": ">=2.0.0",
+    "@napi-rs/canvas": "^0.1.57"
+  },
+  "peerDependenciesMeta": {
+    "@napi-rs/canvas": {
+      "optional": true
+    },
+    "@cantoo/pdf-lib": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@cantoo/pdf-lib": "^2.6.5",
+    "@napi-rs/canvas": "^0.1.57",
+    "@types/node": "^22.0.0",
+    "@types/pixelmatch": "^5.2.6",
+    "@types/pngjs": "^6.0.5",
+    "cross-env": "^10.1.0",
+    "pdfjs-dist": "^5.6.205",
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.0"
+  }
+}
