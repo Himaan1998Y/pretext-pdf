@@ -1,0 +1,1250 @@
+import { PDFDocument, PDFFont, PDFName, PDFString, PDFNull, PDFRef, rgb, degrees } from 'pdf-lib'
+import type {
+  PdfDocument, PaginatedDocument, PagedBlock, MeasuredBlock,
+  FontMap, ImageMap, PageGeometry, HeaderFooterSpec
+} from './types.js'
+import { PretextPdfError } from './errors.js'
+
+/**
+ * Stage 5: Render.
+ * Takes the paginated document + pre-initialized pdfDoc (with fonts already embedded)
+ * and produces the final PDF bytes.
+ *
+ * pdfDoc is NOT created here — it comes from index.ts with fonts already embedded.
+ * imageMap contains pre-embedded PDFImage instances.
+ */
+export async function renderDocument(
+  paginatedDoc: PaginatedDocument,
+  doc: PdfDocument,
+  fontMap: FontMap,
+  imageMap: ImageMap,
+  pdfDoc: PDFDocument,
+  geo: PageGeometry
+): Promise<Uint8Array> {
+  const { pageWidth, pageHeight, margins, contentWidth } = geo
+
+  for (const renderedPage of paginatedDoc.pages) {
+    const pdfPage = pdfDoc.addPage([pageWidth, pageHeight])
+    const pageNumber = renderedPage.pageIndex + 1
+    const totalPages = paginatedDoc.totalPages
+
+    // Render watermark (behind content)
+    renderWatermark(pdfPage, doc, fontMap, imageMap, geo)
+
+    // Render content blocks
+    for (const pagedBlock of renderedPage.blocks) {
+      renderBlock(pdfPage, pagedBlock, geo, fontMap, imageMap, pdfDoc)
+    }
+
+    // Render header
+    if (doc.header) {
+      renderHeaderFooter(pdfPage, doc.header, pageNumber, totalPages, geo, fontMap, 'header')
+    }
+
+    // Render footer
+    if (doc.footer) {
+      renderHeaderFooter(pdfPage, doc.footer, pageNumber, totalPages, geo, fontMap, 'footer')
+    }
+  }
+
+  if (doc.bookmarks !== false) {
+    buildOutlineTree(pdfDoc, paginatedDoc.headings, doc.bookmarks)
+  }
+
+  return pdfDoc.save({ useObjectStreams: false })
+}
+
+// ─── Block routing ────────────────────────────────────────────────────────────
+
+function renderBlock(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  pagedBlock: PagedBlock,
+  geo: PageGeometry,
+  fontMap: FontMap,
+  imageMap: ImageMap,
+  pdfDoc: PDFDocument
+): void {
+  const { measuredBlock } = pagedBlock
+  const { element } = measuredBlock
+
+  switch (element.type) {
+    case 'spacer':
+      return // No visual output
+
+    case 'paragraph':
+    case 'heading':
+      renderTextBlock(pdfPage, pagedBlock, geo, fontMap)
+      return
+
+    case 'list':
+      // List items are flattened MeasuredBlocks with listItemData
+      if (measuredBlock.listItemData) {
+        renderListItem(pdfPage, pagedBlock, geo, fontMap)
+      }
+      return
+
+    case 'table':
+      renderTable(pdfPage, pagedBlock, geo, fontMap)
+      return
+
+    case 'svg':
+    case 'image':
+      renderImage(pdfPage, pagedBlock, geo, imageMap)
+      return
+
+    case 'hr':
+      renderHR(pdfPage, pagedBlock, geo)
+      return
+
+    case 'page-break':
+      return // No visual output — page break is handled by paginator
+
+    case 'code':
+      renderCodeBlock(pdfPage, pagedBlock, geo, fontMap)
+      return
+
+    case 'rich-paragraph':
+      renderRichParagraph(pdfPage, pagedBlock, geo, fontMap, pdfDoc)
+      return
+
+    case 'blockquote':
+      renderBlockquote(pdfPage, pagedBlock, geo, fontMap)
+      return
+
+    case 'toc-entry':
+      renderTocEntry(pdfPage, pagedBlock, geo, fontMap)
+      return
+  }
+}
+
+// ─── Text block rendering (paragraph + heading) ───────────────────────────────
+
+function renderTextBlock(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  pagedBlock: PagedBlock,
+  geo: PageGeometry,
+  fontMap: FontMap
+): void {
+  const { measuredBlock, startLine, endLine, yFromTop } = pagedBlock
+  const { element } = measuredBlock
+
+  const lines = measuredBlock.lines.slice(startLine, endLine)
+  if (lines.length === 0) return
+
+  const pdfFont = fontMap.get(measuredBlock.fontKey)
+  if (!pdfFont) {
+    throw new PretextPdfError('FONT_NOT_LOADED', `Font "${measuredBlock.fontKey}" not found in fontMap. This is a bug — font validation should have caught this.`)
+  }
+
+  const colorHex = (element.type === 'paragraph' || element.type === 'heading')
+    ? (element.color ?? '#000000')
+    : '#000000'
+  const [r, g, b] = hexToRgb(colorHex)
+  const alignRaw = (element.type === 'paragraph' || element.type === 'heading')
+    ? (element.align ?? (measuredBlock.isRTL ? 'right' : 'left'))
+    : 'left'
+  // For resolveX, treat 'justify' as 'left' (justify is handled by drawJustifiedLine)
+  const align = alignRaw === 'justify' ? 'left' : alignRaw as 'left' | 'center' | 'right'
+  const fontHeight = pdfFont.heightAtSize(measuredBlock.fontSize)
+
+  // Draw background color for paragraph and heading (if set)
+  if ((element.type === 'paragraph' || element.type === 'heading') && element.bgColor) {
+    const columnData = measuredBlock.columnData
+    const chunkHeight = columnData
+      ? columnData.linesPerColumn * measuredBlock.lineHeight
+      : lines.length * measuredBlock.lineHeight
+    const boxAbsY = yFromTop + geo.margins.top + geo.headerHeight
+    const boxPdfY = toPdfY(boxAbsY, chunkHeight, geo.pageHeight)
+    const [bgR, bgG, bgB] = hexToRgb(element.bgColor)
+    pdfPage.drawRectangle({
+      x: geo.margins.left,
+      y: boxPdfY,
+      width: geo.contentWidth,
+      height: chunkHeight,
+      color: rgb(bgR, bgG, bgB),
+      borderWidth: 0,
+    })
+  }
+
+  // Multi-column layout
+  const columnData = measuredBlock.columnData
+  if (columnData) {
+    const { columnCount, columnGap, columnWidth, linesPerColumn } = columnData
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!
+      if (line.text === '') continue
+
+      const colIdx = Math.floor(i / linesPerColumn)
+      const lineInCol = i % linesPerColumn
+      const lineYFromTop = yFromTop + (lineInCol * measuredBlock.lineHeight)
+      const absoluteYFromTop = lineYFromTop + geo.margins.top + geo.headerHeight
+      const pdfY = toPdfY(absoluteYFromTop, fontHeight, geo.pageHeight)
+
+      const colX = geo.margins.left + colIdx * (columnWidth + columnGap)
+      const trimmedText = line.text.trimEnd()
+      const alignWidth = pdfFont.widthOfTextAtSize(trimmedText, measuredBlock.fontSize)
+      const x = resolveX(align, colX, columnWidth, alignWidth)
+
+      pdfPage.drawText(trimmedText, {
+        x,
+        y: pdfY,
+        size: measuredBlock.fontSize,
+        font: pdfFont,
+        color: rgb(r, g, b),
+      })
+    }
+    return // skip standard single-column path
+  }
+
+  // Single-column layout (standard path)
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!
+    if (line.text === '') continue // empty lines from \n\n — occupy space, draw nothing
+
+    const lineYFromTop = yFromTop + (i * measuredBlock.lineHeight)
+    const absoluteYFromTop = lineYFromTop + geo.margins.top + geo.headerHeight
+    const pdfY = toPdfY(absoluteYFromTop, fontHeight, geo.pageHeight)
+
+    const trimmedText = line.text.trimEnd()
+    const isLastLine = i === lines.length - 1
+
+    let drawX: number
+    if (alignRaw === 'justify') {
+      drawJustifiedLine(pdfPage, trimmedText, isLastLine, geo.margins.left, pdfY, geo.contentWidth, measuredBlock.fontSize, pdfFont, rgb(r, g, b))
+      drawX = geo.margins.left // used for decoration below
+    } else {
+      const alignWidth = pdfFont.widthOfTextAtSize(trimmedText, measuredBlock.fontSize)
+      drawX = resolveX(align, geo.margins.left, geo.contentWidth, alignWidth)
+      pdfPage.drawText(trimmedText, {
+        x: drawX,
+        y: pdfY,
+        size: measuredBlock.fontSize,
+        font: pdfFont,
+        color: rgb(r, g, b),
+      })
+    }
+
+    if ((element.type === 'paragraph' || element.type === 'heading') && (element.underline || element.strikethrough)) {
+      const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, measuredBlock.fontSize)
+      drawTextDecoration(pdfPage, drawX, lineWidth, pdfY, measuredBlock.fontSize, pdfFont, [r, g, b], { underline: element.underline ?? false, strikethrough: element.strikethrough ?? false })
+    }
+  }
+}
+
+// ─── List item rendering ──────────────────────────────────────────────────────
+
+function renderListItem(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  pagedBlock: PagedBlock,
+  geo: PageGeometry,
+  fontMap: FontMap
+): void {
+  const { measuredBlock, startLine, endLine, yFromTop } = pagedBlock
+  const listItemData = measuredBlock.listItemData!
+
+  const lines = measuredBlock.lines.slice(startLine, endLine)
+  if (lines.length === 0) return
+
+  const pdfFont = fontMap.get(measuredBlock.fontKey)
+  if (!pdfFont) {
+    throw new PretextPdfError('FONT_NOT_LOADED', `Font "${measuredBlock.fontKey}" not found in fontMap. This is a bug — font validation should have caught this.`)
+  }
+
+  const fontHeight = pdfFont.heightAtSize(measuredBlock.fontSize)
+  const [cr, cg, cb] = hexToRgb(listItemData.color)
+
+  // RTL support: mirror list layout if detected
+  const isRTL = measuredBlock.isRTL ?? false
+  let textStartX: number
+  let textAreaWidth: number
+
+  if (isRTL) {
+    // RTL: marker on the right, text area on the left
+    textAreaWidth = geo.contentWidth - listItemData.indent - listItemData.markerWidth
+    textStartX = geo.margins.left + listItemData.indent
+  } else {
+    // LTR: marker on the left, text area on the right
+    textStartX = geo.margins.left + listItemData.indent + listItemData.markerWidth
+    textAreaWidth = geo.contentWidth - listItemData.indent - listItemData.markerWidth
+  }
+
+  // Draw marker on the first line of this item (only if startLine === 0)
+  // If startLine > 0, the item continued from a previous page — no marker
+  if (startLine === 0) {
+    const markerText = listItemData.marker
+    const markerMeasuredWidth = pdfFont.widthOfTextAtSize(markerText, measuredBlock.fontSize)
+    let markerX: number
+
+    if (isRTL) {
+      // RTL: marker on the right, right-aligned within marker column
+      markerX = geo.margins.left + geo.contentWidth - listItemData.indent - markerMeasuredWidth
+    } else {
+      // LTR: marker on the left, right-aligned within marker column
+      markerX = geo.margins.left + listItemData.indent + listItemData.markerWidth - markerMeasuredWidth
+    }
+
+    const firstLineAbsY = yFromTop + geo.margins.top + geo.headerHeight
+    const markerPdfY = toPdfY(firstLineAbsY, fontHeight, geo.pageHeight)
+
+    pdfPage.drawText(markerText, {
+      x: markerX,
+      y: markerPdfY,
+      size: measuredBlock.fontSize,
+      font: pdfFont,
+      color: rgb(cr, cg, cb),
+    })
+  }
+
+  // Draw all text lines, indented to align with body text column
+  // RTL lists are right-aligned, LTR lists are left-aligned
+  const textAlign = isRTL ? 'right' : 'left'
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!
+    if (line.text === '') continue
+
+    const lineYFromTop = yFromTop + (i * measuredBlock.lineHeight)
+    const absoluteYFromTop = lineYFromTop + geo.margins.top + geo.headerHeight
+    const pdfY = toPdfY(absoluteYFromTop, fontHeight, geo.pageHeight)
+
+    const trimmedText = line.text.trimEnd()
+    const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, measuredBlock.fontSize)
+    const x = resolveX(textAlign, textStartX, textAreaWidth, lineWidth)
+
+    pdfPage.drawText(trimmedText, {
+      x,
+      y: pdfY,
+      size: measuredBlock.fontSize,
+      font: pdfFont,
+      color: rgb(cr, cg, cb),
+    })
+  }
+}
+
+// ─── Table rendering ──────────────────────────────────────────────────────────
+
+function renderTable(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  pagedBlock: PagedBlock,
+  geo: PageGeometry,
+  fontMap: FontMap
+): void {
+  const { measuredBlock, yFromTop } = pagedBlock
+  const tableData = measuredBlock.tableData!
+  const startRow = pagedBlock.startRow ?? 0
+  const endRow = pagedBlock.endRow ?? tableData.rows.length - tableData.headerRowCount
+
+  const { columnWidths, cellPaddingH, cellPaddingV, borderWidth, borderColor, headerBgColor } = tableData
+
+  // Collect the rows to render for this chunk: headers (always) + body slice
+  const headerRows = tableData.rows.slice(0, tableData.headerRowCount)
+  const bodyRows = tableData.rows.slice(tableData.headerRowCount)
+  const chunkBodyRows = bodyRows.slice(startRow, endRow)
+  const chunkRows = [...headerRows, ...chunkBodyRows]
+
+  const chunkStartAbsY = yFromTop + geo.margins.top + geo.headerHeight
+  const totalTableWidth = columnWidths.reduce((s, w) => s + w, 0)
+  const totalChunkHeight = chunkRows.reduce((s, r) => s + r.height, 0)
+
+  // ── Pass 1: Cell backgrounds ──────────────────────────────────────────────
+  let rowAbsY = chunkStartAbsY
+  for (const row of chunkRows) {
+    const rowPdfY = toPdfY(rowAbsY, row.height, geo.pageHeight)
+    let cellX = geo.margins.left
+    for (const cell of row.cells) {
+      const bgColorHex = cell.bgColor ?? (row.isHeader ? headerBgColor : undefined)
+      if (bgColorHex) {
+        const [r, g, b] = hexToRgb(bgColorHex)
+        // Use mergedWidth for colspan support
+        pdfPage.drawRectangle({ x: cellX, y: rowPdfY, width: cell.mergedWidth, height: row.height, color: rgb(r, g, b), borderWidth: 0 })
+      }
+      cellX += cell.mergedWidth
+    }
+    rowAbsY += row.height
+  }
+
+  // ── Pass 2: Grid (border-collapse model) ─────────────────────────────────
+  // Draw outer border + internal lines — single-thickness at every edge.
+  if (borderWidth > 0) {
+    const [br, bg, bb] = hexToRgb(borderColor)
+    const borderRgb = rgb(br, bg, bb)
+    const tableTopPdfY = toPdfY(chunkStartAbsY, totalChunkHeight, geo.pageHeight)
+
+    // Outer border rectangle (no fill)
+    pdfPage.drawRectangle({
+      x: geo.margins.left,
+      y: tableTopPdfY,
+      width: totalTableWidth,
+      height: totalChunkHeight,
+      borderColor: borderRgb,
+      borderWidth,
+    })
+
+    // Internal horizontal lines (row separators, between rows, not at edges)
+    let lineAbsY = chunkStartAbsY
+    for (let ri = 0; ri < chunkRows.length - 1; ri++) {
+      lineAbsY += chunkRows[ri]!.height
+      const linePdfY = geo.pageHeight - lineAbsY
+      pdfPage.drawLine({
+        start: { x: geo.margins.left, y: linePdfY },
+        end:   { x: geo.margins.left + totalTableWidth, y: linePdfY },
+        thickness: borderWidth,
+        color: borderRgb,
+      })
+    }
+
+    // Internal vertical lines (column separators, between columns, not at edges)
+    // With colspan support: only draw lines at boundaries that are NOT spanned by merged cells
+    // Each row may have different active boundaries due to different colspan patterns
+    let colBoundaryX = geo.margins.left
+    for (let ci = 0; ci < columnWidths.length; ci++) {
+      colBoundaryX += columnWidths[ci]!
+      // Check if this boundary (between column ci and ci+1) is active in ANY row
+      const boundaryIndex = ci  // boundary at index ci is between columns ci and ci+1
+      let isActive = false
+      for (const row of chunkRows) {
+        if (row.activeBoundaries.includes(boundaryIndex)) {
+          isActive = true
+          break
+        }
+      }
+      if (isActive && ci < columnWidths.length - 1) {
+        const chunkTopPdfY = geo.pageHeight - chunkStartAbsY
+        const chunkBottomPdfY = geo.pageHeight - (chunkStartAbsY + totalChunkHeight)
+        pdfPage.drawLine({
+          start: { x: colBoundaryX, y: chunkTopPdfY },
+          end:   { x: colBoundaryX, y: chunkBottomPdfY },
+          thickness: borderWidth,
+          color: borderRgb,
+        })
+      }
+    }
+  }
+
+  // ── Pass 3: Cell text ─────────────────────────────────────────────────────
+  rowAbsY = chunkStartAbsY
+  for (const row of chunkRows) {
+    let cellX = geo.margins.left
+    for (const cell of row.cells) {
+      if (cell.lines.length > 0) {
+        const pdfFont = fontMap.get(cell.fontKey)
+        if (!pdfFont) {
+          throw new PretextPdfError('FONT_NOT_LOADED', `Table cell font "${cell.fontKey}" not found in fontMap. This is a bug — font validation should have caught this.`)
+        }
+
+        const fontHeight = pdfFont.heightAtSize(cell.fontSize)
+        const [r, g, b] = hexToRgb(cell.color)
+        const textAreaX = cellX + cellPaddingH
+        // Use mergedWidth for colspan support
+        const textAreaWidth = cell.mergedWidth - 2 * cellPaddingH
+
+        for (let li = 0; li < cell.lines.length; li++) {
+          const line = cell.lines[li]!
+          if (line.text === '') continue
+
+          const lineYFromPageTop = rowAbsY + cellPaddingV + li * cell.lineHeight
+          const pdfY = toPdfY(lineYFromPageTop, fontHeight, geo.pageHeight)
+
+          const trimmedText = line.text.trimEnd()
+          const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, cell.fontSize)
+          const x = resolveX(cell.align, textAreaX, textAreaWidth, lineWidth)
+
+          pdfPage.drawText(trimmedText, { x, y: pdfY, size: cell.fontSize, font: pdfFont, color: rgb(r, g, b) })
+        }
+      }
+
+      cellX += cell.mergedWidth
+    }
+    rowAbsY += row.height
+  }
+}
+
+// ─── Image rendering ──────────────────────────────────────────────────────────
+
+function renderImage(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  pagedBlock: PagedBlock,
+  geo: PageGeometry,
+  imageMap: ImageMap
+): void {
+  const { measuredBlock, yFromTop } = pagedBlock
+  const imageData = measuredBlock.imageData!
+  const pdfImage = imageMap.get(imageData.imageKey)
+
+  if (!pdfImage) {
+    throw new PretextPdfError('IMAGE_LOAD_FAILED', `Image "${imageData.imageKey}" not found in imageMap. This is a bug — image loading should have caught this.`)
+  }
+
+  const absoluteYFromTop = yFromTop + geo.margins.top + geo.headerHeight
+  // drawImage places the BOTTOM-LEFT corner at (x, y) — use toPdfY with renderHeight
+  const pdfY = toPdfY(absoluteYFromTop, imageData.renderHeight, geo.pageHeight)
+  const x = resolveX(imageData.align, geo.margins.left, geo.contentWidth, imageData.renderWidth)
+
+  pdfPage.drawImage(pdfImage, {
+    x,
+    y: pdfY,
+    width: imageData.renderWidth,
+    height: imageData.renderHeight,
+  })
+}
+
+// ─── Horizontal rule rendering ────────────────────────────────────────────────
+
+function renderHR(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  pagedBlock: PagedBlock,
+  geo: PageGeometry
+): void {
+  const { measuredBlock, yFromTop } = pagedBlock
+  const element = measuredBlock.element as import('./types.js').HorizontalRuleElement
+
+  const spaceAbove = element.spaceAbove ?? 12
+  const thickness = element.thickness ?? 0.5
+  const colorHex = element.color ?? '#cccccc'
+
+  // Line sits at the middle of the HR element (after spaceAbove, before spaceBelow)
+  const lineYFromTop = yFromTop + spaceAbove + geo.margins.top + geo.headerHeight
+  const pdfY = toPdfY(lineYFromTop, thickness / 2, geo.pageHeight)
+
+  const [r, g, b] = hexToRgb(colorHex)
+
+  pdfPage.drawLine({
+    start: { x: geo.margins.left, y: pdfY },
+    end: { x: geo.margins.left + geo.contentWidth, y: pdfY },
+    thickness,
+    color: rgb(r, g, b),
+  })
+}
+
+// ─── Code block rendering ─────────────────────────────────────────────────────
+
+function renderCodeBlock(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  pagedBlock: PagedBlock,
+  geo: PageGeometry,
+  fontMap: FontMap
+): void {
+  const { measuredBlock, startLine, endLine, yFromTop } = pagedBlock
+  const element = measuredBlock.element as import('./types.js').CodeBlockElement
+  const padding = measuredBlock.codePadding ?? 8
+  const bgColorHex = element.bgColor ?? '#f6f8fa'
+  const textColorHex = element.color ?? '#24292f'
+
+  // Slice the lines being rendered on this page chunk
+  const lines = measuredBlock.lines.slice(startLine, endLine)
+  const lineHeight = measuredBlock.lineHeight
+  const fontSize = measuredBlock.fontSize
+
+  // Compute per-chunk padding (only apply padding at the edge of the code block)
+  const isFirstChunk = startLine === 0
+  const isLastChunk = endLine === measuredBlock.lines.length
+  const paddingTop = isFirstChunk ? padding : 0
+  const paddingBottom = isLastChunk ? padding : 0
+  const visibleHeight = lines.length * lineHeight + paddingTop + paddingBottom
+
+  // ── Background box ──────────────────────────────────────────────────────────
+  const boxAbsY = yFromTop + geo.margins.top + geo.headerHeight
+  const boxPdfY = toPdfY(boxAbsY, visibleHeight, geo.pageHeight)
+  const [bgR, bgG, bgB] = hexToRgb(bgColorHex)
+
+  pdfPage.drawRectangle({
+    x: geo.margins.left,
+    y: boxPdfY,
+    width: geo.contentWidth,
+    height: visibleHeight,
+    color: rgb(bgR, bgG, bgB),
+    borderWidth: 0,
+  })
+
+  // ── Text lines ──────────────────────────────────────────────────────────────
+  const pdfFont = fontMap.get(measuredBlock.fontKey)
+  if (!pdfFont || lines.length === 0) return
+
+  const fontHeight = pdfFont.heightAtSize(fontSize)
+  const [r, g, b] = hexToRgb(textColorHex)
+  const textX = geo.margins.left + padding
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!
+    const lineYFromPageTop = boxAbsY + paddingTop + i * lineHeight
+    const pdfY = toPdfY(lineYFromPageTop, fontHeight, geo.pageHeight)
+
+    pdfPage.drawText(line.text.trimEnd(), {
+      x: textX,
+      y: pdfY,
+      size: fontSize,
+      font: pdfFont,
+      color: rgb(r, g, b),
+    })
+  }
+}
+
+// ─── Blockquote rendering ─────────────────────────────────────────────────────
+
+function renderBlockquote(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  pagedBlock: PagedBlock,
+  geo: PageGeometry,
+  fontMap: FontMap
+): void {
+  const { measuredBlock, startLine, endLine, yFromTop } = pagedBlock
+  const element = measuredBlock.element as import('./types.js').BlockquoteElement
+  const paddingV = measuredBlock.blockquotePaddingV ?? 10
+  const paddingH = measuredBlock.blockquotePaddingH ?? 16
+  const borderWidth = measuredBlock.blockquoteBorderWidth ?? 3
+  const bgColorHex = element.bgColor ?? '#f8f9fa'
+  const borderColorHex = element.borderColor ?? '#0070f3'
+  const textColorHex = element.color ?? '#333333'
+  const alignRaw = element.align ?? (measuredBlock.isRTL ? 'right' : 'left')
+  const align = alignRaw === 'justify' ? 'left' : alignRaw as 'left' | 'center' | 'right'
+
+  const lines = measuredBlock.lines.slice(startLine, endLine)
+  const lineHeight = measuredBlock.lineHeight
+  const fontSize = measuredBlock.fontSize
+
+  // Compute per-chunk padding (only at the edge of the block, like code)
+  const isFirstChunk = startLine === 0
+  const isLastChunk = endLine === measuredBlock.lines.length
+  const paddingTop = isFirstChunk ? paddingV : 0
+  const paddingBottom = isLastChunk ? paddingV : 0
+  const visibleHeight = lines.length * lineHeight + paddingTop + paddingBottom
+
+  const boxAbsY = yFromTop + geo.margins.top + geo.headerHeight
+  const boxPdfY = toPdfY(boxAbsY, visibleHeight, geo.pageHeight)
+
+  // ── Background box ──────────────────────────────────────────────────────────
+  const [bgR, bgG, bgB] = hexToRgb(bgColorHex)
+  pdfPage.drawRectangle({
+    x: geo.margins.left,
+    y: boxPdfY,
+    width: geo.contentWidth,
+    height: visibleHeight,
+    color: rgb(bgR, bgG, bgB),
+    borderWidth: 0,
+  })
+
+  // ── Left border stripe ──────────────────────────────────────────────────────
+  const [bdR, bdG, bdB] = hexToRgb(borderColorHex)
+  pdfPage.drawRectangle({
+    x: geo.margins.left,
+    y: boxPdfY,
+    width: borderWidth,
+    height: visibleHeight,
+    color: rgb(bdR, bdG, bdB),
+    borderWidth: 0,
+  })
+
+  // ── Text lines ──────────────────────────────────────────────────────────────
+  const pdfFont = fontMap.get(measuredBlock.fontKey)
+  if (!pdfFont || lines.length === 0) return
+
+  const fontHeight = pdfFont.heightAtSize(fontSize)
+  const [r, g, b] = hexToRgb(textColorHex)
+  const textStartX = geo.margins.left + borderWidth + paddingH
+  const textAreaWidth = geo.contentWidth - borderWidth - 2 * paddingH
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!
+    if (line.text === '') continue
+
+    const lineYFromPageTop = boxAbsY + paddingTop + i * lineHeight
+    const pdfY = toPdfY(lineYFromPageTop, fontHeight, geo.pageHeight)
+
+    const trimmedText = line.text.trimEnd()
+    const isLastLine = i === lines.length - 1
+
+    let drawX: number
+    if (alignRaw === 'justify') {
+      drawJustifiedLine(pdfPage, trimmedText, isLastLine, textStartX, pdfY, textAreaWidth, fontSize, pdfFont, rgb(r, g, b))
+      drawX = textStartX
+    } else {
+      const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, fontSize)
+      drawX = resolveX(align, textStartX, textAreaWidth, lineWidth)
+      pdfPage.drawText(trimmedText, {
+        x: drawX,
+        y: pdfY,
+        size: fontSize,
+        font: pdfFont,
+        color: rgb(r, g, b),
+      })
+    }
+    if (element.underline || element.strikethrough) {
+      const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, fontSize)
+      drawTextDecoration(pdfPage, drawX, lineWidth, pdfY, fontSize, pdfFont, [r, g, b], { underline: element.underline ?? false, strikethrough: element.strikethrough ?? false })
+    }
+  }
+}
+
+// ─── Rich paragraph rendering ─────────────────────────────────────────────────
+
+function renderRichParagraph(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  pagedBlock: PagedBlock,
+  geo: PageGeometry,
+  fontMap: FontMap,
+  pdfDoc: PDFDocument
+): void {
+  const { measuredBlock, startLine, endLine, yFromTop } = pagedBlock
+  const { element, richLines, lineHeight, fontSize } = measuredBlock
+
+  if (!richLines || richLines.length === 0) return
+
+  // Only render the lines on this page chunk
+  const visibleLines = richLines.slice(startLine, endLine)
+
+  // Draw background color if set
+  const columnData = measuredBlock.columnData
+  if (element.type === 'rich-paragraph' && element.bgColor) {
+    // Phase 5B.4: Use sum of per-line heights (may vary with per-span fontSize)
+    const chunkHeight = columnData
+      ? visibleLines.slice(0, columnData.linesPerColumn).reduce((sum, rl) => sum + rl.lineHeight, 0)
+      : visibleLines.reduce((sum, rl) => sum + rl.lineHeight, 0)
+    const boxAbsY = yFromTop + geo.margins.top + geo.headerHeight
+    const boxPdfY = toPdfY(boxAbsY, chunkHeight, geo.pageHeight)
+    const [bgR, bgG, bgB] = hexToRgb(element.bgColor)
+    pdfPage.drawRectangle({
+      x: geo.margins.left,
+      y: boxPdfY,
+      width: geo.contentWidth,
+      height: chunkHeight,
+      color: rgb(bgR, bgG, bgB),
+      borderWidth: 0,
+    })
+  }
+
+  // Multi-column layout
+  if (columnData) {
+    const { columnCount, columnGap, columnWidth, linesPerColumn } = columnData
+    // Phase 5B.4: Track cumulative Y per column (per-line heights may vary)
+    const colCumY = new Array<number>(columnCount).fill(0)
+    for (let i = 0; i < visibleLines.length; i++) {
+      const richLine = visibleLines[i]!
+      const colIdx = Math.floor(i / linesPerColumn)
+      const colOffsetX = colIdx * (columnWidth + columnGap)
+      const lineYFromTop = yFromTop + colCumY[colIdx]! + geo.margins.top + geo.headerHeight
+
+      for (const fragment of richLine.fragments) {
+        if (!fragment.text || fragment.text.trim() === '') continue
+
+        const pdfFont = fontMap.get(fragment.fontKey)
+        if (!pdfFont) {
+          throw new PretextPdfError('FONT_NOT_LOADED', `Rich text fragment font "${fragment.fontKey}" not found in fontMap. This is a bug — font validation should have caught this.`)
+        }
+
+        const fontHeight = pdfFont.heightAtSize(fragment.fontSize)
+        const pdfY = toPdfY(lineYFromTop, fontHeight, geo.pageHeight)
+        const [r, g, b] = hexToRgb(fragment.color)
+
+        const drawX = geo.margins.left + colOffsetX + fragment.x
+        const drawText = fragment.text.trimEnd()
+        pdfPage.drawText(drawText, {
+          x: drawX,
+          y: pdfY,
+          size: fragment.fontSize,
+          font: pdfFont,
+          color: rgb(r, g, b),
+        })
+        const fragWidth = pdfFont.widthOfTextAtSize(drawText, fragment.fontSize)
+        drawTextDecoration(pdfPage, drawX, fragWidth, pdfY, fragment.fontSize, pdfFont, [r, g, b], { underline: fragment.underline ?? false, strikethrough: fragment.strikethrough ?? false })
+        if (fragment.url) {
+          addLinkAnnotation(pdfDoc, pdfPage, drawX, pdfY, fragWidth, fragment.fontSize, fragment.url)
+        }
+      }
+      colCumY[colIdx]! += richLine.lineHeight
+    }
+    return // skip standard single-column path
+  }
+
+  // Single-column layout (standard path)
+  // Phase 5B.4: Track cumulative Y (per-line heights may vary due to per-span fontSize)
+  let cumY = 0
+  for (let i = 0; i < visibleLines.length; i++) {
+    const richLine = visibleLines[i]!
+    const lineYFromTop = yFromTop + cumY + geo.margins.top + geo.headerHeight
+
+    for (const fragment of richLine.fragments) {
+      if (!fragment.text || fragment.text.trim() === '') continue
+
+      const pdfFont = fontMap.get(fragment.fontKey)
+      if (!pdfFont) {
+        throw new PretextPdfError('FONT_NOT_LOADED', `Rich text fragment font "${fragment.fontKey}" not found in fontMap. This is a bug — font validation should have caught this.`)
+      }
+
+      const fontHeight = pdfFont.heightAtSize(fragment.fontSize)
+      const pdfY = toPdfY(lineYFromTop, fontHeight, geo.pageHeight)
+      const [r, g, b] = hexToRgb(fragment.color)
+
+      const drawX = geo.margins.left + fragment.x
+      const drawText = fragment.text.trimEnd()
+      pdfPage.drawText(drawText, {
+        x: drawX,
+        y: pdfY,
+        size: fragment.fontSize,
+        font: pdfFont,
+        color: rgb(r, g, b),
+      })
+      const fragWidth = pdfFont.widthOfTextAtSize(drawText, fragment.fontSize)
+      drawTextDecoration(pdfPage, drawX, fragWidth, pdfY, fragment.fontSize, pdfFont, [r, g, b], { underline: fragment.underline ?? false, strikethrough: fragment.strikethrough ?? false })
+      if (fragment.url) {
+        addLinkAnnotation(pdfDoc, pdfPage, drawX, pdfY, fragWidth, fragment.fontSize, fragment.url)
+      }
+    }
+
+    cumY += richLine.lineHeight
+  }
+}
+
+// ─── Header / Footer rendering ────────────────────────────────────────────────
+
+function renderHeaderFooter(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  spec: HeaderFooterSpec,
+  pageNumber: number,
+  totalPages: number,
+  geo: PageGeometry,
+  fontMap: FontMap,
+  position: 'header' | 'footer'
+): void {
+  const text = resolveTokens(spec.text, pageNumber, totalPages)
+  const fontSize = spec.fontSize ?? 10
+  const align = spec.align ?? 'center'
+  const fontKey = `${spec.fontFamily ?? 'Inter'}-${spec.fontWeight ?? 400}-normal`
+  const pdfFont = fontMap.get(fontKey)
+  if (!pdfFont) {
+    throw new PretextPdfError(
+      'FONT_NOT_LOADED',
+      `${position} font "${fontKey}" not found in fontMap. This is a bug — font validation should have caught this.`
+    )
+  }
+
+  const fontHeight = pdfFont.heightAtSize(fontSize)
+
+  let yFromTop: number
+  if (position === 'header') {
+    yFromTop = (geo.margins.top - fontHeight) / 2
+  } else {
+    yFromTop = geo.pageHeight - geo.margins.bottom + (geo.margins.bottom - fontHeight) / 2
+  }
+
+  const pdfY = toPdfY(yFromTop, fontHeight, geo.pageHeight)
+  const textWidth = pdfFont.widthOfTextAtSize(text, fontSize)
+  const x = resolveX(align, geo.margins.left, geo.contentWidth, textWidth)
+
+  const [textR, textG, textB] = hexToRgb(spec.color ?? '#666666')
+  pdfPage.drawText(text, {
+    x,
+    y: pdfY,
+    size: fontSize,
+    font: pdfFont,
+    color: rgb(textR, textG, textB),
+  })
+
+  // Separator line
+  if (position === 'header') {
+    const lineY = toPdfY(geo.margins.top - 4, 1, geo.pageHeight)
+    pdfPage.drawLine({
+      start: { x: geo.margins.left, y: lineY },
+      end: { x: geo.margins.left + geo.contentWidth, y: lineY },
+      thickness: 0.5,
+      color: rgb(0.8, 0.8, 0.8),
+    })
+  } else {
+    const lineY = toPdfY(geo.pageHeight - geo.margins.bottom + 4, 1, geo.pageHeight)
+    pdfPage.drawLine({
+      start: { x: geo.margins.left, y: lineY },
+      end: { x: geo.margins.left + geo.contentWidth, y: lineY },
+      thickness: 0.5,
+      color: rgb(0.8, 0.8, 0.8),
+    })
+  }
+}
+
+// ─── Watermark rendering ──────────────────────────────────────────────────
+
+function renderWatermark(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  doc: PdfDocument,
+  fontMap: FontMap,
+  imageMap: ImageMap,
+  geo: PageGeometry
+): void {
+  const wm = doc.watermark
+  if (!wm) return
+
+  const opacity = wm.opacity ?? 0.3
+  const rotation = wm.rotation ?? -45
+  const { pageWidth, pageHeight } = geo
+
+  if (wm.text) {
+    const fontKey = `${wm.fontFamily ?? doc.defaultFont ?? 'Inter'}-${wm.fontWeight ?? 400}-normal`
+    const pdfFont = fontMap.get(fontKey)
+    if (!pdfFont) {
+      throw new PretextPdfError('FONT_NOT_LOADED',
+        `Watermark font "${fontKey}" not found in fontMap. This is a bug.`)
+    }
+
+    // Auto-compute font size to span ~60% of page diagonal
+    const fontSize = wm.fontSize ?? (() => {
+      const diagonal = Math.sqrt(pageWidth ** 2 + pageHeight ** 2)
+      const widthAt100 = pdfFont.widthOfTextAtSize(wm.text, 100)
+      return Math.min(120, (diagonal * 0.6 / widthAt100) * 100)
+    })()
+
+    const [r, g, b] = hexToRgb(wm.color ?? '#CCCCCC')
+    pdfPage.drawText(wm.text, {
+      x: pageWidth / 2,
+      y: pageHeight / 2,
+      size: fontSize,
+      font: pdfFont,
+      color: rgb(r, g, b),
+      rotate: degrees(rotation),
+      opacity,
+    })
+  }
+
+  if (wm.image) {
+    const pdfImage = imageMap.get('watermark')
+    if (!pdfImage) return
+    const margin = 40
+    pdfPage.drawImage(pdfImage, {
+      x: margin,
+      y: margin,
+      width: pageWidth - margin * 2,
+      height: pageHeight - margin * 2,
+      opacity,
+    })
+  }
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+
+/**
+ * Draw a single line of text with justified alignment.
+ * Spaces between words are stretched so the line fills availableWidth.
+ * The last line of a paragraph is left-aligned (standard typographic convention).
+ */
+function drawJustifiedLine(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  lineText: string,
+  isLastLine: boolean,
+  x: number,
+  pdfY: number,
+  availableWidth: number,
+  fontSize: number,
+  pdfFont: PDFFont,
+  color: ReturnType<typeof rgb>
+): void {
+  const trimmed = lineText.trimEnd()
+
+  // Last line or single word: left-align (can't stretch)
+  if (isLastLine) {
+    pdfPage.drawText(trimmed, { x, y: pdfY, size: fontSize, font: pdfFont, color })
+    return
+  }
+
+  const words = trimmed.split(' ').filter(w => w.length > 0)
+  if (words.length <= 1) {
+    pdfPage.drawText(trimmed, { x, y: pdfY, size: fontSize, font: pdfFont, color })
+    return
+  }
+
+  const wordWidths = words.map(w => pdfFont.widthOfTextAtSize(w, fontSize))
+  const totalWordWidth = wordWidths.reduce((s, w) => s + w, 0)
+  const gapSize = (availableWidth - totalWordWidth) / (words.length - 1)
+
+  let curX = x
+  for (let i = 0; i < words.length; i++) {
+    pdfPage.drawText(words[i]!, { x: curX, y: pdfY, size: fontSize, font: pdfFont, color })
+    curX += wordWidths[i]! + gapSize
+  }
+}
+
+/**
+ * Adds a clickable URI annotation over a rendered text region.
+ * Must be called after drawText() — annotation sits above the text layer.
+ */
+function addLinkAnnotation(
+  pdfDoc: PDFDocument,
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  x: number,
+  pdfY: number,
+  width: number,
+  fontSize: number,
+  url: string
+): void {
+  const rectBottom = pdfY - fontSize * 0.2
+  const rectTop    = pdfY + fontSize * 0.8
+
+  const linkAnnot = pdfDoc.context.register(
+    pdfDoc.context.obj({
+      Type: 'Annot',
+      Subtype: 'Link',
+      Rect: [x, rectBottom, x + width, rectTop],
+      Border: [0, 0, 0],
+      A: pdfDoc.context.obj({
+        Type: 'Action',
+        S: 'URI',
+        URI: PDFString.of(url),
+      }),
+    })
+  )
+
+  const existingAnnots = pdfPage.node.get(PDFName.of('Annots'))
+  if (existingAnnots) {
+    const annots = pdfDoc.context.lookup(existingAnnots) as any
+    annots.push(linkAnnot)
+  } else {
+    pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([linkAnnot]))
+  }
+}
+
+/**
+ * Draws underline and/or strikethrough lines for a rendered text segment.
+ * Must be called AFTER drawText() so text renders on top of any decoration line.
+ */
+function drawTextDecoration(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  x: number,
+  width: number,
+  pdfY: number,
+  fontSize: number,
+  pdfFont: PDFFont,
+  color: [number, number, number],
+  decoration: { underline: boolean; strikethrough: boolean }
+): void {
+  if (!decoration.underline && !decoration.strikethrough) return
+
+  // Prefer font-designed metrics via fontkit embedder; fall back to height math
+  const embedder = (pdfFont as any).embedder
+  const fkFont   = embedder?.font    // fontkit Font object (undefined for standard fonts)
+  const scale    = embedder?.scale ?? 1
+  const ascentPt = pdfFont.heightAtSize(fontSize, { descender: false })
+
+  const thickness = fkFont
+    ? Math.max(0.5, (fkFont.underlineThickness * scale / 1000) * fontSize)
+    : Math.max(0.5, fontSize / 14)
+
+  const [r, g, b] = color
+  const lineColor = rgb(r, g, b)
+
+  if (decoration.underline) {
+    const ulY = fkFont
+      ? pdfY + (fkFont.underlinePosition * scale / 1000) * fontSize
+      : pdfY - ascentPt * 0.12
+    pdfPage.drawLine({
+      start: { x, y: ulY },
+      end:   { x: x + width, y: ulY },
+      thickness,
+      color: lineColor,
+    })
+  }
+
+  if (decoration.strikethrough) {
+    const strikeY = fkFont
+      ? pdfY + (fkFont.xHeight * scale / 1000) * fontSize * 0.5
+      : pdfY + ascentPt * 0.38
+    pdfPage.drawLine({
+      start: { x, y: strikeY },
+      end:   { x: x + width, y: strikeY },
+      thickness,
+      color: lineColor,
+    })
+  }
+}
+
+/**
+ * THE ONLY place where top-down coords are converted to pdf-lib bottom-up coords.
+ * @param yFromTop - distance from top of page in pt
+ * @param elementHeight - height of the element (font baseline offset, image height, etc.)
+ * @param pageHeight - total page height in pt
+ */
+function toPdfY(yFromTop: number, elementHeight: number, pageHeight: number): number {
+  return pageHeight - yFromTop - elementHeight
+}
+
+/** Resolve text horizontal position based on alignment */
+function resolveX(
+  align: 'left' | 'center' | 'right',
+  startX: number,
+  availableWidth: number,
+  lineWidth: number
+): number {
+  switch (align) {
+    case 'left':
+      return startX
+    case 'center':
+      return startX + (availableWidth - lineWidth) / 2
+    case 'right':
+      return startX + availableWidth - lineWidth
+  }
+}
+
+/** Replace {{pageNumber}} and {{totalPages}} tokens */
+function resolveTokens(text: string, pageNumber: number, totalPages: number): string {
+  return text
+    .replace('{{pageNumber}}', String(pageNumber))
+    .replace('{{totalPages}}', String(totalPages))
+}
+
+/** Parse a 6-digit hex color string to normalized RGB [0,1] triple */
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = hex.startsWith('#') ? hex.slice(1) : hex
+  const r = parseInt(clean.slice(0, 2), 16) / 255
+  const g = parseInt(clean.slice(2, 4), 16) / 255
+  const b = parseInt(clean.slice(4, 6), 16) / 255
+  return [r, g, b]
+}
+
+// ─── Outline / Bookmarks ──────────────────────────────────────────────────────
+
+/**
+ * Build PDF outline (bookmarks/TOC) from heading entries.
+ * Creates a doubly-linked tree in the PDF catalog.
+ * Must be called after all pages are rendered but before pdfDoc.save().
+ */
+function buildOutlineTree(
+  pdfDoc: PDFDocument,
+  headings: PaginatedDocument['headings'],
+  bookmarkConfig: PdfDocument['bookmarks']
+): void {
+  if (bookmarkConfig === false || headings.length === 0) return
+
+  const cfg = typeof bookmarkConfig === 'object' ? bookmarkConfig : {}
+  const minLevel = cfg.minLevel ?? 1
+  const maxLevel = cfg.maxLevel ?? 4
+
+  const filtered = headings.filter(h => h.level >= minLevel && h.level <= maxLevel)
+  if (filtered.length === 0) return
+
+  const pageRefs = pdfDoc.getPages().map(p => p.ref)
+  const outlineRef = pdfDoc.context.nextRef()
+  const itemRefs = filtered.map(() => pdfDoc.context.nextRef())
+
+  // Returns index of nearest ancestor heading, or -1 (root-level)
+  function parentIdxOf(i: number): number {
+    for (let j = i - 1; j >= 0; j--) {
+      if (filtered[j]!.level < filtered[i]!.level) return j
+    }
+    return -1
+  }
+
+  for (let i = 0; i < filtered.length; i++) {
+    const h = filtered[i]!
+    const pageRef = pageRefs[h.pageIndex] ?? pageRefs[pageRefs.length - 1]!
+    const myParentIdx = parentIdxOf(i)
+    const myParentRef = myParentIdx === -1 ? outlineRef : itemRefs[myParentIdx]!
+
+    const dest = pdfDoc.context.obj([pageRef, PDFName.of('XYZ'), PDFNull, PDFNull, PDFNull])
+
+    let prevRef: PDFRef | undefined
+    for (let j = i - 1; j >= 0; j--) {
+      if (filtered[j]!.level === h.level && parentIdxOf(j) === myParentIdx) {
+        prevRef = itemRefs[j]; break
+      }
+    }
+
+    let nextRef: PDFRef | undefined
+    for (let j = i + 1; j < filtered.length; j++) {
+      if (filtered[j]!.level === h.level && parentIdxOf(j) === myParentIdx) {
+        nextRef = itemRefs[j]; break
+      }
+    }
+
+    let firstChildRef: PDFRef | undefined
+    let lastChildRef: PDFRef | undefined
+    let childCount = 0
+    for (let j = i + 1; j < filtered.length; j++) {
+      if (filtered[j]!.level <= h.level) break
+      if (parentIdxOf(j) === i) {
+        if (!firstChildRef) firstChildRef = itemRefs[j]
+        lastChildRef = itemRefs[j]
+        childCount++
+      }
+    }
+
+    const entry: Record<string, unknown> = {
+      Title: PDFString.of(h.text),
+      Parent: myParentRef,
+      Dest: dest,
+    }
+    if (prevRef) entry['Prev'] = prevRef
+    if (nextRef) entry['Next'] = nextRef
+    if (firstChildRef) entry['First'] = firstChildRef
+    if (lastChildRef) entry['Last'] = lastChildRef
+    if (childCount > 0) entry['Count'] = childCount
+
+    pdfDoc.context.assign(itemRefs[i]!, pdfDoc.context.obj(entry as any))
+  }
+
+  const topIdxs = filtered.map((_, i) => i).filter(i => parentIdxOf(i) === -1)
+  const rootEntry: Record<string, unknown> = {
+    Type: PDFName.of('Outlines'),
+    Count: filtered.length,
+  }
+  if (topIdxs.length > 0) {
+    rootEntry['First'] = itemRefs[topIdxs[0]!]!
+    rootEntry['Last'] = itemRefs[topIdxs[topIdxs.length - 1]!]!
+  }
+  pdfDoc.context.assign(outlineRef, pdfDoc.context.obj(rootEntry as any))
+
+  pdfDoc.catalog.set(PDFName.of('Outlines'), outlineRef)
+  pdfDoc.catalog.set(PDFName.of('PageMode'), PDFName.of('UseOutlines'))
+}
+
+// ─── TOC Entry Rendering (Phase 7D) ────────────────────────────────────────────
+
+function renderTocEntry(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  pagedBlock: PagedBlock,
+  geo: PageGeometry,
+  fontMap: FontMap,
+): void {
+  const { measuredBlock, startLine, endLine, yFromTop } = pagedBlock
+  const element = measuredBlock.element as import('./types.js').TocEntryElement
+  const tocData = measuredBlock.tocEntryData!
+  const lines = measuredBlock.lines.slice(startLine, endLine)
+  if (lines.length === 0) return
+
+  const pdfFont = fontMap.get(measuredBlock.fontKey)
+  if (!pdfFont) throw new PretextPdfError('FONT_NOT_LOADED', `TOC font "${measuredBlock.fontKey}" not found.`)
+
+  const fontHeight = pdfFont.heightAtSize(measuredBlock.fontSize)
+  const entryX = geo.margins.left + tocData.entryX
+  const rightEdge = geo.margins.left + geo.contentWidth
+
+  for (let i = 0; i < lines.length; i++) {
+    const lineYFromTop = yFromTop + (i * measuredBlock.lineHeight)
+    const absY = lineYFromTop + geo.margins.top + geo.headerHeight
+    const pdfY = toPdfY(absY, fontHeight, geo.pageHeight)
+
+    const text = lines[i]!.text.trimEnd()
+    if (!text) continue
+
+    // Draw entry text
+    pdfPage.drawText(text, { x: entryX, y: pdfY, size: measuredBlock.fontSize, font: pdfFont, color: rgb(0, 0, 0) })
+
+    // Title lines (pageStr === ''): no leader, no page number
+    if (!tocData.pageStr) continue
+
+    // Only draw leader and page number on the last line of multi-line entries
+    if (i < lines.length - 1) continue
+
+    // Draw page number (right-aligned)
+    const pageStr = tocData.pageStr
+    const pageStrWidth = pdfFont.widthOfTextAtSize(pageStr, measuredBlock.fontSize)
+    const pageX = rightEdge - pageStrWidth
+    pdfPage.drawText(pageStr, { x: pageX, y: pdfY, size: measuredBlock.fontSize, font: pdfFont, color: rgb(0, 0, 0) })
+
+    // Draw dot leaders between text and page number
+    if (tocData.leaderChar) {
+      const textWidth = pdfFont.widthOfTextAtSize(text, measuredBlock.fontSize)
+      const leaderCharWidth = pdfFont.widthOfTextAtSize(tocData.leaderChar, measuredBlock.fontSize)
+      const gapStart = entryX + textWidth + 6  // 6pt gap after text
+      const gapEnd = pageX - 6                 // 6pt gap before page number
+      let lx = gapStart
+      while (lx + leaderCharWidth <= gapEnd) {
+        pdfPage.drawText(tocData.leaderChar, { x: lx, y: pdfY, size: measuredBlock.fontSize, font: pdfFont, color: rgb(0.5, 0.5, 0.5) })
+        lx += leaderCharWidth + 1
+      }
+    }
+  }
+}

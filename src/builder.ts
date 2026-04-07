@@ -1,0 +1,193 @@
+/**
+ * Builder API for pretext-pdf
+ *
+ * Provides a fluent, chainable interface for constructing PDF documents.
+ * Accumulates ContentElement[] and delegates final rendering to render().
+ */
+
+import { render } from './index.js'
+import type {
+  PdfDocument,
+  ContentElement,
+  ParagraphElement,
+  HeadingElement,
+  TableElement,
+  ImageElement,
+  ListElement,
+  CodeBlockElement,
+  RichParagraphElement,
+  BlockquoteElement,
+  HorizontalRuleElement,
+  InlineSpan,
+  Margins,
+  FontSpec,
+  HeaderFooterSpec,
+  DocumentMetadata,
+} from './types.js'
+
+/**
+ * Options for initializing the PDF builder.
+ * Includes all PdfDocument fields except 'content' (which is managed by the builder).
+ */
+export interface PdfBuilderOptions {
+  pageSize?: PdfDocument['pageSize']
+  margins?: Partial<Margins>
+  defaultFont?: string
+  defaultFontSize?: number
+  defaultLineHeight?: number
+  fonts?: FontSpec[]
+  header?: HeaderFooterSpec
+  footer?: HeaderFooterSpec
+  metadata?: DocumentMetadata
+}
+
+export interface PdfBuilder {
+  addText(text: string, opts?: Partial<Omit<ParagraphElement, 'type' | 'text'>>): PdfBuilder
+  addHeading(text: string, opts?: Partial<Omit<HeadingElement, 'type' | 'text' | 'level'>> & { level?: number }): PdfBuilder
+  addTable(opts: Omit<TableElement, 'type'>): PdfBuilder
+  addImage(src: ImageElement['src'], opts?: Partial<Omit<ImageElement, 'type' | 'src'>>): PdfBuilder
+  addList(opts: Omit<ListElement, 'type'>): PdfBuilder
+  addCode(text: string, opts: Omit<CodeBlockElement, 'type' | 'text'>): PdfBuilder
+  addRichText(spans: InlineSpan[], opts?: Partial<Omit<RichParagraphElement, 'type' | 'spans'>>): PdfBuilder
+  addBlockquote(text: string, opts?: Partial<Omit<BlockquoteElement, 'type' | 'text'>>): PdfBuilder
+  addHr(opts?: Partial<Omit<HorizontalRuleElement, 'type'>>): PdfBuilder
+  addSpacer(height: number): PdfBuilder
+  addPageBreak(): PdfBuilder
+  toDocument(): PdfDocument
+  build(): Promise<Uint8Array>
+}
+
+/**
+ * Create a new PDF document using the builder API.
+ *
+ * @example
+ * ```ts
+ * const pdf = await createPdf({ pageSize: 'Letter' })
+ *   .addHeading('Hello')
+ *   .addText('This is a paragraph.')
+ *   .addHr()
+ *   .build()
+ * ```
+ */
+export function createPdf(options: PdfBuilderOptions = {}): PdfBuilder {
+  const content: ContentElement[] = []
+
+  return {
+    /**
+     * Add a paragraph.
+     */
+    addText(text: string, opts?: Partial<Omit<ParagraphElement, 'type' | 'text'>>): PdfBuilder {
+      content.push({ type: 'paragraph', text, ...opts })
+      return this
+    },
+
+    /**
+     * Add a heading.
+     */
+    addHeading(text: string, opts?: Partial<Omit<HeadingElement, 'type' | 'text' | 'level'>> & { level?: number }) {
+      const level = (opts?.level ?? 1) as 1 | 2 | 3 | 4
+      const { level: _, ...restOpts } = opts ?? {}
+      content.push({ type: 'heading', level, text, ...restOpts })
+      return this
+    },
+
+    /**
+     * Add a table.
+     */
+    addTable(opts: Omit<TableElement, 'type'>): PdfBuilder {
+      content.push({ type: 'table', ...opts })
+      return this
+    },
+
+    /**
+     * Add an image.
+     */
+    addImage(src: ImageElement['src'], opts?: Partial<Omit<ImageElement, 'type' | 'src'>>): PdfBuilder {
+      content.push({ type: 'image', src, ...opts })
+      return this
+    },
+
+    /**
+     * Add a list (ordered or unordered).
+     */
+    addList(opts: Omit<ListElement, 'type'>): PdfBuilder {
+      content.push({ type: 'list', ...opts })
+      return this
+    },
+
+    /**
+     * Add a code block.
+     */
+    addCode(text: string, opts: Omit<CodeBlockElement, 'type' | 'text'>): PdfBuilder {
+      content.push({ type: 'code', text, ...opts })
+      return this
+    },
+
+    /**
+     * Add a rich paragraph with mixed formatting (bold, italic, color).
+     */
+    addRichText(spans: InlineSpan[], opts?: Partial<Omit<RichParagraphElement, 'type' | 'spans'>>): PdfBuilder {
+      content.push({ type: 'rich-paragraph', spans, ...opts })
+      return this
+    },
+
+    /**
+     * Add a blockquote.
+     */
+    addBlockquote(text: string, opts?: Partial<Omit<BlockquoteElement, 'type' | 'text'>>): PdfBuilder {
+      content.push({ type: 'blockquote', text, ...opts })
+      return this
+    },
+
+    /**
+     * Add a horizontal rule.
+     */
+    addHr(opts?: Partial<Omit<HorizontalRuleElement, 'type'>>): PdfBuilder {
+      content.push({ type: 'hr', ...opts })
+      return this
+    },
+
+    /**
+     * Add a spacer (vertical whitespace).
+     */
+    addSpacer(height: number): PdfBuilder {
+      content.push({ type: 'spacer', height })
+      return this
+    },
+
+    /**
+     * Add a page break.
+     */
+    addPageBreak(): PdfBuilder {
+      content.push({ type: 'page-break' })
+      return this
+    },
+
+    /**
+     * Get the underlying declarative document.
+     * Useful for inspection, serialization, or reusing with render().
+     */
+    toDocument(): PdfDocument {
+      return {
+        pageSize: options.pageSize,
+        margins: options.margins,
+        defaultFont: options.defaultFont,
+        defaultFontSize: options.defaultFontSize,
+        defaultLineHeight: options.defaultLineHeight,
+        fonts: options.fonts,
+        header: options.header,
+        footer: options.footer,
+        metadata: options.metadata,
+        content,
+      } as PdfDocument
+    },
+
+    /**
+     * Build the PDF and return the bytes.
+     * Delegates to render() with the accumulated document.
+     */
+    async build(): Promise<Uint8Array> {
+      return render(this.toDocument())
+    },
+  }
+}

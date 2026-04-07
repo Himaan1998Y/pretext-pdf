@@ -1,0 +1,463 @@
+/**
+ * Unit tests for paginate() — pure function, no I/O, no fonts, no Pretext.
+ * Run with: node --test test/paginate.test.js  (after tsc build)
+ */
+import { test, describe } from 'node:test'
+import assert from 'node:assert/strict'
+import { paginate } from '../dist/paginate.js'
+import type { MeasuredBlock } from '../dist/types.js'
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function makeParagraph(lineCount: number, lineHeight = 20, spaceAfter = 0, keepTogether = false): MeasuredBlock {
+  const lines = Array.from({ length: lineCount }, (_, i) => ({
+    text: `Line ${i + 1}`,
+    width: 100,
+  }))
+  return {
+    element: {
+      type: 'paragraph' as const,
+      text: lines.map(l => l.text).join(' '),
+      keepTogether,
+    },
+    height: lineCount * lineHeight,
+    lines,
+    fontSize: 12,
+    lineHeight,
+    fontKey: 'Inter-400-normal',
+    spaceAfter,
+    spaceBefore: 0,
+  }
+}
+
+function makeHeading(lineCount = 1, lineHeight = 28, spaceAfter = 12): MeasuredBlock {
+  const lines = Array.from({ length: lineCount }, (_, i) => ({
+    text: `Heading line ${i + 1}`,
+    width: 200,
+  }))
+  return {
+    element: {
+      type: 'heading' as const,
+      level: 1 as const,
+      text: 'Test Heading',
+      keepTogether: true,
+    },
+    height: lineCount * lineHeight,
+    lines,
+    fontSize: 24,
+    lineHeight,
+    fontKey: 'Inter-700-normal',
+    spaceAfter,
+    spaceBefore: 24,
+  }
+}
+
+function makeSpacer(height: number): MeasuredBlock {
+  return {
+    element: { type: 'spacer' as const, height },
+    height,
+    lines: [],
+    fontSize: 0,
+    lineHeight: 0,
+    fontKey: '',
+    spaceAfter: 0,
+    spaceBefore: 0,
+  }
+}
+
+// Page content height = A4 842 - margins 72*2 = 698pt
+const PAGE_HEIGHT = 698
+
+function makeCodeBlock(
+  lineCount: number,
+  lineHeight = 14,
+  padding = 8,
+  spaceAfter = 12,
+  keepTogether = false
+): MeasuredBlock {
+  const lines = Array.from({ length: lineCount }, (_, i) => ({
+    text: `const x${i} = ${i}`,
+    width: 80,
+  }))
+  return {
+    element: {
+      type: 'code' as const,
+      text: lines.map(l => l.text).join('\n'),
+      fontFamily: 'Inter',
+      keepTogether,
+    },
+    height: lineCount * lineHeight + 2 * padding,
+    lines,
+    fontSize: 10,
+    lineHeight,
+    fontKey: 'Inter-400-normal',
+    spaceAfter,
+    spaceBefore: 0,
+    codePadding: padding,
+  }
+}
+
+function makeRichParagraph(lineCount: number, lineHeight = 18, spaceAfter = 0): MeasuredBlock {
+  const lines = Array.from({ length: lineCount }, (_, i) => ({ text: `Rich line ${i}`, width: 100 }))
+  const richLines = lines.map(l => ({
+    fragments: [{ text: l.text, fontKey: 'Inter-400-normal', fontSize: 12, color: '#000000', x: 0, width: l.width }],
+    totalWidth: l.width,
+  }))
+  return {
+    element: { type: 'rich-paragraph' as const, spans: [{ text: 'Rich line' }] },
+    height: lineCount * lineHeight,
+    lines,
+    fontSize: 12,
+    lineHeight,
+    fontKey: 'Inter-400-normal',
+    spaceAfter,
+    spaceBefore: 0,
+    richLines,
+  }
+}
+
+// ─── Tests ────────────────────────────────────────────────────────────────────
+
+describe('paginate — basic placement', () => {
+  test('empty content → one empty page', () => {
+    const result = paginate([], PAGE_HEIGHT)
+    assert.equal(result.totalPages, 1)
+    assert.equal(result.pages[0]!.blocks.length, 0)
+  })
+
+  test('single small block → fits on page 1', () => {
+    const block = makeParagraph(3) // 60pt — fits easily
+    const result = paginate([block], PAGE_HEIGHT)
+    assert.equal(result.totalPages, 1)
+    assert.equal(result.pages[0]!.blocks.length, 1)
+    const placed = result.pages[0]!.blocks[0]!
+    assert.equal(placed.startLine, 0)
+    assert.equal(placed.endLine, 3)
+    assert.equal(placed.yFromTop, 0)
+  })
+
+  test('multiple blocks fit on one page', () => {
+    const blocks = [makeParagraph(5), makeSpacer(20), makeParagraph(5)]
+    // 100 + 20 + 100 = 220pt — fits in 698pt
+    const result = paginate(blocks, PAGE_HEIGHT)
+    assert.equal(result.totalPages, 1)
+    assert.equal(result.pages[0]!.blocks.length, 3)
+  })
+
+  test('second block splits across pages when page 1 has partial space', () => {
+    const bigBlock = makeParagraph(30) // 600pt
+    const nextBlock = makeParagraph(10) // 200pt — won't fit entirely after 600pt on 698pt page
+    const result = paginate([bigBlock, nextBlock], PAGE_HEIGHT)
+    assert.equal(result.totalPages, 2)
+    // Page 1 has bigBlock + the first few lines of nextBlock (split)
+    assert.equal(result.pages[0]!.blocks.length, 2)
+
+    // Total lines of nextBlock across both pages = 10
+    let nextBlockLines = 0
+    for (const page of result.pages) {
+      for (const b of page.blocks) {
+        if (b.measuredBlock === nextBlock) {
+          nextBlockLines += b.endLine - b.startLine
+        }
+      }
+    }
+    assert.equal(nextBlockLines, 10)
+  })
+
+  test('block with spaceAfter is counted in height', () => {
+    // 34 lines * 20pt = 680pt. 680pt + 80pt spaceAfter = 760pt > 698pt → overflows to page 2
+    const block = makeParagraph(34, 20, 80)
+    const nextBlock = makeParagraph(2) // 40pt
+    const result = paginate([block, nextBlock], PAGE_HEIGHT)
+    assert.equal(result.totalPages, 2)
+  })
+})
+
+describe('paginate — page splitting', () => {
+  test('large block splits across two pages', () => {
+    const block = makeParagraph(40, 20, 0, false)
+    const result = paginate([block], PAGE_HEIGHT)
+    assert.equal(result.totalPages, 2)
+
+    const page1Block = result.pages[0]!.blocks[0]!
+    const page2Block = result.pages[1]!.blocks[0]!
+
+    const totalLines = (page1Block.endLine - page1Block.startLine) +
+                       (page2Block.endLine - page2Block.startLine)
+    assert.equal(totalLines, 40)
+
+    assert.equal(page1Block.startLine, 0)
+    assert.equal(page2Block.startLine, page1Block.endLine)
+  })
+
+  test('very large block splits across three pages', () => {
+    const block = makeParagraph(120, 20, 0, false)
+    const result = paginate([block], PAGE_HEIGHT)
+    assert.ok(result.totalPages >= 3, `Expected >= 3 pages, got ${result.totalPages}`)
+
+    const totalLines = result.pages.reduce((sum, page) => {
+      return sum + page.blocks.reduce((s, b) => s + (b.endLine - b.startLine), 0)
+    }, 0)
+    assert.equal(totalLines, 120)
+  })
+
+  test('split block: lines are never duplicated or missing', () => {
+    const block = makeParagraph(50, 20, 0, false)
+    const result = paginate([block], PAGE_HEIGHT)
+
+    let expectedStart = 0
+    for (const page of result.pages) {
+      for (const b of page.blocks) {
+        assert.equal(b.startLine, expectedStart, `Gap or overlap at line ${expectedStart}`)
+        expectedStart = b.endLine
+      }
+    }
+    assert.equal(expectedStart, 50, 'Not all lines were placed')
+  })
+})
+
+describe('paginate — keepTogether', () => {
+  test('keepTogether block that fits on next page moves to next page', () => {
+    // filler: 33 lines * 20pt = 660pt. Remaining = 698 - 660 = 38pt.
+    // keepTogether block = 3 lines * 20pt = 60pt > 38pt remaining → moves to page 2
+    const filler = makeParagraph(33) // 660pt
+    const together = makeParagraph(3, 20, 0, true) // 60pt, keepTogether
+    const result = paginate([filler, together], PAGE_HEIGHT)
+
+    assert.equal(result.totalPages, 2)
+    const page2Blocks = result.pages[1]!.blocks
+    assert.equal(page2Blocks.length, 1)
+    const placed = page2Blocks[0]!
+    assert.equal(placed.startLine, 0)
+    assert.equal(placed.endLine, 3)
+  })
+
+  test('heading (keepTogether by default) moves to next page', () => {
+    // filler: 33 lines * 20pt = 660pt. Remaining = 38pt.
+    // heading = 1 * 28pt + 12 spaceAfter = 40pt > 38pt → moves to page 2
+    const filler = makeParagraph(33) // 660pt
+    const heading = makeHeading(1, 28, 12) // 28pt heading + 12 spaceAfter = 40pt total
+    const result = paginate([filler, heading], PAGE_HEIGHT)
+
+    assert.equal(result.totalPages, 2)
+    assert.equal(result.pages[1]!.blocks.length, 1)
+  })
+})
+
+describe('paginate — orphan/widow control', () => {
+  test('widow: 1 line on next page triggers redistribution', () => {
+    // Page height 100pt, lineHeight 20pt → 5 lines per page
+    // Block with 6 lines: natural split = 5 on p1, 1 on p2 (widow)
+    const block = makeParagraph(6, 20, 0, false)
+    const result = paginate([block], 100, { minOrphanLines: 2, minWidowLines: 2 })
+
+    if (result.totalPages > 1) {
+      const page2Lines = result.pages[1]!.blocks.reduce(
+        (sum, b) => sum + (b.endLine - b.startLine), 0
+      )
+      assert.ok(page2Lines >= 2, `Expected >= 2 lines on page 2, got ${page2Lines}`)
+    }
+  })
+})
+
+describe('paginate — spacers', () => {
+  test('spacer is placed with correct block count', () => {
+    const spacer = makeSpacer(40)
+    const para = makeParagraph(3)
+    const result = paginate([spacer, para], PAGE_HEIGHT)
+    assert.equal(result.totalPages, 1)
+    assert.equal(result.pages[0]!.blocks.length, 2)
+  })
+
+  test('large spacer does not cause infinite loop', () => {
+    const spacer = makeSpacer(PAGE_HEIGHT * 2)
+    assert.doesNotThrow(() => paginate([spacer], PAGE_HEIGHT))
+  })
+})
+
+describe('paginate — edge cases', () => {
+  test('throws for zero content height', () => {
+    assert.throws(
+      () => paginate([makeParagraph(1)], 0),
+      (err: unknown) => {
+        assert.ok(err instanceof Error)
+        assert.ok(err.message.includes('pageContentHeight'))
+        return true
+      }
+    )
+  })
+
+  test('yFromTop of sequential blocks is monotonically increasing on same page', () => {
+    const blocks = [makeParagraph(2), makeParagraph(2), makeParagraph(2)]
+    const result = paginate(blocks, PAGE_HEIGHT)
+    assert.equal(result.totalPages, 1)
+    const ys = result.pages[0]!.blocks.map(b => b.yFromTop)
+    for (let i = 1; i < ys.length; i++) {
+      assert.ok(ys[i]! > ys[i - 1]!, `Block ${i} yFromTop should be > block ${i - 1}`)
+    }
+  })
+
+  test('all blocks on a page have yFromTop within page bounds', () => {
+    const blocks = Array.from({ length: 10 }, () => makeParagraph(2))
+    const result = paginate(blocks, PAGE_HEIGHT)
+    for (const page of result.pages) {
+      for (const b of page.blocks) {
+        assert.ok(b.yFromTop >= 0, 'yFromTop must be >= 0')
+        assert.ok(b.yFromTop < PAGE_HEIGHT, `yFromTop ${b.yFromTop} must be < ${PAGE_HEIGHT}`)
+      }
+    }
+  })
+})
+
+// ─── Code block pagination ────────────────────────────────────────────────────
+
+describe('paginate — code block splits', () => {
+  test('small code block fits on one page', () => {
+    // 5 lines * 14 + 2*8 = 86pt, fits in 698pt
+    const block = makeCodeBlock(5)
+    const result = paginate([block], PAGE_HEIGHT)
+    assert.equal(result.totalPages, 1)
+    assert.equal(result.pages[0]!.blocks.length, 1)
+    const paged = result.pages[0]!.blocks[0]!
+    assert.equal(paged.startLine, 0)
+    assert.equal(paged.endLine, 5)
+  })
+
+  test('large code block splits across pages', () => {
+    // PAGE_HEIGHT=698, padding=8, lineHeight=14
+    // first page available for lines = 698 - 8(top) - 8(bottom reserved) = 682 → floor(682/14)=48 lines
+    // 60 lines total → spans 2+ pages
+    const block = makeCodeBlock(60)
+    const result = paginate([block], PAGE_HEIGHT)
+    assert.ok(result.totalPages >= 2, `Expected ≥2 pages, got ${result.totalPages}`)
+  })
+
+  test('split code block: padding only on first and last chunks', () => {
+    const PAGE = 100 // small page to force split
+    const PADDING = 8
+    const LINE_HEIGHT = 14
+    // 20 lines * 14 + 16 = 296pt → spans 3 pages of 100pt
+    const block = makeCodeBlock(20, LINE_HEIGHT, PADDING)
+    const result = paginate([block], PAGE)
+
+    // Verify via getCurrentY: first chunk ends at yFromTop + lines*lh + paddingTop
+    // Middle chunks: no padding in height calc
+    // Last chunk: + paddingBottom
+    assert.ok(result.totalPages >= 2)
+
+    // First page chunk starts at line 0
+    const firstChunk = result.pages[0]!.blocks[0]!
+    assert.equal(firstChunk.startLine, 0, 'First chunk starts at line 0')
+
+    // Last page chunk ends at total line count
+    const lastPage = result.pages[result.totalPages - 1]!
+    const lastChunk = lastPage.blocks[lastPage.blocks.length - 1]!
+    assert.equal(lastChunk.endLine, block.lines.length, 'Last chunk ends at total line count')
+  })
+
+  test('code block with large padding does not overflow page', () => {
+    // Large padding (20pt) — should still fit without overflowing
+    const PAGE = 150
+    const PADDING = 20
+    const LINE_HEIGHT = 14
+    // 8 lines → 8*14 + 40 = 152 > 150 → splits across 2 pages
+    const block = makeCodeBlock(8, LINE_HEIGHT, PADDING)
+    const result = paginate([block], PAGE)
+
+    // Verify no chunk exceeds page height
+    for (const page of result.pages) {
+      for (const pagedBlock of page.blocks) {
+        if (pagedBlock.measuredBlock.element.type !== 'code') continue
+        const lineCount = pagedBlock.endLine - pagedBlock.startLine
+        const isFirst = pagedBlock.startLine === 0
+        const isLast = pagedBlock.endLine === block.lines.length
+        const topPad = isFirst ? PADDING : 0
+        const botPad = isLast ? PADDING : 0
+        const chunkHeight = lineCount * LINE_HEIGHT + topPad + botPad
+        assert.ok(
+          pagedBlock.yFromTop + chunkHeight <= PAGE + 0.1,
+          `Chunk overflows: yFromTop=${pagedBlock.yFromTop} + chunkHeight=${chunkHeight} > PAGE=${PAGE}`
+        )
+      }
+    }
+  })
+
+  test('code block moved to new page by orphan control retains top padding capacity', () => {
+    // Setup: page height = 100pt. Place a paragraph that fills 86pt (leaving 1 line = 14pt).
+    // 1 line < minOrphanLines(2), so orphan check pushes the code block to a new page.
+    // On the new page, isFirstChunk must still be true → topPad is reserved.
+    const PAGE = 100
+    const LINE_HEIGHT = 14
+    const PADDING = 8
+    // Paragraph using 6 lines * 20pt = 120pt... too big. Use fewer lines.
+    // We need 86pt occupied. With lineHeight=20, 4 lines = 80pt. Leaves 20pt → 1 line of 14pt fits.
+    // 1 < minOrphanLines(2), so orphan fires.
+    const para: MeasuredBlock = {
+      element: { type: 'paragraph' as const, text: 'x' },
+      height: 80, lines: Array.from({ length: 4 }, (_, i) => ({ text: `line${i}`, width: 80 })),
+      fontSize: 12, lineHeight: 20, fontKey: 'Inter-400-normal', spaceAfter: 0, spaceBefore: 0,
+    }
+    const code = makeCodeBlock(3, LINE_HEIGHT, PADDING)  // 3*14 + 16 = 58pt
+    const result = paginate([para, code], PAGE)
+
+    // Code block must end up on page 2
+    assert.equal(result.totalPages, 2, 'Code block should be pushed to page 2')
+    const page2 = result.pages[1]!
+    const codePaged = page2.blocks.find(b => b.measuredBlock.element.type === 'code')
+    assert.ok(codePaged, 'Code block must be on page 2')
+    assert.equal(codePaged!.startLine, 0, 'First chunk on page 2 must start at line 0')
+
+    // Verify chunk height including top padding does not overflow page
+    const lineCount = codePaged!.endLine - codePaged!.startLine
+    const botPad = codePaged!.endLine === code.lines.length ? PADDING : 0
+    const chunkHeight = lineCount * LINE_HEIGHT + PADDING + botPad  // topPad always present (isFirstChunk)
+    assert.ok(
+      codePaged!.yFromTop + chunkHeight <= PAGE + 0.1,
+      `Chunk overflows: yFromTop=${codePaged!.yFromTop} + height=${chunkHeight} > PAGE=${PAGE}`
+    )
+  })
+
+  test('page-break as last element: trailing empty page is trimmed', () => {
+    const para = makeParagraph(2)
+    const pageBreak: MeasuredBlock = {
+      element: { type: 'page-break' as const },
+      height: 0, lines: [], fontSize: 0, lineHeight: 0,
+      fontKey: '', spaceAfter: 0, spaceBefore: 0,
+    }
+    const result = paginate([para, pageBreak], PAGE_HEIGHT)
+    assert.equal(result.totalPages, 1, 'Trailing page-break should not create empty page')
+  })
+})
+
+// ─── Rich-paragraph pagination ────────────────────────────────────────────────
+
+describe('paginate — rich-paragraph splits', () => {
+  test('rich-paragraph spans multiple pages', () => {
+    // 50 lines * 18 = 900pt > 698pt → spans 2 pages
+    const block = makeRichParagraph(50)
+    const result = paginate([block], PAGE_HEIGHT)
+    assert.ok(result.totalPages >= 2, `Expected ≥2 pages, got ${result.totalPages}`)
+  })
+
+  test('rich-paragraph split: lines never duplicated', () => {
+    const block = makeRichParagraph(50)
+    const result = paginate([block], PAGE_HEIGHT)
+
+    const seenLines = new Set<number>()
+    for (const page of result.pages) {
+      for (const paged of page.blocks) {
+        if (paged.measuredBlock !== block) continue
+        for (let i = paged.startLine; i < paged.endLine; i++) {
+          assert.ok(!seenLines.has(i), `Line ${i} appears on multiple pages`)
+          seenLines.add(i)
+        }
+      }
+    }
+    assert.equal(seenLines.size, block.lines.length, 'All lines must appear exactly once')
+  })
+
+  test('rich-paragraph: richLines count equals lines count', () => {
+    const block = makeRichParagraph(5)
+    assert.equal(block.richLines!.length, block.lines.length, 'richLines and lines must have same length')
+  })
+})
