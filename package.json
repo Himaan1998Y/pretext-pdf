@@ -21,10 +21,10 @@
   },
   "scripts": {
     "build": "tsc",
-    "test:unit": "node --experimental-strip-types --test test/paginate-basic.test.ts",
+    "test:unit": "node --experimental-strip-types --test test/validate.test.ts test/builder.test.ts test/rich-text.test.ts",
     "test:validate": "node --experimental-strip-types --test test/validate.test.ts test/builder.test.ts",
     "test:e2e": "node --experimental-strip-types --test test/e2e.test.ts",
-    "test:phases": "node --experimental-strip-types --test test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts",
+    "test:phases": "node --experimental-strip-types --test test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts test/phase-8g-hyperlinks.test.ts",
     "test": "npm run test:unit && npm run test:validate && npm run test:e2e && npm run test:phases",
     "test:rich": "node --experimental-strip-types --test test/rich-text.test.ts",
     "test:visual": "node --experimental-strip-types --test test/visual/visual.test.ts",
