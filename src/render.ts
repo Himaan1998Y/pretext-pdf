@@ -73,7 +73,7 @@ function renderBlock(
 
     case 'paragraph':
     case 'heading':
-      renderTextBlock(pdfPage, pagedBlock, geo, fontMap)
+      renderTextBlock(pdfPage, pagedBlock, geo, fontMap, pdfDoc)
       return
 
     case 'list':
@@ -123,7 +123,8 @@ function renderTextBlock(
   pdfPage: ReturnType<PDFDocument['addPage']>,
   pagedBlock: PagedBlock,
   geo: PageGeometry,
-  fontMap: FontMap
+  fontMap: FontMap,
+  pdfDoc: PDFDocument
 ): void {
   const { measuredBlock, startLine, endLine, yFromTop } = pagedBlock
   const { element } = measuredBlock
@@ -192,6 +193,12 @@ function renderTextBlock(
         font: pdfFont,
         color: rgb(r, g, b),
       })
+
+      // Phase 8G: Wire paragraph.url and heading.url for clickable links (multi-column)
+      if ((element.type === 'paragraph' || element.type === 'heading') && element.url) {
+        const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, measuredBlock.fontSize)
+        addLinkAnnotation(pdfDoc, pdfPage, x, pdfY, lineWidth, measuredBlock.fontSize, element.url)
+      }
     }
     return // skip standard single-column path
   }
@@ -227,6 +234,12 @@ function renderTextBlock(
     if ((element.type === 'paragraph' || element.type === 'heading') && (element.underline || element.strikethrough)) {
       const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, measuredBlock.fontSize)
       drawTextDecoration(pdfPage, drawX, lineWidth, pdfY, measuredBlock.fontSize, pdfFont, [r, g, b], { underline: element.underline ?? false, strikethrough: element.strikethrough ?? false })
+    }
+
+    // Phase 8G: Wire paragraph.url and heading.url for clickable links
+    if ((element.type === 'paragraph' || element.type === 'heading') && element.url) {
+      const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, measuredBlock.fontSize)
+      addLinkAnnotation(pdfDoc, pdfPage, drawX, pdfY, lineWidth, measuredBlock.fontSize, element.url)
     }
   }
 }
@@ -994,6 +1007,43 @@ function addLinkAnnotation(
     annots.push(linkAnnot)
   } else {
     pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([linkAnnot]))
+  }
+}
+
+/**
+ * Adds a clickable internal anchor link (GoTo) annotation over a rendered text region.
+ * Jumps to a page with a named destination when clicked.
+ * Must be called after drawText() — annotation sits above the text layer.
+ */
+function addGoToAnnotation(
+  pdfDoc: PDFDocument,
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  x: number,
+  pdfY: number,
+  width: number,
+  fontSize: number,
+  destPageRef: PDFRef,
+  destPdfY: number
+): void {
+  const rectBottom = pdfY - fontSize * 0.2
+  const rectTop = pdfY + fontSize * 0.8
+
+  const goToAnnot = pdfDoc.context.register(
+    pdfDoc.context.obj({
+      Type: 'Annot',
+      Subtype: 'Link',
+      Rect: [x, rectBottom, x + width, rectTop],
+      Border: [0, 0, 0],
+      Dest: pdfDoc.context.obj([destPageRef, PDFName.of('XYZ'), PDFNull, destPdfY, PDFNull]),
+    })
+  )
+
+  const existingAnnots = pdfPage.node.get(PDFName.of('Annots'))
+  if (existingAnnots) {
+    const annots = pdfDoc.context.lookup(existingAnnots) as any
+    annots.push(goToAnnot)
+  } else {
+    pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([goToAnnot]))
   }
 }
 
