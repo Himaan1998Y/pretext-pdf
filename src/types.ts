@@ -230,6 +230,10 @@ export interface HeadingElement {
   bookmark?: false
   /** Set to false to disable hyphenation for this element. Default: inherits from doc.hyphenation. */
   hyphenate?: false
+  /** Clickable URL for the entire heading. Opens in browser when clicked. */
+  url?: string
+  /** Named anchor destination for internal links. Allows other spans to link to this heading via href: '#anchorId'. */
+  anchor?: string
 }
 
 export interface SpacerElement {
@@ -482,6 +486,8 @@ export interface InlineSpan {
   strikethrough?: boolean
   /** Clickable URL. Opens in browser when clicked in PDF viewer. Auto-applies blue color and underline. */
   url?: string
+  /** Internal anchor link: '#anchorId' to jump to a heading with matching anchor. Or external URL. Alias for url. */
+  href?: string
 }
 
 /** A composed line from the rich-text compositor — contains multiple styled fragments */
@@ -506,6 +512,7 @@ export interface RichFragment {
   underline?: boolean
   strikethrough?: boolean
   url?: string
+  href?: string
 }
 
 // ─── Blockquote ───────────────────────────────────────────────────────────────

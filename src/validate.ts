@@ -355,6 +355,9 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
       if (el.align !== undefined && !['left', 'center', 'right', 'justify'].includes(el.align)) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (paragraph): 'align' must be 'left', 'center', 'right', or 'justify'`)
       }
+      if (el.url !== undefined && (typeof el.url !== 'string' || el.url.trim() === '')) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (paragraph): 'url' must be a non-empty string if provided`)
+      }
       break
     }
 
@@ -391,6 +394,12 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
       }
       if (el.spaceAfter !== undefined && (typeof el.spaceAfter !== 'number' || el.spaceAfter < 0 || !isFinite(el.spaceAfter))) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (heading): 'spaceAfter' must be a non-negative finite number`)
+      }
+      if (el.url !== undefined && (typeof el.url !== 'string' || el.url.trim() === '')) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (heading): 'url' must be a non-empty string if provided`)
+      }
+      if (el.anchor !== undefined && (typeof el.anchor !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(el.anchor))) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (heading): 'anchor' must be alphanumeric with hyphens/underscores only. Got: '${el.anchor}'`)
       }
       break
     }
@@ -658,6 +667,9 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
         }
         if (span.url !== undefined && (typeof span.url !== 'string' || span.url.trim() === '')) {
           throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].url must be a non-empty string if provided`)
+        }
+        if (span.href !== undefined && (typeof span.href !== 'string' || span.href.trim() === '')) {
+          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].href must be a non-empty string if provided`)
         }
       }
       if (el.fontSize !== undefined && (typeof el.fontSize !== 'number' || el.fontSize <= 0 || !isFinite(el.fontSize))) {
