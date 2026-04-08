@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Himanshu-Jain-32/pretext-pdf.git"
+    "url": "https://github.com/Himaan1998Y/pretext-pdf.git"
   },
   "type": "module",
   "main": "./dist/index.js",
