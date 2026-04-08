@@ -278,6 +278,7 @@ export type ContentElement =
   | CommentElement
   | FormFieldElement
   | CalloutElement
+  | FootnoteDefElement
 
 export interface ParagraphElement {
   type: 'paragraph'
@@ -646,6 +647,11 @@ export interface InlineSpan {
   href?: string
   /** Raise text as superscript or lower as subscript. Default: none */
   verticalAlign?: 'superscript' | 'subscript'
+  /**
+   * ID of a matching footnote-def element. When set, this span renders as a
+   * superscript number and pins the footnote def to the bottom of this page.
+   */
+  footnoteRef?: string
 }
 
 /** A composed line from the rich-text compositor — contains multiple styled fragments */
@@ -673,6 +679,8 @@ export interface RichFragment {
   href?: string
   /** Vertical baseline shift in pt. Positive = up (superscript), negative = down (subscript) */
   yOffset?: number
+  /** Carried from InlineSpan.footnoteRef — used by renderer to identify footnote refs */
+  footnoteRef?: string
 }
 
 // ─── Blockquote ───────────────────────────────────────────────────────────────
@@ -771,6 +779,26 @@ export interface CalloutElement {
   keepTogether?: boolean
   /** Text direction. Default: 'auto' */
   dir?: 'ltr' | 'rtl' | 'auto'
+}
+
+// ─── Footnote Definition ──────────────────────────────────────────────────────
+
+/**
+ * Defines a footnote. Placed anywhere in doc.content — order doesn't matter.
+ * Rendered at the bottom of the page that contains the matching footnoteRef span.
+ */
+export interface FootnoteDefElement {
+  type: 'footnote-def'
+  /** Unique identifier matched by InlineSpan.footnoteRef */
+  id: string
+  /** The footnote text rendered at the bottom of the page */
+  text: string
+  /** Font size in pt. Default: doc.defaultFontSize - 2 */
+  fontSize?: number
+  /** Font family. Default: doc.defaultFont */
+  fontFamily?: string
+  /** Space after the footnote def in pt. Default: 4 */
+  spaceAfter?: number
 }
 
 export interface TocElement {
@@ -924,6 +952,10 @@ export interface PagedBlock {
 export interface RenderedPage {
   pageIndex: number
   blocks: PagedBlock[]
+  /** Footnote defs assigned to this page, in order of first ref appearance */
+  footnoteItems?: Array<{ def: FootnoteDefElement; number: number }>
+  /** Total height reserved at bottom of this page for the footnote zone (pt) */
+  footnoteZoneHeight?: number
 }
 
 /** Output of Stage 4 paginate() */
@@ -932,6 +964,8 @@ export interface PaginatedDocument {
   totalPages: number
   /** Headings collected during pagination for bookmark generation. */
   headings: Array<{ text: string; level: 1 | 2 | 3 | 4; pageIndex: number }>
+  /** Maps footnote def id → 1-based display number (document order) */
+  footnoteNumbering?: Map<string, number>
 }
 
 /** Resolved page geometry passed between stages */

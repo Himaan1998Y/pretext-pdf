@@ -216,6 +216,9 @@ function collectNeededFonts(doc: PdfDocument): Map<string, FontSpec & { src: str
       addFont(family, weight, style)
     } else if (el.type === 'image' && el.floatFontFamily) {
       addFont(el.floatFontFamily, 400, 'normal')
+    } else if (el.type === 'footnote-def') {
+      const family = el.fontFamily ?? defaultFamily
+      addFont(family, 400, 'normal')
     }
     // spacer, image, hr, page-break use default font (already added)
   }

@@ -11,6 +11,12 @@ const EPSILON = 0.01
 interface PaginateConfig {
   minOrphanLines: number  // min lines to keep at bottom of a page
   minWidowLines: number   // min lines to start at top of next page
+  /**
+   * Per-page height to reserve at the bottom for footnote zone.
+   * Maps pageIndex (0-based) → pt to subtract from available content height.
+   * Built by the two-pass orchestration in index.ts.
+   */
+  footnoteZones?: Map<number, number>
 }
 
 /**
@@ -33,9 +39,14 @@ export function paginate(
   for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
     const block = blocks[blockIndex]!
 
+    // Compute current page's effective height (reduced by footnote zone reservation)
+    const currentPageIndex = pages.length - 1
+    const footnoteReserve = config.footnoteZones?.get(currentPageIndex) ?? 0
+    const effectivePageHeight = pageContentHeight - footnoteReserve
+
     // Cap spacer height so it can never cause infinite pagination
     const blockHeight = block.element.type === 'spacer'
-      ? Math.min(block.height, pageContentHeight)
+      ? Math.min(block.height, effectivePageHeight)
       : block.height
 
     const effectiveBlock = blockHeight !== block.height
@@ -45,7 +56,7 @@ export function paginate(
     // Apply spaceBefore (only if not at the top of a page)
     if (effectiveBlock.spaceBefore > 0 && currentY > 0) {
       currentY += effectiveBlock.spaceBefore
-      if (currentY >= pageContentHeight) {
+      if (currentY >= effectivePageHeight) {
         pushNewPage(pages)
         currentY = 0
       }
@@ -60,9 +71,9 @@ export function paginate(
       }
       continue
     } else if (effectiveBlock.element.type === 'table') {
-      paginateTable(effectiveBlock, pages, currentY, pageContentHeight)
+      paginateTable(effectiveBlock, pages, currentY, effectivePageHeight)
     } else {
-      placeBlock(effectiveBlock, pages, currentY, pageContentHeight, config)
+      placeBlock(effectiveBlock, pages, currentY, effectivePageHeight, config)
     }
 
     currentY = getCurrentY(pages)

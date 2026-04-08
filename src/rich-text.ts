@@ -73,6 +73,7 @@ export async function measureRichText(
     isHardBreak: boolean
     width: number // filled in step 2
     yOffset: number | undefined
+    footnoteRef: string | undefined
   }
 
   const tokens: Token[] = []
@@ -106,7 +107,7 @@ export async function measureRichText(
     for (let pi = 0; pi < parts.length; pi++) {
       if (pi > 0) {
         // Inject a hard-break sentinel
-        tokens.push({ text: '', fontKey, fontFamily, fontWeight, fontStyle, fontSize: spanEffectiveFontSize, color: effectiveColor, underline, strikethrough, url, isHardBreak: true, width: 0, yOffset })
+        tokens.push({ text: '', fontKey, fontFamily, fontWeight, fontStyle, fontSize: spanEffectiveFontSize, color: effectiveColor, underline, strikethrough, url, isHardBreak: true, width: 0, yOffset, footnoteRef: span.footnoteRef })
       }
       const part = parts[pi]!
       if (part === '') continue
@@ -129,7 +130,7 @@ export async function measureRichText(
       if (current) merged.push(current)
 
       for (const word of merged) {
-        tokens.push({ text: word, fontKey, fontFamily, fontWeight, fontStyle, fontSize: spanEffectiveFontSize, color: effectiveColor, underline, strikethrough, url, isHardBreak: false, width: 0, yOffset })
+        tokens.push({ text: word, fontKey, fontFamily, fontWeight, fontStyle, fontSize: spanEffectiveFontSize, color: effectiveColor, underline, strikethrough, url, isHardBreak: false, width: 0, yOffset, footnoteRef: span.footnoteRef })
       }
     }
   }
@@ -170,7 +171,7 @@ export async function measureRichText(
     const thisLineHeight = maxFontSize * lineHeightRatio
 
     composedLines.push({
-      fragments: fragments.map(f => ({ text: f.text, fontKey: f.fontKey, fontSize: f.fontSize, color: f.color, width: f.width, underline: f.underline ?? false, strikethrough: f.strikethrough ?? false, ...(f.url !== undefined ? { url: f.url } : {}), ...((f as any).yOffset !== undefined ? { yOffset: (f as any).yOffset } : {}) })),
+      fragments: fragments.map(f => ({ text: f.text, fontKey: f.fontKey, fontSize: f.fontSize, color: f.color, width: f.width, underline: f.underline ?? false, strikethrough: f.strikethrough ?? false, ...(f.url !== undefined ? { url: f.url } : {}), ...((f as any).yOffset !== undefined ? { yOffset: (f as any).yOffset } : {}), ...((f as any).footnoteRef !== undefined ? { footnoteRef: (f as any).footnoteRef } : {}) })),
       totalWidth: currentLineWidth - trimmedWidthDelta,
       lineHeight: thisLineHeight,
     })
@@ -228,7 +229,7 @@ export async function measureRichText(
     // Recompute fragment x positions from left
     let x = offset
     const positionedFragments: RichFragment[] = fragments.map(f => {
-      const fragment: RichFragment = { text: f.text, fontKey: f.fontKey, fontSize: f.fontSize, color: f.color, x, width: f.width, underline: f.underline ?? false, strikethrough: f.strikethrough ?? false, ...(f.url !== undefined ? { url: f.url } : {}), ...(f.yOffset !== undefined ? { yOffset: f.yOffset } : {}) }
+      const fragment: RichFragment = { text: f.text, fontKey: f.fontKey, fontSize: f.fontSize, color: f.color, x, width: f.width, underline: f.underline ?? false, strikethrough: f.strikethrough ?? false, ...(f.url !== undefined ? { url: f.url } : {}), ...(f.yOffset !== undefined ? { yOffset: f.yOffset } : {}), ...(f.footnoteRef !== undefined ? { footnoteRef: f.footnoteRef } : {}) }
       x += f.width
       return fragment
     })

@@ -28,6 +28,9 @@ export type ErrorCode =
   | 'SIGNATURE_P12_LOAD_FAILED'
   | 'SIGNATURE_FAILED'
   | 'SIGNATURE_CERT_AND_ENCRYPTION'
+  | 'FOOTNOTE_REF_ORPHANED'
+  | 'FOOTNOTE_DEF_ORPHANED'
+  | 'FOOTNOTE_DEF_DUPLICATE'
 
 export class PretextPdfError extends Error {
   readonly code: ErrorCode

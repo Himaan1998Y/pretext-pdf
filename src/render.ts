@@ -1,8 +1,9 @@
 import { PDFDocument, PDFFont, PDFName, PDFString, PDFNull, PDFRef, rgb, degrees } from '@cantoo/pdf-lib'
 import type {
   PdfDocument, PaginatedDocument, PagedBlock, MeasuredBlock,
-  FontMap, ImageMap, PageGeometry, HeaderFooterSpec
+  FontMap, ImageMap, PageGeometry, HeaderFooterSpec, FootnoteDefElement
 } from './types.js'
+import { buildFontKey } from './measure.js'
 import { PretextPdfError } from './errors.js'
 
 /**
@@ -33,7 +34,19 @@ export async function renderDocument(
 
     // Render content blocks
     for (const pagedBlock of renderedPage.blocks) {
-      renderBlock(pdfPage, pagedBlock, geo, fontMap, imageMap, pdfDoc)
+      renderBlock(pdfPage, pagedBlock, geo, fontMap, imageMap, pdfDoc, paginatedDoc.footnoteNumbering)
+    }
+
+    // Render footnote zone (above footer, if this page has footnotes)
+    if (renderedPage.footnoteItems && renderedPage.footnoteItems.length > 0) {
+      renderFootnoteZone(
+        pdfPage,
+        renderedPage.footnoteItems,
+        renderedPage.footnoteZoneHeight ?? 0,
+        fontMap,
+        doc,
+        geo
+      )
     }
 
     // Render header
@@ -88,7 +101,8 @@ function renderBlock(
   geo: PageGeometry,
   fontMap: FontMap,
   imageMap: ImageMap,
-  pdfDoc: PDFDocument
+  pdfDoc: PDFDocument,
+  footnoteNumbering?: Map<string, number>
 ): void {
   const { measuredBlock } = pagedBlock
   const { element } = measuredBlock
@@ -134,7 +148,7 @@ function renderBlock(
       return
 
     case 'rich-paragraph':
-      renderRichParagraph(pdfPage, pagedBlock, geo, fontMap, pdfDoc)
+      renderRichParagraph(pdfPage, pagedBlock, geo, fontMap, pdfDoc, footnoteNumbering)
       return
 
     case 'blockquote':
@@ -161,6 +175,9 @@ function renderBlock(
       renderFormField(pagedBlock, pdfPage, pdfDoc, fontMap, geo, pagedBlock.yFromTop)
       return
     }
+
+    case 'footnote-def':
+      return // footnote defs are rendered via renderFootnoteZone, not inline
   }
 }
 
@@ -910,7 +927,8 @@ function renderRichParagraph(
   pagedBlock: PagedBlock,
   geo: PageGeometry,
   fontMap: FontMap,
-  pdfDoc: PDFDocument
+  pdfDoc: PDFDocument,
+  footnoteNumbering?: Map<string, number>
 ): void {
   const { measuredBlock, startLine, endLine, yFromTop } = pagedBlock
   const { element, richLines, lineHeight, fontSize } = measuredBlock
@@ -961,10 +979,27 @@ function renderRichParagraph(
 
         const fontHeight = pdfFont.heightAtSize(fragment.fontSize)
         const basePdfY = toPdfY(lineYFromTop, fontHeight, geo.pageHeight)
-        const fragmentPdfY = basePdfY + (fragment.yOffset ?? 0)
         const [r, g, b] = hexToRgb(fragment.color)
-
         const drawX = geo.margins.left + colOffsetX + fragment.x
+
+        // Footnote ref spans render as superscript number, replacing the original text
+        if (fragment.footnoteRef) {
+          const num = footnoteNumbering?.get(fragment.footnoteRef) ?? '?'
+          const superText = String(num)
+          const superSize = fragment.fontSize * 0.65
+          const superYOffset = fragment.fontSize * 0.4
+          const superPdfY = basePdfY + superYOffset
+          pdfPage.drawText(superText, {
+            x: drawX,
+            y: superPdfY,
+            size: superSize,
+            font: pdfFont,
+            color: rgb(r, g, b),
+          })
+          continue
+        }
+
+        const fragmentPdfY = basePdfY + (fragment.yOffset ?? 0)
         const drawText = fragment.text.trimEnd()
         pdfPage.drawText(drawText, {
           x: drawX,
@@ -1001,10 +1036,27 @@ function renderRichParagraph(
 
       const fontHeight = pdfFont.heightAtSize(fragment.fontSize)
       const basePdfY = toPdfY(lineYFromTop, fontHeight, geo.pageHeight)
-      const fragmentPdfY = basePdfY + (fragment.yOffset ?? 0)
       const [r, g, b] = hexToRgb(fragment.color)
-
       const drawX = geo.margins.left + fragment.x
+
+      // Footnote ref spans render as superscript number, replacing the original text
+      if (fragment.footnoteRef) {
+        const num = footnoteNumbering?.get(fragment.footnoteRef) ?? '?'
+        const superText = String(num)
+        const superSize = fragment.fontSize * 0.65
+        const superYOffset = fragment.fontSize * 0.4
+        const superPdfY = basePdfY + superYOffset
+        pdfPage.drawText(superText, {
+          x: drawX,
+          y: superPdfY,
+          size: superSize,
+          font: pdfFont,
+          color: rgb(r, g, b),
+        })
+        continue
+      }
+
+      const fragmentPdfY = basePdfY + (fragment.yOffset ?? 0)
       const drawText = fragment.text.trimEnd()
       pdfPage.drawText(drawText, {
         x: drawX,
@@ -1021,6 +1073,61 @@ function renderRichParagraph(
     }
 
     cumY += richLine.lineHeight
+  }
+}
+
+// ─── Footnote zone rendering ──────────────────────────────────────────────────
+
+function renderFootnoteZone(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  footnoteItems: Array<{ def: FootnoteDefElement; number: number }>,
+  zoneHeight: number,
+  fontMap: FontMap,
+  doc: PdfDocument,
+  geo: PageGeometry
+): void {
+  const { pageHeight, margins, footerHeight, contentWidth } = geo
+  const SEPARATOR_PADDING = 6 // pt above and below the separator line
+
+  // Zone top in PDF coords (Y=0 at bottom of page)
+  const zoneTopPdfY = margins.bottom + footerHeight + zoneHeight
+  const separatorY = zoneTopPdfY - SEPARATOR_PADDING
+
+  // Draw separator line: 1/3 content width, max 120pt
+  const lineLength = Math.min(contentWidth * 0.33, 120)
+  pdfPage.drawLine({
+    start: { x: margins.left, y: separatorY },
+    end:   { x: margins.left + lineLength, y: separatorY },
+    thickness: 0.5,
+    color: rgb(0.5, 0.5, 0.5),
+  })
+
+  const defaultFontSize = doc.defaultFontSize ?? 12
+  let currentPdfY = separatorY - SEPARATOR_PADDING
+
+  for (const { def, number } of footnoteItems) {
+    const fontSize = def.fontSize ?? Math.max(8, defaultFontSize - 2)
+    const lineHeight = fontSize * 1.5
+    const fontFamily = def.fontFamily ?? doc.defaultFont ?? 'Inter'
+    const fontKey = buildFontKey(fontFamily, 400, 'normal')
+    const pdfFont = fontMap.get(fontKey)
+    if (!pdfFont) continue
+
+    currentPdfY -= lineHeight
+
+    const prefix = `${number}. `
+    const fullText = prefix + def.text
+    const trimmed = fullText.length > 120 ? fullText.slice(0, 117) + '...' : fullText
+
+    pdfPage.drawText(trimmed, {
+      x: margins.left,
+      y: currentPdfY,
+      size: fontSize,
+      font: pdfFont,
+      color: rgb(0.2, 0.2, 0.2),
+    })
+
+    currentPdfY -= (def.spaceAfter ?? 4)
   }
 }
 

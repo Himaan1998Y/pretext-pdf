@@ -1,5 +1,5 @@
 import { PDFDocument, PDFName, PDFString } from '@cantoo/pdf-lib'
-import type { PdfDocument, PageGeometry, Margins, ImageMap, EncryptionSpec } from './types.js'
+import type { PdfDocument, PageGeometry, Margins, ImageMap, EncryptionSpec, FootnoteDefElement, MeasuredBlock } from './types.js'
 import { PretextPdfError } from './errors.js'
 import { resolvePageDimensions } from './page-sizes.js'
 import { validate } from './validate.js'
@@ -191,10 +191,99 @@ export async function render(doc: PdfDocument): Promise<Uint8Array> {
   // ────────────────────────────────────────────────────────────────────────────────
 
   // ── Stage 4: Paginate (pure function) ─────────────────────────────────────────
-  const paginatedDoc = paginate(measuredBlocks, contentHeight, {
-    minOrphanLines: 2,
-    minWidowLines: 2,
-  })
+  const paginateConfig = { minOrphanLines: 2, minWidowLines: 2 }
+
+  // ── Footnote two-pass orchestration ───────────────────────────────────────────
+  const footnoteDefElements = doc.content.filter(
+    el => el.type === 'footnote-def'
+  ) as FootnoteDefElement[]
+
+  let paginatedDoc: import('./types.js').PaginatedDocument
+
+  if (footnoteDefElements.length === 0) {
+    // No footnotes — single pass, normal flow
+    paginatedDoc = paginate(measuredBlocks, contentHeight, paginateConfig)
+  } else {
+    // Build a map of def id → measured height (already measured in measuredBlocks)
+    const footnoteDefHeightMap = new Map<string, number>()
+    for (const block of measuredBlocks) {
+      if (block.element.type === 'footnote-def') {
+        const def = block.element as FootnoteDefElement
+        footnoteDefHeightMap.set(def.id, block.height + (block.spaceAfter ?? 0))
+      }
+    }
+
+    // Strip footnote-def blocks from the block stream (defs are not placed in flow)
+    const flowBlocks = measuredBlocks.filter(b => b.element.type !== 'footnote-def')
+
+    // Build document-order footnote numbering (scan rich-paragraphs in content order)
+    const footnoteNumbering = new Map<string, number>()
+    let footnoteCounter = 1
+    for (const el of doc.content) {
+      if (el.type === 'rich-paragraph') {
+        for (const span of el.spans) {
+          if (span.footnoteRef && !footnoteNumbering.has(span.footnoteRef)) {
+            footnoteNumbering.set(span.footnoteRef, footnoteCounter++)
+          }
+        }
+      }
+    }
+
+    // PASS 1: Paginate without any footnote zone reservation
+    const pass1 = paginate(flowBlocks, contentHeight, paginateConfig)
+
+    // Determine which footnote refs land on which page
+    const pageFootnoteRefs = new Map<number, string[]>()
+    for (let pageIdx = 0; pageIdx < pass1.pages.length; pageIdx++) {
+      const page = pass1.pages[pageIdx]!
+      const refsOnPage: string[] = []
+      for (const pagedBlock of page.blocks) {
+        const el = pagedBlock.measuredBlock.element
+        if (el.type === 'rich-paragraph') {
+          for (const span of el.spans) {
+            if (span.footnoteRef && !refsOnPage.includes(span.footnoteRef)) {
+              refsOnPage.push(span.footnoteRef)
+            }
+          }
+        }
+      }
+      if (refsOnPage.length > 0) {
+        pageFootnoteRefs.set(pageIdx, refsOnPage)
+      }
+    }
+
+    // Build per-page footnote zone heights
+    const SEPARATOR_HEIGHT = 16  // separator line + padding above/below
+    const footnoteZones = new Map<number, number>()
+    for (const [pageIdx, refIds] of pageFootnoteRefs) {
+      let zoneHeight = SEPARATOR_HEIGHT
+      for (const refId of refIds) {
+        zoneHeight += footnoteDefHeightMap.get(refId) ?? 0
+      }
+      footnoteZones.set(pageIdx, zoneHeight)
+    }
+
+    // PASS 2: Paginate with zones reserved
+    const pass2Config = { ...paginateConfig, footnoteZones }
+    paginatedDoc = paginate(flowBlocks, contentHeight, pass2Config)
+    paginatedDoc.footnoteNumbering = footnoteNumbering
+
+    // Annotate each RenderedPage with its footnote items
+    for (const [pageIdx, refIds] of pageFootnoteRefs) {
+      const page = paginatedDoc.pages[pageIdx]
+      if (page) {
+        page.footnoteItems = refIds
+          .map(id => {
+            const def = footnoteDefElements.find(d => d.id === id)
+            const num = footnoteNumbering.get(id) ?? 0
+            return def ? { def, number: num } : null
+          })
+          .filter(Boolean) as Array<{ def: FootnoteDefElement; number: number }>
+        const zoneHeight = footnoteZones.get(pageIdx)
+        if (zoneHeight !== undefined) page.footnoteZoneHeight = zoneHeight
+      }
+    }
+  }
 
   // ── Stage 5: Render ───────────────────────────────────────────────────────────
   const geo: PageGeometry = {

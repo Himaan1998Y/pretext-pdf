@@ -548,6 +548,38 @@ export async function measureBlock(
       // Internal type - should never be measured directly by user input
       throw new PretextPdfError('VALIDATION_ERROR', 'toc-entry is an internal type and cannot be used in document content')
     }
+    case 'footnote-def': {
+      const fn = element as import('./types.js').FootnoteDefElement
+      const baseFontSize = doc.defaultFontSize ?? 12
+      const fontSize = fn.fontSize ?? Math.max(8, baseFontSize - 2)
+      const lineHeight = fontSize * 1.5
+      const fontFamily = fn.fontFamily ?? doc.defaultFont ?? 'Inter'
+      const fontKey = buildFontKey(fontFamily, 400, 'normal')
+
+      // Measure the def text with a 20pt left indent (for the number prefix space)
+      const textLines = await measureText(
+        fn.text,
+        fontSize,
+        fontFamily,
+        400,
+        contentWidth - 20,  // leave space for "N. " prefix
+        lineHeight,
+        undefined
+      )
+
+      const height = textLines.length * lineHeight
+
+      return {
+        element,
+        height,
+        lines: textLines,
+        fontSize,
+        lineHeight,
+        fontKey,
+        spaceAfter: fn.spaceAfter ?? 4,
+        spaceBefore: 0,
+      }
+    }
   }
 }
 

@@ -228,6 +228,49 @@ export function validate(doc: PdfDocument): void {
     validateElement(doc.content[i]!, i, loadedFamilies)
   }
 
+  // ── Footnote ref/def cross-validation ─────────────────────────────────────
+  const footnoteDefIds = new Map<string, number>()  // id → content index
+  const footnoteRefIds = new Set<string>()
+
+  // Collect all def ids
+  for (let i = 0; i < doc.content.length; i++) {
+    const el = doc.content[i]!
+    if (el.type === 'footnote-def') {
+      if (footnoteDefIds.has(el.id)) {
+        throw new PretextPdfError('FOOTNOTE_DEF_DUPLICATE',
+          `content[${i}] (footnote-def): duplicate id "${el.id}". Each footnote must have a unique id.`)
+      }
+      footnoteDefIds.set(el.id, i)
+    }
+  }
+
+  // Collect all ref ids from rich-paragraph spans
+  for (const el of doc.content) {
+    if (el.type === 'rich-paragraph') {
+      for (const span of el.spans) {
+        if (span.footnoteRef) {
+          footnoteRefIds.add(span.footnoteRef)
+        }
+      }
+    }
+  }
+
+  // Orphaned ref: ref id with no matching def
+  for (const refId of footnoteRefIds) {
+    if (!footnoteDefIds.has(refId)) {
+      throw new PretextPdfError('FOOTNOTE_REF_ORPHANED',
+        `A rich-paragraph span references footnote id "${refId}" but no footnote-def with that id exists in doc.content.`)
+    }
+  }
+
+  // Orphaned def: def id never referenced
+  for (const [defId] of footnoteDefIds) {
+    if (!footnoteRefIds.has(defId)) {
+      throw new PretextPdfError('FOOTNOTE_DEF_ORPHANED',
+        `footnote-def "${defId}" is defined but never referenced by any rich-paragraph span.`)
+    }
+  }
+
   // validate all font references are loadable
   validateFontReferences(doc, loadedFamilies)
 }
@@ -979,6 +1022,23 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
       break
     }
 
+    case 'footnote-def': {
+      const fn = el as import('./types.js').FootnoteDefElement
+      if (!fn.id || typeof fn.id !== 'string' || fn.id.trim() === '') {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (footnote-def): 'id' must be a non-empty string`)
+      }
+      if (!/^[a-zA-Z0-9_-]+$/.test(fn.id)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (footnote-def): 'id' must contain only letters, numbers, hyphens, or underscores. Got: "${fn.id}"`)
+      }
+      if (!fn.text || typeof fn.text !== 'string' || fn.text.trim() === '') {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (footnote-def): 'text' must be a non-empty string`)
+      }
+      if (fn.fontSize !== undefined && (typeof fn.fontSize !== 'number' || fn.fontSize <= 0)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (footnote-def): 'fontSize' must be a positive number`)
+      }
+      break
+    }
+
     case 'toc-entry': {
       // Internal type — should never appear in user input
       throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: 'toc-entry' is an internal type and cannot be used in document content`)
@@ -986,7 +1046,7 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
 
     default: {
       const type = (el as { type: unknown }).type
-      throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: unknown element type '${String(type)}'. Valid types: 'paragraph', 'heading', 'spacer', 'table', 'image', 'svg', 'list', 'hr', 'page-break', 'code', 'rich-paragraph', 'blockquote', 'toc', 'comment', 'form-field'`)
+      throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: unknown element type '${String(type)}'. Valid types: 'paragraph', 'heading', 'spacer', 'table', 'image', 'svg', 'list', 'hr', 'page-break', 'code', 'rich-paragraph', 'blockquote', 'toc', 'comment', 'form-field', 'footnote-def'`)
     }
   }
 }
