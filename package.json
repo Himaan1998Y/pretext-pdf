@@ -56,6 +56,7 @@
     "example:inline": "tsx examples/phase8-inline.ts",
     "example:forms": "tsx examples/phase8-forms.ts",
     "example:callout": "tsx examples/phase8-callout.ts",
+    "example:gst": "tsx examples/gst-invoice-india.ts",
     "example:showcase-invoice": "tsx examples/showcase-invoice.ts",
     "example:showcase-report": "tsx examples/showcase-report.ts",
     "example:showcase-resume": "tsx examples/showcase-resume.ts",
