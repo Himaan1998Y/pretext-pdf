@@ -41,6 +41,10 @@ jobs:
           npm run example:toc || true
           npm run example:rtl || true
           npm run example:encryption || true
+          npm run example:hyperlinks || true
+          npm run example:annotations || true
+          npm run example:assembly || true
+          npm run example:inline || true
 
   publish:
     needs: test

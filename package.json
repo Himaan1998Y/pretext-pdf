@@ -35,6 +35,10 @@
     "example:toc": "tsx examples/phase7-toc.ts",
     "example:rtl": "tsx examples/phase7-rtl.ts",
     "example:encryption": "tsx examples/phase7-encryption.ts",
+    "example:hyperlinks": "tsx examples/phase8-hyperlinks.ts",
+    "example:annotations": "tsx examples/phase8-annotations.ts",
+    "example:assembly": "tsx examples/phase8-assembly.ts",
+    "example:inline": "tsx examples/phase8-inline.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
