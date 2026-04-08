@@ -114,6 +114,23 @@ const pdf = await createPdf({ pageSize: 'A4' })
 
 pretext-pdf works great as a tool for AI agents generating PDFs on demand.
 
+### MCP Server (Claude Desktop, Cursor, Windsurf)
+
+Use [`pretext-pdf-mcp`](https://www.npmjs.com/package/pretext-pdf-mcp) to call pretext-pdf directly from any AI agent:
+
+```json
+{
+  "mcpServers": {
+    "pretext-pdf": {
+      "command": "npx",
+      "args": ["-y", "pretext-pdf-mcp"]
+    }
+  }
+}
+```
+
+Tools available: `generate_pdf`, `generate_invoice`, `generate_report`, `list_element_types`
+
 ### Quick pattern for LLMs
 
 ```typescript
