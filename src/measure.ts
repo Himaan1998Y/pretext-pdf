@@ -179,6 +179,29 @@ export async function measureBlock(
       }
     }
 
+    case 'form-field': {
+      const el = element as import('./types.js').FormFieldElement
+      const fs = el.fontSize ?? baseFontSize
+      const labelHeight = el.label ? fs * 1.5 + 4 : 0
+      let fieldHeight = el.height
+      if (!fieldHeight) {
+        if (el.fieldType === 'text' && el.multiline) fieldHeight = 60
+        else if (el.fieldType === 'radio') fieldHeight = 20 * Math.max(1, el.options?.length ?? 1)
+        else fieldHeight = 24
+      }
+      return {
+        element,
+        height: labelHeight + fieldHeight + (el.spaceAfter ?? 8),
+        lines: [],
+        fontSize: fs,
+        lineHeight: fieldHeight,
+        fontKey: buildFontKey(baseFont, 400, 'normal'),
+        spaceAfter: el.spaceAfter ?? 8,
+        spaceBefore: el.spaceBefore ?? 0,
+        formFieldData: { labelHeight, fieldHeight },
+      }
+    }
+
     case 'paragraph': {
       // NEW (Phase 7F): Detect and reorder RTL text
       const { visual: visualText, isRTL, logical: logicalText } = await detectAndReorderRTL(element.text, element.dir)
@@ -465,6 +488,47 @@ export async function measureBlock(
         blockquoteBorderWidth: borderWidth,
         isRTL,  // NEW (Phase 7F)
         ...(isRTL && { logicalText }),  // NEW: Only store logical text when RTL
+      }
+    }
+    case 'callout': {
+      const el = element as import('./types.js').CalloutElement
+      const fs = el.fontSize ?? baseFontSize
+      const lh = el.lineHeight ?? (fs * 1.5)
+      const ph = el.paddingH ?? el.padding ?? 16
+      const pv = el.paddingV ?? el.padding ?? 10
+      const family = el.fontFamily ?? baseFont
+      const colors = resolveCalloutColors(el.style)
+      const borderColor = el.borderColor ?? colors.border
+      const backgroundColor = el.backgroundColor ?? colors.bg
+      const color = el.color ?? '#1F2937'
+      const titleColor = el.titleColor ?? borderColor
+
+      // Measure title height (one line assumed, bold)
+      let titleHeight = 0
+      if (el.title) {
+        titleHeight = fs * 1.4 + 4  // 1.4 line height + 4pt separator
+      }
+
+      // Measure content text
+      const innerWidth = contentWidth - ph * 2
+      const lines = await measureText(el.content, fs, family, el.fontWeight ?? 400, Math.max(innerWidth, 1), lh, hyphenatorOpts)
+      const contentTextHeight = lines.length * lh
+
+      const totalHeight = pv + titleHeight + contentTextHeight + pv + (el.spaceAfter ?? 12)
+
+      return {
+        element,
+        height: totalHeight,
+        lines,
+        fontSize: fs,
+        lineHeight: lh,
+        fontKey: buildFontKey(family, el.fontWeight ?? 400, 'normal'),
+        spaceAfter: el.spaceAfter ?? 12,
+        spaceBefore: el.spaceBefore ?? 0,
+        blockquotePaddingV: pv,
+        blockquotePaddingH: ph,
+        blockquoteBorderWidth: 3,
+        calloutData: { titleHeight, paddingH: ph, paddingV: pv, borderColor, backgroundColor, titleColor, color, ...(el.title !== undefined ? { titleText: el.title } : {}) },
       }
     }
     case 'toc': {
@@ -1160,6 +1224,17 @@ export async function measureHeaderFooterHeight(
   const result = layoutWithLines(prepared, contentWidth, lineHeight)
 
   return result.lineCount * lineHeight
+}
+
+/** Phase 8D: Resolve preset callout style colors */
+function resolveCalloutColors(style?: string): { bg: string; border: string } {
+  switch (style) {
+    case 'info':    return { bg: '#EFF6FF', border: '#3B82F6' }
+    case 'warning': return { bg: '#FFFBEB', border: '#F59E0B' }
+    case 'tip':     return { bg: '#F0FDF4', border: '#22C55E' }
+    case 'note':    return { bg: '#F9FAFB', border: '#9CA3AF' }
+    default:        return { bg: '#F8F9FA', border: '#0070F3' }
+  }
 }
 
 /** Build a font map key from family + weight + style */

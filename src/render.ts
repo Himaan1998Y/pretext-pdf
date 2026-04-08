@@ -51,6 +51,32 @@ export async function renderDocument(
     buildOutlineTree(pdfDoc, paginatedDoc.headings, doc.bookmarks)
   }
 
+  // Phase 8E: render signature placeholder if configured
+  if (doc.signature) {
+    renderSignaturePlaceholder(doc.signature, pdfDoc, fontMap, geo)
+  }
+
+  // Phase 8B: finalize form field appearances
+  try {
+    const form = pdfDoc.getForm()
+    if (form.getFields().length > 0) {
+      const defaultFont = fontMap.get('Inter-400-normal') ?? [...fontMap.values()][0]
+      if (defaultFont) {
+        try { form.updateFieldAppearances(defaultFont) } catch { /* non-fatal */ }
+      }
+      if (doc.flattenForms) {
+        try {
+          form.flatten()
+        } catch (e) {
+          throw new PretextPdfError('FORM_FLATTEN_FAILED', `Failed to flatten form fields: ${e instanceof Error ? e.message : String(e)}`)
+        }
+      }
+    }
+  } catch (e) {
+    if (e instanceof PretextPdfError) throw e
+    // getForm() failed — not a critical error if no fields exist
+  }
+
   return pdfDoc.save({ useObjectStreams: false })
 }
 
@@ -111,6 +137,10 @@ function renderBlock(
       renderBlockquote(pdfPage, pagedBlock, geo, fontMap)
       return
 
+    case 'callout':
+      renderCallout(pdfPage, pagedBlock, geo, fontMap)
+      return
+
     case 'toc-entry':
       renderTocEntry(pdfPage, pagedBlock, geo, fontMap)
       return
@@ -120,6 +150,11 @@ function renderBlock(
       const absY = pagedBlock.yFromTop + geo.margins.top + geo.headerHeight
       const pdfY = geo.pageHeight - absY
       addStickyNoteAnnotation(pdfDoc, pdfPage, geo.margins.left, pdfY, commentEl.contents, commentEl.author, commentEl.color, commentEl.open)
+      return
+    }
+
+    case 'form-field': {
+      renderFormField(pagedBlock, pdfPage, pdfDoc, fontMap, geo, pagedBlock.yFromTop)
       return
     }
   }
@@ -718,6 +753,99 @@ function renderBlockquote(
       const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, fontSize)
       drawTextDecoration(pdfPage, drawX, lineWidth, pdfY, fontSize, pdfFont, [r, g, b], { underline: element.underline ?? false, strikethrough: element.strikethrough ?? false })
     }
+  }
+}
+
+// ─── Callout rendering (Phase 8D) ────────────────────────────────────────────
+
+function renderCallout(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  pagedBlock: PagedBlock,
+  geo: PageGeometry,
+  fontMap: FontMap
+): void {
+  const { measuredBlock, startLine, endLine, yFromTop } = pagedBlock
+  const el = measuredBlock.element as import('./types.js').CalloutElement
+  const cd = measuredBlock.calloutData
+  if (!cd) return
+
+  const { paddingH, paddingV, borderColor, backgroundColor, titleColor, color, titleText } = cd
+  const isFirstChunk = startLine === 0
+  const isLastChunk = endLine === measuredBlock.lines.length
+
+  const lines = measuredBlock.lines.slice(startLine, endLine)
+  const fs = measuredBlock.fontSize
+  const lh = measuredBlock.lineHeight
+  const font = fontMap.get(measuredBlock.fontKey) ?? [...fontMap.values()][0]
+  if (!font) return
+
+  const titleH = isFirstChunk && titleText ? cd.titleHeight : 0
+  const topPad = isFirstChunk ? paddingV : 0
+  const bottomPad = isLastChunk ? paddingV : 0
+  const chunkHeight = topPad + titleH + lines.length * lh + bottomPad
+
+  const boxAbsY = yFromTop + geo.margins.top + geo.headerHeight
+  const boxPdfY = geo.pageHeight - boxAbsY - chunkHeight
+
+  // Background
+  const [bgR, bgG, bgB] = hexToRgb(backgroundColor)
+  pdfPage.drawRectangle({
+    x: geo.margins.left,
+    y: boxPdfY,
+    width: geo.contentWidth,
+    height: chunkHeight,
+    color: rgb(bgR, bgG, bgB),
+    borderWidth: 0,
+  })
+
+  // Left border stripe (3pt wide)
+  const [bdR, bdG, bdB] = hexToRgb(borderColor)
+  pdfPage.drawRectangle({
+    x: geo.margins.left,
+    y: boxPdfY,
+    width: 3,
+    height: chunkHeight,
+    color: rgb(bdR, bdG, bdB),
+    borderWidth: 0,
+  })
+
+  const fontHeight = font.heightAtSize(fs)
+  let currentAbsY = boxAbsY + topPad
+
+  // Draw title if first chunk
+  if (isFirstChunk && titleText) {
+    // Try to get bold font variant by modifying the fontKey
+    const boldFontKey = measuredBlock.fontKey.replace(/-400-/, '-700-')
+    const titleFont = fontMap.get(boldFontKey) ?? font
+    const [tR, tG, tB] = hexToRgb(titleColor)
+    const titlePdfY = geo.pageHeight - currentAbsY - fontHeight - (fs * 1.4 - fs) / 2
+    pdfPage.drawText(titleText, {
+      x: geo.margins.left + paddingH,
+      y: titlePdfY,
+      size: fs,
+      font: titleFont,
+      color: rgb(tR, tG, tB),
+    })
+    currentAbsY += titleH
+  }
+
+  // Draw content lines
+  const [tR, tG, tB] = hexToRgb(color)
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!
+    if (line.text === '') {
+      currentAbsY += lh
+      continue
+    }
+    const linePdfY = geo.pageHeight - currentAbsY - fontHeight - (lh - fs) / 2
+    pdfPage.drawText(line.text.trimEnd(), {
+      x: geo.margins.left + paddingH,
+      y: linePdfY,
+      size: fs,
+      font,
+      color: rgb(tR, tG, tB),
+    })
+    currentAbsY += lh
   }
 }
 
@@ -1372,5 +1500,197 @@ function renderTocEntry(
         lx += leaderCharWidth + 1
       }
     }
+  }
+}
+
+// ─── Phase 8B: Form Fields ────────────────────────────────────────────────────
+
+/** Phase 8B: Render an interactive AcroForm field. */
+function renderFormField(
+  block: PagedBlock,
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  pdfDoc: PDFDocument,
+  fontMap: FontMap,
+  geo: PageGeometry,
+  yFromTop: number
+): void {
+  const el = block.measuredBlock.element as import('./types.js').FormFieldElement
+  const { labelHeight, fieldHeight } = block.measuredBlock.formFieldData ?? { labelHeight: 0, fieldHeight: 24 }
+  const form = pdfDoc.getForm()
+  const x = geo.margins.left
+  const fieldWidth = el.width ?? geo.contentWidth
+  const absYTop = yFromTop + geo.margins.top + geo.headerHeight
+  const fieldBottomPdfY = geo.pageHeight - absYTop - labelHeight - fieldHeight
+
+  // Draw label if set
+  if (el.label && labelHeight > 0) {
+    const font = fontMap.get(block.measuredBlock.fontKey)
+    if (font) {
+      const labelPdfY = geo.pageHeight - absYTop
+      pdfPage.drawText(el.label, {
+        x,
+        y: labelPdfY,
+        size: el.fontSize ?? 12,
+        font,
+        color: rgb(0, 0, 0),
+      })
+    }
+  }
+
+  const borderRgb = hexToRgb(el.borderColor ?? '#999999')
+  const bgRgb = hexToRgb(el.backgroundColor ?? '#FFFFFF')
+  const fieldOpts = {
+    x,
+    y: fieldBottomPdfY,
+    width: fieldWidth,
+    height: fieldHeight,
+    borderColor: rgb(borderRgb[0], borderRgb[1], borderRgb[2]),
+    backgroundColor: rgb(bgRgb[0], bgRgb[1], bgRgb[2]),
+  }
+
+  try {
+    switch (el.fieldType) {
+      case 'text': {
+        const field = form.createTextField(el.name)
+        if (el.defaultValue) field.setText(el.defaultValue)
+        if (el.multiline) field.enableMultiline()
+        if (el.maxLength) field.setMaxLength(el.maxLength)
+        field.addToPage(pdfPage, fieldOpts)
+        break
+      }
+      case 'checkbox': {
+        const field = form.createCheckBox(el.name)
+        if (el.checked) field.check()
+        field.addToPage(pdfPage, {
+          x,
+          y: fieldBottomPdfY,
+          width: fieldHeight,
+          height: fieldHeight,
+          borderColor: rgb(borderRgb[0], borderRgb[1], borderRgb[2]),
+          backgroundColor: rgb(bgRgb[0], bgRgb[1], bgRgb[2]),
+        })
+        break
+      }
+      case 'radio': {
+        const group = form.createRadioGroup(el.name)
+        const opts = el.options ?? []
+        const optHeight = Math.max(16, Math.floor(fieldHeight / Math.max(1, opts.length)))
+        for (let i = 0; i < opts.length; i++) {
+          group.addOptionToPage(opts[i]!.value, pdfPage, {
+            x,
+            y: fieldBottomPdfY + fieldHeight - optHeight * (i + 1),
+            width: optHeight,
+            height: optHeight,
+            borderColor: rgb(borderRgb[0], borderRgb[1], borderRgb[2]),
+          })
+        }
+        if (el.defaultSelected) {
+          try { group.select(el.defaultSelected) } catch { /* option may not exist */ }
+        }
+        break
+      }
+      case 'dropdown': {
+        const field = form.createDropdown(el.name)
+        const opts = (el.options ?? []).map(o => o.value)
+        if (opts.length > 0) field.addOptions(opts)
+        if (el.defaultSelected) {
+          try { field.select(el.defaultSelected) } catch { /* option may not exist */ }
+        }
+        field.addToPage(pdfPage, fieldOpts)
+        break
+      }
+      case 'button': {
+        const field = form.createButton(el.name)
+        field.addToPage(el.label ?? el.name, pdfPage, fieldOpts)
+        break
+      }
+    }
+  } catch {
+    // Non-fatal: if pdf-lib throws for an edge case, skip the field rather than crashing
+  }
+}
+
+// ─── Phase 8E: Signature Placeholder ──────────────────────────────────────────
+
+/** Phase 8E: Draw a visual signature placeholder box on the specified page. */
+function renderSignaturePlaceholder(
+  sig: import('./types.js').SignatureSpec,
+  pdfDoc: PDFDocument,
+  fontMap: import('./types.js').FontMap,
+  geo: import('./types.js').PageGeometry
+): void {
+  const pages = pdfDoc.getPages()
+  if (pages.length === 0) return
+
+  const pageIndex = sig.page !== undefined
+    ? Math.min(sig.page, pages.length - 1)
+    : pages.length - 1
+  const page = pages[pageIndex]!
+  if (!page) return
+
+  const boxWidth = sig.width ?? 200
+  const boxHeight = sig.height ?? 60
+  const x = sig.x ?? geo.margins.left
+  const yFromTop = sig.y ?? (geo.pageHeight - geo.margins.bottom - boxHeight)
+  const pdfY = geo.pageHeight - yFromTop - boxHeight
+  const fs = sig.fontSize ?? 8
+
+  const borderRgb = hexToRgb(sig.borderColor ?? '#000000')
+  const borderColor = rgb(borderRgb[0], borderRgb[1], borderRgb[2])
+  const grayColor = rgb(0.5, 0.5, 0.5)
+  const font = fontMap.get('Inter-400-normal') ?? [...fontMap.values()][0]
+
+  if (!font) return
+
+  // Draw outer border rectangle (white fill)
+  page.drawRectangle({
+    x,
+    y: pdfY,
+    width: boxWidth,
+    height: boxHeight,
+    borderColor,
+    borderWidth: 0.5,
+    color: rgb(1, 1, 1),
+  })
+
+  let lineY = pdfY + boxHeight - fs - 6
+
+  // Signer name line
+  if (sig.signerName) {
+    page.drawText(`Signed by: ${sig.signerName}`, {
+      x: x + 6, y: lineY, size: fs, font, color: rgb(0, 0, 0),
+    })
+    lineY -= fs + 4
+  }
+
+  // Signature underline
+  page.drawLine({
+    start: { x: x + 6, y: lineY },
+    end: { x: x + boxWidth - 12, y: lineY },
+    thickness: 0.3,
+    color: grayColor,
+  })
+  page.drawText('Signature', {
+    x: x + 6, y: lineY - fs, size: fs - 1, font, color: grayColor,
+  })
+  lineY -= fs + 8
+
+  // Date underline (half width)
+  page.drawLine({
+    start: { x: x + 6, y: lineY },
+    end: { x: x + boxWidth / 2, y: lineY },
+    thickness: 0.3,
+    color: grayColor,
+  })
+  page.drawText('Date', {
+    x: x + 6, y: lineY - fs, size: fs - 1, font, color: grayColor,
+  })
+
+  // Reason / location at bottom
+  if (sig.reason || sig.location) {
+    const bottomText = [sig.reason, sig.location].filter(Boolean).join(' — ')
+    page.drawText(bottomText, {
+      x: x + 6, y: pdfY + 3, size: fs - 1, font, color: rgb(0.4, 0.4, 0.4),
+    })
   }
 }

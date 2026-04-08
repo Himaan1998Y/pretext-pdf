@@ -236,13 +236,15 @@ function placeBlock(
   // Multi-column blocks are always keepTogether — no mid-column page breaks in Phase 5B
   const keepTogether = (block.columnData !== undefined)
     ? true  // Force keepTogether for multi-column blocks
-    : el.type === 'comment'
-      ? true  // Comment/annotation blocks are kept together
+    : (el.type === 'comment' || el.type === 'form-field')
+      ? true  // Comment/annotation and form-field blocks are kept together
       : el.type === 'heading'
         ? (el.keepTogether ?? true)
         : (el.type === 'paragraph' || el.type === 'rich-paragraph' || el.type === 'code' || el.type === 'blockquote')
           ? (el.keepTogether ?? false)
-          : false  // list items (el.type === 'list') — never keepTogether
+          : el.type === 'callout'
+            ? (el.keepTogether ?? false)
+            : false  // list items (el.type === 'list') — never keepTogether
 
   if (keepTogether) {
     if (currentY > 0) {
@@ -288,7 +290,7 @@ function splitBlock(
   // Both code and blockquote have visual padding that must be reserved when computing line capacity.
   const codePad = block.element.type === 'code'
     ? (block.codePadding ?? 0)
-    : block.element.type === 'blockquote'
+    : (block.element.type === 'blockquote' || block.element.type === 'callout')
       ? (block.blockquotePaddingV ?? 0)
       : 0
 
@@ -421,8 +423,8 @@ export function getCurrentY(pages: RenderedPage[]): number {
         paddingTop + paddingBottom +
         block.spaceAfter
 
-    } else if (el.type === 'blockquote') {
-      // Blockquote blocks include vertical padding in their height (same pattern as code)
+    } else if (el.type === 'blockquote' || el.type === 'callout') {
+      // Blockquote/callout blocks include vertical padding in their height (same pattern as code)
       const lineCount = pagedBlock.endLine - pagedBlock.startLine
       const paddingV = block.blockquotePaddingV ?? 10
       const isFirstChunk = pagedBlock.startLine === 0

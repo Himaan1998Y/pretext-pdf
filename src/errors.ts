@@ -23,6 +23,8 @@ export type ErrorCode =
   | 'SVG_INVALID_MARKUP'
   | 'ASSEMBLY_EMPTY'
   | 'ASSEMBLY_FAILED'
+  | 'FORM_FIELD_NAME_DUPLICATE'
+  | 'FORM_FLATTEN_FAILED'
 
 export class PretextPdfError extends Error {
   readonly code: ErrorCode

@@ -57,3 +57,51 @@
 [2026-04-08T09:04:30.522Z] file: f:\Antigravity\brain\projects\pretext-pdf\CHANGELOG.md
 
 [2026-04-08T09:06:22.287Z] file: f:\Antigravity\brain\projects\pretext-pdf\package.json
+
+[2026-04-08T10:02:22.290Z] file: f:\Antigravity\brain\projects\pretext-pdf\src\index.ts
+
+[2026-04-08T10:30:52.331Z] file: f:\Antigravity\brain\projects\pretext-pdf\examples\phase8-hyperlinks.ts
+
+[2026-04-08T10:31:04.532Z] file: f:\Antigravity\brain\projects\pretext-pdf\examples\phase8-annotations.ts
+
+[2026-04-08T10:31:20.616Z] file: f:\Antigravity\brain\projects\pretext-pdf\examples\phase8-assembly.ts
+
+[2026-04-08T10:31:44.426Z] file: f:\Antigravity\brain\projects\pretext-pdf\examples\phase8-inline.ts
+
+[2026-04-08T10:31:49.791Z] file: f:\Antigravity\brain\projects\pretext-pdf\package.json
+
+[2026-04-08T10:31:51.320Z] file: f:\Antigravity\brain\projects\pretext-pdf\.github\workflows\ci.yml
+
+[2026-04-08T10:33:28.969Z] file: f:\Antigravity\brain\projects\pretext-pdf\README.md
+
+[2026-04-08T10:34:20.697Z] file: f:\Antigravity\brain\projects\pretext-pdf\examples\phase8-annotations.ts
+
+[2026-04-08T10:34:28.351Z] file: f:\Antigravity\brain\projects\pretext-pdf\examples\phase8-assembly.ts
+
+[2026-04-08T10:49:09.640Z] file: f:\Antigravity\brain\projects\pretext-pdf\examples\showcase-invoice.ts
+
+[2026-04-08T10:49:51.748Z] file: f:\Antigravity\brain\projects\pretext-pdf\examples\showcase-report.ts
+
+[2026-04-08T10:50:24.622Z] file: f:\Antigravity\brain\projects\pretext-pdf\examples\showcase-resume.ts
+
+[2026-04-08T10:50:35.268Z] file: f:\Antigravity\brain\projects\pretext-pdf\examples\showcase-report.ts
+
+[2026-04-08T10:50:59.173Z] file: f:\Antigravity\brain\projects\pretext-pdf\scripts\screenshot.cjs
+
+[2026-04-08T10:51:05.360Z] file: f:\Antigravity\brain\projects\pretext-pdf\package.json
+
+[2026-04-08T10:52:09.898Z] file: f:\Antigravity\brain\projects\pretext-pdf\scripts\screenshot.cjs
+
+[2026-04-08T10:52:32.776Z] file: f:\Antigravity\brain\projects\pretext-pdf\scripts\screenshot.cjs
+
+[2026-04-08T10:52:58.476Z] file: f:\Antigravity\brain\projects\pretext-pdf\README.md
+
+[2026-04-08T11:46:43.532Z] file: f:\Antigravity\brain\projects\pretext-pdf\README.md
+
+[2026-04-08T11:46:52.357Z] file: f:\Antigravity\brain\projects\pretext-pdf\README.md
+
+[2026-04-08T11:46:57.835Z] file: f:\Antigravity\brain\projects\pretext-pdf\README.md
+
+[2026-04-08T11:47:03.858Z] file: f:\Antigravity\brain\projects\pretext-pdf\README.md
+
+[2026-04-08T11:47:22.691Z] file: f:\Antigravity\brain\projects\pretext-pdf\CHANGELOG.md

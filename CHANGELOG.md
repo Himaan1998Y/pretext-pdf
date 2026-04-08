@@ -7,12 +7,49 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
-### Planned (Phase 8 remaining)
+### Planned (Phase 9+)
 
-- Phase 8B: Forms (text fields, checkboxes, radio buttons, dropdowns)
-- Phase 8D: Advanced layout (image floats, callout boxes)
-- Phase 8E: Digital signatures (visual + cryptographic signing)
-- Phase 8F: Font subsetting improvements (reduce file size)
+- Phase 9A: Digital signatures (cryptographic PKCS#7 via `@signpdf/signpdf`)
+- Phase 9B: Image floats (text flowing alongside images — requires paginator rewrite)
+- Phase 9C: Font subsetting pre-computation (explicit glyph hints for icon fonts)
+
+---
+
+## [0.3.0] — 2026-04-08
+
+### Added (Phase 8B — Interactive Forms)
+- New `form-field` element type — creates interactive AcroForm fields in PDFs
+- `fieldType: 'text' | 'checkbox' | 'radio' | 'dropdown' | 'button'`
+- `label` renders above the field as static text
+- Text fields: `defaultValue`, `multiline`, `placeholder`, `maxLength`
+- Checkboxes: `checked` initial state
+- Radio groups and dropdowns: `options` array, `defaultSelected`
+- `doc.flattenForms: true` — bakes all fields into static content
+- Custom `borderColor`, `backgroundColor`, `width`, `height`, `fontSize` per field
+- New error codes: `FORM_FIELD_NAME_DUPLICATE` (duplicate `name` across fields), `FORM_FLATTEN_FAILED`
+- Post-render `form.updateFieldAppearances()` ensures proper display in all PDF readers
+- 10 comprehensive tests covering all form field types
+
+### Added (Phase 8E — Signature Placeholder)
+- `doc.signature` — visual signature box drawn on a specified page
+- Fields: `signerName`, `reason`, `location`, `x`, `y`, `width`, `height`, `page`, `borderColor`, `fontSize`
+- Draws signature line, date line, and optional text inside a bordered rectangle
+- `page` is 0-indexed, defaults to last page, clamps gracefully if out of range
+- 6 comprehensive tests
+
+### Added (Phase 8D — Callout Boxes)
+- New `callout` element type — styled highlight box with optional title
+- Preset styles: `style: 'info'` (blue), `'warning'` (amber), `'tip'` (green), `'note'` (gray)
+- Optional `title` rendered bold above content with left border accent
+- Fully customizable: `backgroundColor`, `borderColor`, `color`, `titleColor`, `padding`
+- Paginates correctly across pages (reuses blockquote pagination logic)
+- 8 comprehensive tests
+
+### Added (Phase 8F — Document Metadata Extensions)
+- `doc.metadata.language` — sets PDF `/Lang` catalog entry (BCP47 tag e.g. `'en-US'`, `'hi'`)
+- `doc.metadata.producer` — sets PDF producer field (e.g. `'MyApp v2.1'`)
+- Both fields validate as non-empty strings
+- 5 comprehensive tests
 
 ---
 

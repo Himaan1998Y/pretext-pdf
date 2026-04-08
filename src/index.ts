@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib'
+import { PDFDocument, PDFName, PDFString } from 'pdf-lib'
 import type { PdfDocument, PageGeometry, Margins, ImageMap, EncryptionSpec } from './types.js'
 import { PretextPdfError } from './errors.js'
 import { resolvePageDimensions } from './page-sizes.js'
@@ -38,12 +38,15 @@ export type {
   HeaderFooterSpec,
   WatermarkSpec,
   EncryptionSpec,
+  SignatureSpec,
   BookmarkConfig,
   HyphenationConfig,
   Margins,
   CommentElement,
+  CalloutElement,
   AnnotationSpec,
   AssemblyPart,
+  FormFieldElement,
 } from './types.js'
 export { PretextPdfError } from './errors.js'
 export type { ErrorCode } from './errors.js'
@@ -109,6 +112,8 @@ export async function render(doc: PdfDocument): Promise<Uint8Array> {
     if (m.subject)  pdfDoc.setSubject(m.subject)
     if (m.keywords) pdfDoc.setKeywords(m.keywords)
     pdfDoc.setCreator(m.creator ?? 'pretext-pdf')
+    if (m.producer) pdfDoc.setProducer(m.producer)
+    if (m.language) (pdfDoc as any).catalog.set(PDFName.of('Lang'), PDFString.of(m.language))
   }
 
   const fontMap = await loadFonts(doc, pdfDoc)

@@ -27,6 +27,8 @@ export interface PdfDocument {
   watermark?: WatermarkSpec
   /** Password protection and permission control for the output PDF. */
   encryption?: EncryptionSpec
+  /** Visual signature placeholder drawn on the specified page. */
+  signature?: SignatureSpec
   /** PDF bookmark outline (sidebar navigation). Defaults to enabled. Set to false to disable bookmarks entirely. */
   bookmarks?: false | BookmarkConfig
   /** Automatic word hyphenation using Liang's algorithm. Requires installing the matching `hyphenation.XX` npm package. */
@@ -35,6 +37,8 @@ export interface PdfDocument {
   metadata?: DocumentMetadata
   /** Document content elements, rendered top-to-bottom. */
   content: ContentElement[]
+  /** If true, flatten all form fields into static content (no longer interactive). Default: false */
+  flattenForms?: boolean
 }
 
 export interface DocumentMetadata {
@@ -48,6 +52,10 @@ export interface DocumentMetadata {
   keywords?: string[]
   /** Producing application name. Default: 'pretext-pdf' */
   creator?: string
+  /** BCP47 language tag e.g. 'en-US', 'hi', 'ar'. Sets the PDF /Lang catalog attribute for accessibility. */
+  language?: string
+  /** PDF producer field shown in document properties e.g. 'MyApp v2.1'. */
+  producer?: string
 }
 
 export interface Margins {
@@ -123,6 +131,29 @@ export interface EncryptionSpec {
   }
 }
 
+export interface SignatureSpec {
+  /** Name shown as "Signed by: X" inside the box. Optional. */
+  signerName?: string
+  /** Short reason e.g. "I approve this document". Shown at bottom. Optional. */
+  reason?: string
+  /** Location string e.g. "New Delhi, India". Shown at bottom. Optional. */
+  location?: string
+  /** X position from left edge of page in pt. Default: left margin (72pt). */
+  x?: number
+  /** Y position from TOP of page in pt. Default: 40pt from bottom of page. */
+  y?: number
+  /** Width of signature box in pt. Default: 200 */
+  width?: number
+  /** Height of signature box in pt. Default: 60 */
+  height?: number
+  /** Page index (0-based). Default: last page. */
+  page?: number
+  /** Border color as 6-digit hex. Default: '#000000' */
+  borderColor?: string
+  /** Font size for text inside box in pt. Default: 8 */
+  fontSize?: number
+}
+
 export interface BookmarkConfig {
   /** Minimum heading level to include in outline. Default: 1 */
   minLevel?: 1 | 2 | 3 | 4
@@ -173,6 +204,52 @@ export interface AssemblyPart {
   pdf?: Uint8Array
 }
 
+// ─── Form Field ───────────────────────────────────────────────────────────────
+
+export interface FormFieldElement {
+  type: 'form-field'
+  /** AcroForm field type. */
+  fieldType: 'text' | 'checkbox' | 'radio' | 'dropdown' | 'button'
+  /** Unique field name within the document. Required. */
+  name: string
+  /** Label text rendered above the interactive field. Optional. */
+  label?: string
+  // Text field options:
+  /** Placeholder text for text fields. */
+  placeholder?: string
+  /** Pre-filled default value for text fields. */
+  defaultValue?: string
+  /** Makes text field multi-line. Default: false */
+  multiline?: boolean
+  /** Maximum character length for text fields. */
+  maxLength?: number
+  // Checkbox:
+  /** Initial checked state for checkboxes. Default: false */
+  checked?: boolean
+  // Radio / Dropdown:
+  /** Option list for radio groups and dropdowns. */
+  options?: Array<{ value: string; label: string }>
+  /** Pre-selected value for radio groups and dropdowns. */
+  defaultSelected?: string
+  // Layout:
+  /** Field width in pt. Default: full content width */
+  width?: number
+  /** Field height in pt. Default: auto per fieldType (text=24, multiline=60, radio=20×options, others=24) */
+  height?: number
+  /** Font size for field text in pt. Default: doc.defaultFontSize */
+  fontSize?: number
+  /** Field border color as 6-digit hex. Default: '#999999' */
+  borderColor?: string
+  /** Field background color as 6-digit hex. Default: '#FFFFFF' */
+  backgroundColor?: string
+  /** Extra space below this field in pt. Default: 8 */
+  spaceAfter?: number
+  /** Extra space above this field in pt. Default: 0 */
+  spaceBefore?: number
+  /** If true, never break this element across pages. Default: true */
+  keepTogether?: boolean
+}
+
 export type ContentElement =
   | ParagraphElement
   | HeadingElement
@@ -189,6 +266,8 @@ export type ContentElement =
   | TocElement
   | TocEntryElement
   | CommentElement
+  | FormFieldElement
+  | CalloutElement
 
 export interface ParagraphElement {
   type: 'paragraph'
@@ -613,6 +692,59 @@ export interface BlockquoteElement {
   strikethrough?: boolean
 }
 
+// ─── Callout ──────────────────────────────────────────────────────────────────
+
+/**
+ * A highlighted callout box with an optional title and preset color schemes.
+ * Useful for info panels, warnings, tips, and notes.
+ */
+export interface CalloutElement {
+  type: 'callout'
+  /** Body text content. Required. */
+  content: string
+  /**
+   * Preset style that sets default colors.
+   * - 'info': blue (#EFF6FF bg, #3B82F6 border)
+   * - 'warning': amber (#FFFBEB bg, #F59E0B border)
+   * - 'tip': green (#F0FDF4 bg, #22C55E border)
+   * - 'note': gray (#F9FAFB bg, #9CA3AF border)
+   * Default: blue-gray (#F8F9FA bg, #0070F3 border)
+   */
+  style?: 'info' | 'warning' | 'tip' | 'note'
+  /** Optional title rendered above the body (bold, colored). */
+  title?: string
+  /** Background color as 6-digit hex. Default: per style. */
+  backgroundColor?: string
+  /** Left border color as 6-digit hex. Default: per style. */
+  borderColor?: string
+  /** Text color as 6-digit hex. Default: '#1F2937' */
+  color?: string
+  /** Title color as 6-digit hex. Default: same as borderColor */
+  titleColor?: string
+  /** Font family. Default: document.defaultFont */
+  fontFamily?: string
+  /** Font weight. Default: 400 */
+  fontWeight?: 400 | 700
+  /** Font size in pt. Default: document.defaultFontSize */
+  fontSize?: number
+  /** Line height in pt. Default: fontSize * 1.5 */
+  lineHeight?: number
+  /** Shorthand for paddingH and paddingV. Default: 12 */
+  padding?: number
+  /** Horizontal padding (left + right) inside the box in pt. Default: padding ?? 16 */
+  paddingH?: number
+  /** Vertical padding (top + bottom) inside the box in pt. Default: padding ?? 10 */
+  paddingV?: number
+  /** Space below this element in pt. Default: 12 */
+  spaceAfter?: number
+  /** Space above this element in pt. Default: 0 */
+  spaceBefore?: number
+  /** If true, never break this element across pages. Default: false */
+  keepTogether?: boolean
+  /** Text direction. Default: 'auto' */
+  dir?: 'ltr' | 'rtl' | 'auto'
+}
+
 export interface TocElement {
   type: 'toc'
   /** TOC title. Default: 'Table of Contents' */
@@ -691,6 +823,18 @@ export interface MeasuredBlock {
   blockquotePaddingH?: number
   /** Only set when element.type === 'blockquote'. Resolved left border width in pt. */
   blockquoteBorderWidth?: number
+  // ─── Phase 8D: Callout ────────────────────────────────────────────────────
+  /** Only set when element.type === 'callout'. Resolved styling metadata. */
+  calloutData?: {
+    titleHeight: number
+    paddingH: number
+    paddingV: number
+    borderColor: string
+    backgroundColor: string
+    titleColor: string
+    color: string
+    titleText?: string
+  }
   // ─── Phase 5B: optional payload fields ───────────────────────────────────
   /** Only set when element has columns > 1. Multi-column layout metadata. */
   columnData?: {
@@ -707,6 +851,9 @@ export interface MeasuredBlock {
   // ─── Phase 7D: Table of Contents ────────────────────────────────────────
   /** Only set when element.type === 'toc-entry'. Rendering metadata for TOC entries. */
   tocEntryData?: { entryX: number; pageStr: string; leaderChar: string }
+  // ─── Phase 8B: Form Fields ────────────────────────────────────────────
+  /** Only set when element.type === 'form-field'. Layout metadata. */
+  formFieldData?: { labelHeight: number; fieldHeight: number }
 }
 
 /** A single line from Pretext's layoutWithLines() */

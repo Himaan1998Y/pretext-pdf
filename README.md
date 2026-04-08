@@ -8,7 +8,7 @@
 [![npm downloads](https://img.shields.io/npm/dw/pretext-pdf)](https://www.npmjs.com/package/pretext-pdf)
 [![CI](https://github.com/Himaan1998Y/pretext-pdf/actions/workflows/ci.yml/badge.svg)](https://github.com/Himaan1998Y/pretext-pdf/actions)
 [![TypeScript](https://img.shields.io/badge/typescript-strict-blue)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-113%2B-brightgreen)](#test-coverage)
+[![Tests](https://img.shields.io/badge/tests-146%2B-brightgreen)](#test-coverage)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ---
@@ -139,16 +139,19 @@ const pdf = await createPdf({ pageSize: 'A4' })
 | PDF Bookmarks | `doc.bookmarks` | Auto-generated from headings |
 | Hyphenation | `doc.hyphenation` | Liang's algorithm, `language: 'en-us'` |
 | Headers/Footers | `doc.header` / `doc.footer` | `{{pageNumber}}` / `{{totalPages}}` tokens |
-| Metadata | `doc.metadata` | Title, author, subject, keywords |
+| Metadata | `doc.metadata` | Title, author, subject, keywords, `language` (PDF /Lang), `producer` |
 
 ### Phase 8 Features
 
 | Feature | API |
 |---------|-----|
 | **Hyperlinks** | `paragraph.url`, `heading.url`, `heading.anchor`, `span.href` |
-| **Inline formatting** | `span.verticalAlign: 'superscript'|'subscript'`, `paragraph.letterSpacing`, `heading.smallCaps` |
+| **Inline formatting** | `span.verticalAlign: 'superscript'\|'subscript'`, `paragraph.letterSpacing`, `heading.smallCaps` |
 | **Sticky notes** | `{ type: 'comment', contents: '...' }`, `paragraph.annotation` |
 | **Document assembly** | `merge(pdfs)`, `assemble(parts)` |
+| **Interactive forms** | `{ type: 'form-field', fieldType: 'text'\|'checkbox'\|'radio'\|'dropdown'\|'button' }`, `doc.flattenForms` |
+| **Signature placeholder** | `doc.signature: { signerName, reason, location, x, y, page }` |
+| **Callout boxes** | `{ type: 'callout', content, style: 'info'\|'warning'\|'tip'\|'note', title }` |
 
 ---
 
@@ -170,6 +173,8 @@ npm run example:hyperlinks     # External links, email links, internal anchors
 npm run example:annotations    # Sticky notes on elements
 npm run example:assembly       # Merge and assemble multiple PDFs
 npm run example:inline         # Superscript, subscript, letter-spacing, small-caps
+npm run example:forms          # Interactive form fields (text, checkbox, radio, dropdown)
+npm run example:callout        # Callout boxes (info, warning, tip, note presets)
 ```
 
 All examples write output to `output/*.pdf`.
@@ -329,10 +334,10 @@ const pdf = await render({
 | 8H | Inline formatting (super/subscript, letterSpacing, smallCaps) | ✅ |
 | 8A | Sticky note annotations | ✅ |
 | 8C | Document assembly (merge + assemble) | ✅ |
-| 8B | Interactive forms | Soon |
-| 8E | Digital signatures | Soon |
-| 8F | Font subsetting improvements | Soon |
-| 8D | Advanced layout (image floats, callouts) | Soon |
+| 8F | Document metadata (language, producer) | ✅ |
+| 8B | Interactive forms (text/checkbox/radio/dropdown/button) | ✅ |
+| 8E | Signature placeholder | ✅ |
+| 8D | Callout boxes (info/warning/tip/note) | ✅ |
 
 ---
 

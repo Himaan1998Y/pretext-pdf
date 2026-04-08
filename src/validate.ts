@@ -132,6 +132,25 @@ export function validate(doc: PdfDocument): void {
     // permissions sub-fields are booleans — TypeScript enforces the type, no runtime check needed
   }
 
+  if (doc.signature !== undefined) {
+    const sig = doc.signature
+    if (sig.width !== undefined && (typeof sig.width !== 'number' || sig.width <= 0)) {
+      throw new PretextPdfError('VALIDATION_ERROR', 'signature.width must be a positive number')
+    }
+    if (sig.height !== undefined && (typeof sig.height !== 'number' || sig.height <= 0)) {
+      throw new PretextPdfError('VALIDATION_ERROR', 'signature.height must be a positive number')
+    }
+    if (sig.page !== undefined && (!Number.isInteger(sig.page) || sig.page < 0)) {
+      throw new PretextPdfError('VALIDATION_ERROR', 'signature.page must be a non-negative integer')
+    }
+    if (sig.borderColor !== undefined && !/^#[0-9A-Fa-f]{6}$/.test(sig.borderColor)) {
+      throw new PretextPdfError('VALIDATION_ERROR', 'signature.borderColor must be a 6-digit hex color e.g. "#000000"')
+    }
+    if (sig.fontSize !== undefined && (typeof sig.fontSize !== 'number' || sig.fontSize <= 0)) {
+      throw new PretextPdfError('VALIDATION_ERROR', 'signature.fontSize must be a positive number')
+    }
+  }
+
   // bookmarks
   if (doc.bookmarks !== undefined && doc.bookmarks !== false) {
     const bm = doc.bookmarks
@@ -163,11 +182,33 @@ export function validate(doc: PdfDocument): void {
     }
   }
 
+  // metadata
+  if (doc.metadata) {
+    const m = doc.metadata
+    if (m.language !== undefined && (typeof m.language !== 'string' || m.language.trim() === '')) {
+      throw new PretextPdfError('VALIDATION_ERROR', 'metadata.language must be a non-empty string (BCP47 tag e.g. "en-US")')
+    }
+    if (m.producer !== undefined && (typeof m.producer !== 'string' || m.producer.trim() === '')) {
+      throw new PretextPdfError('VALIDATION_ERROR', 'metadata.producer must be a non-empty string')
+    }
+  }
+
   // validate each content element
   const loadedFamilies = new Set([
     ...BUNDLED_FAMILIES,
     ...(doc.fonts ?? []).map(f => f.family),
   ])
+  // Check for duplicate form field names
+  const formFieldNames = new Set<string>()
+  for (const el of doc.content) {
+    if (el.type === 'form-field') {
+      if (formFieldNames.has(el.name)) {
+        throw new PretextPdfError('FORM_FIELD_NAME_DUPLICATE', `Duplicate form field name: "${el.name}". Each form field must have a unique name.`)
+      }
+      formFieldNames.add(el.name)
+    }
+  }
+
   for (let i = 0; i < doc.content.length; i++) {
     validateElement(doc.content[i]!, i, loadedFamilies)
   }
@@ -810,6 +851,29 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
       break
     }
 
+    case 'callout': {
+      if (!el.content || typeof el.content !== 'string' || el.content.trim() === '') {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (callout): 'content' is required and must be a non-empty string`)
+      }
+      const validStyles = ['info', 'warning', 'tip', 'note']
+      if (el.style !== undefined && !validStyles.includes(el.style)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (callout): 'style' must be one of: ${validStyles.join(', ')}`)
+      }
+      if (el.backgroundColor !== undefined && !/^#[0-9A-Fa-f]{6}$/.test(el.backgroundColor)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (callout): 'backgroundColor' must be a 6-digit hex color`)
+      }
+      if (el.borderColor !== undefined && !/^#[0-9A-Fa-f]{6}$/.test(el.borderColor)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (callout): 'borderColor' must be a 6-digit hex color`)
+      }
+      if (el.color !== undefined && !/^#[0-9A-Fa-f]{6}$/.test(el.color)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (callout): 'color' must be a 6-digit hex color`)
+      }
+      if (el.fontSize !== undefined && (typeof el.fontSize !== 'number' || el.fontSize <= 0)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (callout): 'fontSize' must be a positive number`)
+      }
+      break
+    }
+
     case 'toc': {
       if (el.minLevel !== undefined && ![1, 2, 3, 4].includes(el.minLevel)) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (toc): 'minLevel' must be 1, 2, 3, or 4`)
@@ -855,6 +919,32 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
       break
     }
 
+    case 'form-field': {
+      const fieldTypes = ['text', 'checkbox', 'radio', 'dropdown', 'button']
+      if (!fieldTypes.includes((el as any).fieldType)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `[${index}] form-field.fieldType must be one of: ${fieldTypes.join(', ')}`)
+      }
+      if (!(el as any).name || (el as any).name.trim() === '') {
+        throw new PretextPdfError('VALIDATION_ERROR', `[${index}] form-field.name is required and must be a non-empty string`)
+      }
+      if (((el as any).fieldType === 'radio' || (el as any).fieldType === 'dropdown') && (!(el as any).options || (el as any).options.length === 0)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `[${index}] form-field of type "${(el as any).fieldType}" requires a non-empty options array`)
+      }
+      if ((el as any).width !== undefined && (typeof (el as any).width !== 'number' || (el as any).width <= 0)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `[${index}] form-field.width must be a positive number`)
+      }
+      if ((el as any).height !== undefined && (typeof (el as any).height !== 'number' || (el as any).height <= 0)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `[${index}] form-field.height must be a positive number`)
+      }
+      if ((el as any).borderColor !== undefined && !/^#[0-9A-Fa-f]{6}$/.test((el as any).borderColor)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `[${index}] form-field.borderColor must be a 6-digit hex color`)
+      }
+      if ((el as any).backgroundColor !== undefined && !/^#[0-9A-Fa-f]{6}$/.test((el as any).backgroundColor)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `[${index}] form-field.backgroundColor must be a 6-digit hex color`)
+      }
+      break
+    }
+
     case 'toc-entry': {
       // Internal type — should never appear in user input
       throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: 'toc-entry' is an internal type and cannot be used in document content`)
@@ -862,7 +952,7 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
 
     default: {
       const type = (el as { type: unknown }).type
-      throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: unknown element type '${String(type)}'. Valid types: 'paragraph', 'heading', 'spacer', 'table', 'image', 'svg', 'list', 'hr', 'page-break', 'code', 'rich-paragraph', 'blockquote', 'toc', 'comment'`)
+      throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: unknown element type '${String(type)}'. Valid types: 'paragraph', 'heading', 'spacer', 'table', 'image', 'svg', 'list', 'hr', 'page-break', 'code', 'rich-paragraph', 'blockquote', 'toc', 'comment', 'form-field'`)
     }
   }
 }
