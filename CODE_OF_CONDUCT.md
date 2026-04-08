@@ -27,7 +27,7 @@ Project maintainers are responsible for clarifying standards of acceptable behav
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the project team at **himanshu@antigravity.dev**. All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the project team at **himaan4149@gmail.com**. All complaints will be reviewed and investigated promptly and fairly.
 
 ## Attribution
 
