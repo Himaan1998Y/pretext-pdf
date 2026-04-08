@@ -39,14 +39,19 @@ export async function renderDocument(
 
     // Render footnote zone (above footer, if this page has footnotes)
     if (renderedPage.footnoteItems && renderedPage.footnoteItems.length > 0) {
-      renderFootnoteZone(
-        pdfPage,
-        renderedPage.footnoteItems,
-        renderedPage.footnoteZoneHeight ?? 0,
-        fontMap,
-        doc,
-        geo
-      )
+      try {
+        renderFootnoteZone(
+          pdfPage,
+          renderedPage.footnoteItems,
+          renderedPage.footnoteZoneHeight ?? 0,
+          fontMap,
+          doc,
+          geo
+        )
+      } catch (e) {
+        if (e instanceof PretextPdfError) throw e
+        throw new PretextPdfError('RENDER_FAILED', 'Failed to render footnote zone')
+      }
     }
 
     // Render header
@@ -81,7 +86,7 @@ export async function renderDocument(
         try {
           form.flatten()
         } catch (e) {
-          throw new PretextPdfError('FORM_FLATTEN_FAILED', `Failed to flatten form fields: ${e instanceof Error ? e.message : String(e)}`)
+          throw new PretextPdfError('FORM_FLATTEN_FAILED', 'Failed to flatten form fields')
         }
       }
     }
@@ -606,7 +611,7 @@ function renderFloatBlock(
 
   // Draw image
   const pdfImage = imageMap.get(fd.imageKey)
-  if (!pdfImage) return
+  if (!pdfImage) throw new PretextPdfError('IMAGE_LOAD_FAILED', `Float image key "${fd.imageKey}" not found in imageMap. This is a bug — image loading should have caught this.`)
 
   const imgX = geo.margins.left + fd.imageColX
   const imgPdfY = toPdfY(baseAbsY, fd.imageRenderHeight, geo.pageHeight)
@@ -619,7 +624,7 @@ function renderFloatBlock(
 
   // Draw text lines
   const pdfFont = fontMap.get(fd.textFontKey)
-  if (!pdfFont) return
+  if (!pdfFont) throw new PretextPdfError('FONT_NOT_LOADED', `Float text font key "${fd.textFontKey}" not found in fontMap. This is a bug — font loading should have caught this.`)
 
   const fontHeight = pdfFont.heightAtSize(fd.textFontSize)
   const [r, g, b] = hexToRgb(fd.textColor)
@@ -1117,9 +1122,7 @@ function renderFootnoteZone(
 
     const prefix = `${number}. `
     const fullText = prefix + def.text
-    const trimmed = fullText.length > 120 ? fullText.slice(0, 117) + '...' : fullText
-
-    pdfPage.drawText(trimmed, {
+    pdfPage.drawText(fullText, {
       x: margins.left,
       y: currentPdfY,
       size: fontSize,

@@ -926,7 +926,7 @@ async function measureTable(
       const fontFamily = cell.fontFamily ?? baseFontFamily
       const cellFontSize = cell.fontSize ?? fontSize
       const cellLineHeight = doc.defaultLineHeight ?? (cellFontSize * 1.5)
-      const fontKey = buildFontKey(fontFamily, fontWeight, 'normal')
+      const cellFontKey = buildFontKey(fontFamily, fontWeight, 'normal')
 
       // Text area is narrower than merged cell (padding on both sides + border)
       const textWidth = mergedWidth - 2 * cellPaddingH - borderWidth
@@ -955,7 +955,7 @@ async function measureTable(
         lines,
         fontSize: cellFontSize,
         lineHeight: cellLineHeight,
-        fontKey,
+        fontKey: cellFontKey,
         fontFamily,
         align,
         color: cell.color ?? '#000000',

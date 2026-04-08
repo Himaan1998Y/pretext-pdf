@@ -1,5 +1,6 @@
+import path from 'node:path'
 import { PDFDocument, PDFName, PDFString } from '@cantoo/pdf-lib'
-import type { PdfDocument, PageGeometry, Margins, ImageMap, EncryptionSpec, FootnoteDefElement, MeasuredBlock } from './types.js'
+import type { PdfDocument, PageGeometry, Margins, ImageMap, EncryptionSpec, FootnoteDefElement, MeasuredBlock, ContentElement } from './types.js'
 import { PretextPdfError } from './errors.js'
 import { resolvePageDimensions } from './page-sizes.js'
 import { validate } from './validate.js'
@@ -113,7 +114,10 @@ export async function render(doc: PdfDocument): Promise<Uint8Array> {
     if (m.keywords) pdfDoc.setKeywords(m.keywords)
     pdfDoc.setCreator(m.creator ?? 'pretext-pdf')
     if (m.producer) pdfDoc.setProducer(m.producer)
-    if (m.language) (pdfDoc as any).catalog.set(PDFName.of('Lang'), PDFString.of(m.language))
+    if (m.language) {
+      // Set PDF language attribute via catalog
+      pdfDoc.catalog.set(PDFName.of('Lang'), PDFString.of(m.language))
+    }
   }
 
   const fontMap = await loadFonts(doc, pdfDoc)
@@ -167,7 +171,8 @@ export async function render(doc: PdfDocument): Promise<Uint8Array> {
   const { buildTocEntryBlocks } = await import('./measure.js')
   const tocIndex = doc.content.findIndex(el => el.type === 'toc')
   if (tocIndex !== -1) {
-    const tocElement = doc.content[tocIndex] as any // TocElement type
+    const tocElement = doc.content[tocIndex]
+    if (!tocElement || tocElement.type !== 'toc') throw new Error('TOC element type mismatch') // Type guard
 
     // Pass 1: paginate without real TOC content to collect heading page numbers
     const draftPaginatedDoc = paginate(measuredBlocks, contentHeight)
@@ -216,18 +221,8 @@ export async function render(doc: PdfDocument): Promise<Uint8Array> {
     // Strip footnote-def blocks from the block stream (defs are not placed in flow)
     const flowBlocks = measuredBlocks.filter(b => b.element.type !== 'footnote-def')
 
-    // Build document-order footnote numbering (scan rich-paragraphs in content order)
-    const footnoteNumbering = new Map<string, number>()
-    let footnoteCounter = 1
-    for (const el of doc.content) {
-      if (el.type === 'rich-paragraph') {
-        for (const span of el.spans) {
-          if (span.footnoteRef && !footnoteNumbering.has(span.footnoteRef)) {
-            footnoteNumbering.set(span.footnoteRef, footnoteCounter++)
-          }
-        }
-      }
-    }
+    // Build document-order footnote numbering before pagination (controls rendering order)
+    const footnoteNumbering = buildFootnoteNumbering(doc.content)
 
     // PASS 1: Paginate without any footnote zone reservation
     const pass1 = paginate(flowBlocks, contentHeight, paginateConfig)
@@ -271,7 +266,10 @@ export async function render(doc: PdfDocument): Promise<Uint8Array> {
     // Annotate each RenderedPage with its footnote items
     for (const [pageIdx, refIds] of pageFootnoteRefs) {
       const page = paginatedDoc.pages[pageIdx]
-      if (page) {
+      if (pageIdx >= paginatedDoc.pages.length || !page) {
+        throw new PretextPdfError('PAGINATION_FAILED', `Footnote zone computed for page ${pageIdx} but document only has ${paginatedDoc.pages.length} pages. This is a pagination bug.`)
+      }
+      {
         page.footnoteItems = refIds
           .map(id => {
             const def = footnoteDefElements.find(d => d.id === id)
@@ -312,14 +310,14 @@ export async function merge(pdfs: Uint8Array[]): Promise<Uint8Array> {
   }
   const target = await PDFDocument.create()
   for (const bytes of pdfs) {
-    let src: any
+    let src: PDFDocument
     try {
       src = await PDFDocument.load(bytes)
     } catch (e) {
-      throw new PretextPdfError('ASSEMBLY_FAILED', `Failed to load PDF for merging: ${e instanceof Error ? e.message : String(e)}`)
+      throw new PretextPdfError('ASSEMBLY_FAILED', 'Failed to load PDF for merging')
     }
     const pages = await target.copyPages(src, src.getPageIndices())
-    pages.forEach((p: any) => target.addPage(p))
+    pages.forEach((p) => target.addPage(p))
   }
   return target.save()
 }
@@ -339,14 +337,14 @@ export async function assemble(parts: import('./types.js').AssemblyPart[]): Prom
       throw new PretextPdfError('VALIDATION_ERROR', 'Each AssemblyPart must have either a doc or pdf property.')
     }
     const bytes = part.pdf ?? await render(part.doc!)
-    let src: any
+    let src: PDFDocument
     try {
       src = await PDFDocument.load(bytes)
     } catch (e) {
-      throw new PretextPdfError('ASSEMBLY_FAILED', `Failed to load PDF part: ${e instanceof Error ? e.message : String(e)}`)
+      throw new PretextPdfError('ASSEMBLY_FAILED', 'Failed to load PDF part')
     }
     const pages = await target.copyPages(src, src.getPageIndices())
-    pages.forEach((p: any) => target.addPage(p))
+    pages.forEach((p) => target.addPage(p))
   }
   return target.save()
 }
@@ -360,9 +358,13 @@ async function applySignature(
   sig: NonNullable<PdfDocument['signature']>
 ): Promise<Uint8Array> {
   // Lazy-load @signpdf/signpdf — optional peer dep
-  let signpdfMod: any
+  type SignpdfModule = {
+    SignPdf: any
+    pdflibAddPlaceholder: (opts: { pdfDoc: PDFDocument; reason?: string; location?: string; contactInfo?: string; name?: string }) => void
+  }
+  let signpdfMod: SignpdfModule
   try {
-    signpdfMod = await import('@signpdf/signpdf' as string)
+    signpdfMod = await import('@signpdf/signpdf' as string) as SignpdfModule
   } catch {
     throw new PretextPdfError(
       'SIGNATURE_DEP_MISSING',
@@ -378,13 +380,18 @@ async function applySignature(
     if (sig.p12 instanceof Uint8Array) {
       p12Buffer = Buffer.from(sig.p12)
     } else {
-      const { readFileSync } = await import('node:fs')
-      p12Buffer = readFileSync(sig.p12 as string)
+      const p12Path = sig.p12 as string
+      if (!path.isAbsolute(p12Path)) {
+        throw new PretextPdfError('SIGNATURE_FAILED', 'P12 path must be absolute')
+      }
+      const { promises: fs } = await import('node:fs')
+      p12Buffer = await fs.readFile(p12Path)
     }
   } catch (e) {
+    if (e instanceof PretextPdfError) throw e
     throw new PretextPdfError(
       'SIGNATURE_P12_LOAD_FAILED',
-      `Failed to load P12 certificate: ${e instanceof Error ? e.message : String(e)}`
+      'Failed to load P12 certificate'
     )
   }
 
@@ -439,5 +446,24 @@ async function applyEncryption(pdfBytes: Uint8Array, enc: NonNullable<PdfDocumen
 
   // useObjectStreams: false is required for Adobe Reader compatibility with encrypted PDFs
   return encDoc.save({ useObjectStreams: false })
+}
+
+/**
+ * Build document-order footnote numbering by scanning rich-paragraphs in content order.
+ * This step happens before paginate so that render order is stable and decoupled from pagination.
+ */
+function buildFootnoteNumbering(content: ContentElement[]): Map<string, number> {
+  const numbering = new Map<string, number>()
+  let counter = 1
+  for (const el of content) {
+    if (el.type === 'rich-paragraph') {
+      for (const span of el.spans) {
+        if (span.footnoteRef && !numbering.has(span.footnoteRef)) {
+          numbering.set(span.footnoteRef, counter++)
+        }
+      }
+    }
+  }
+  return numbering
 }
 

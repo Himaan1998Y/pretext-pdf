@@ -15,6 +15,7 @@ const TINY_PNG = new Uint8Array([
 test('Phase 5 — Image Floats', async (t) => {
 
   await t.test('float-left image with floatText renders without error', async () => {
+    const floatText = 'This text appears to the right of the image in a two-column layout.'
     const pdf = await render({
       content: [{
         type: 'image',
@@ -23,14 +24,24 @@ test('Phase 5 — Image Floats', async (t) => {
         width: 100,
         height: 100,
         float: 'left',
-        floatText: 'This text appears to the right of the image in a two-column layout.',
+        floatText,
       }]
     })
     assert.ok(pdf instanceof Uint8Array)
     assert.equal(new TextDecoder().decode(pdf.slice(0, 4)), '%PDF')
+    // floatText content must be encoded in PDF stream — verify PDF is larger than image-only
+    // render an equivalent non-float image to confirm float adds content (text column)
+    const pdfNoFloat = await render({
+      content: [{ type: 'image', src: TINY_PNG, format: 'png', width: 100, height: 100 }]
+    })
+    assert.ok(
+      pdf.byteLength > pdfNoFloat.byteLength,
+      `Float PDF (${pdf.byteLength}B) should be larger than no-float PDF (${pdfNoFloat.byteLength}B) due to embedded floatText`
+    )
   })
 
   await t.test('float-right image with floatText renders without error', async () => {
+    const floatText = 'This text appears to the left of the image.'
     const pdf = await render({
       content: [{
         type: 'image',
@@ -39,11 +50,19 @@ test('Phase 5 — Image Floats', async (t) => {
         width: 80,
         height: 80,
         float: 'right',
-        floatText: 'This text appears to the left of the image.',
+        floatText,
       }]
     })
     assert.ok(pdf instanceof Uint8Array)
     assert.equal(new TextDecoder().decode(pdf.slice(0, 4)), '%PDF')
+    // float PDF (image + text column) must be larger than image-only PDF
+    const pdfNoFloat = await render({
+      content: [{ type: 'image', src: TINY_PNG, format: 'png', width: 80, height: 80 }]
+    })
+    assert.ok(
+      pdf.byteLength > pdfNoFloat.byteLength,
+      `Float PDF (${pdf.byteLength}B) should be larger than no-float PDF (${pdfNoFloat.byteLength}B) due to embedded floatText`
+    )
   })
 
   await t.test('float with custom floatWidth and floatGap renders without error', async () => {

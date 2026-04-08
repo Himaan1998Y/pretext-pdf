@@ -80,27 +80,31 @@ test('Phase 3 — Cryptographic Digital Signatures', async (t) => {
   })
 
   await t.test('non-existent p12 file path throws SIGNATURE_P12_LOAD_FAILED or SIGNATURE_DEP_MISSING', async () => {
-    try {
-      await render(minDoc({ p12: '/tmp/__nonexistent_cert_pretext_test_abc123__.p12' }))
-    } catch (err: any) {
-      assert.ok(err instanceof PretextPdfError)
-      assert.ok(
-        err.code === 'SIGNATURE_P12_LOAD_FAILED' || err.code === 'SIGNATURE_DEP_MISSING',
-        `Expected SIGNATURE_P12_LOAD_FAILED or SIGNATURE_DEP_MISSING, got: ${err.code}`
-      )
-    }
+    await assert.rejects(
+      () => render(minDoc({ p12: '/tmp/__nonexistent_cert_pretext_test_abc123__.p12' })),
+      (err: any) => {
+        assert.ok(err instanceof PretextPdfError, `Expected PretextPdfError, got: ${err?.constructor?.name}`)
+        assert.ok(
+          err.code === 'SIGNATURE_P12_LOAD_FAILED' || err.code === 'SIGNATURE_DEP_MISSING',
+          `Expected SIGNATURE_P12_LOAD_FAILED or SIGNATURE_DEP_MISSING, got: ${err.code}`
+        )
+        return true
+      }
+    )
   })
 
   await t.test('p12 as invalid cert bytes throws a signature error code', async () => {
-    try {
-      await render(minDoc({ p12: new Uint8Array([0x30, 0x82, 0x01, 0x00]) }))
-    } catch (err: any) {
-      assert.ok(err instanceof PretextPdfError)
-      assert.ok(
-        ['SIGNATURE_DEP_MISSING', 'SIGNATURE_FAILED', 'SIGNATURE_P12_LOAD_FAILED'].includes(err.code),
-        `Expected a signature error, got: ${err.code}`
-      )
-    }
+    await assert.rejects(
+      () => render(minDoc({ p12: new Uint8Array([0x30, 0x82, 0x01, 0x00]) })),
+      (err: any) => {
+        assert.ok(err instanceof PretextPdfError, `Expected PretextPdfError, got: ${err?.constructor?.name}`)
+        assert.ok(
+          ['SIGNATURE_DEP_MISSING', 'SIGNATURE_FAILED', 'SIGNATURE_P12_LOAD_FAILED'].includes(err.code),
+          `Expected a signature error, got: ${err.code}`
+        )
+        return true
+      }
+    )
   })
 
 })

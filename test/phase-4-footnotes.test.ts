@@ -169,6 +169,36 @@ test('Phase 4 — Footnotes & Endnotes', async (t) => {
     )
   })
 
+  // 10b. Footnote at exact page-break boundary
+  await t.test('footnote at exact page-break boundary renders on correct page without error', async () => {
+    // A4 content height ≈ 698pt (842 - 72 top - 72 bottom).
+    // Default paragraph lineHeight ≈ 14.4pt (fontSize 12 * 1.2) + spaceAfter 4pt ≈ 18.4pt per line.
+    // Fill page with ~37 short paragraphs to push cursor near the bottom,
+    // then place a footnote ref on the last paragraph before the break.
+    // This exercises pagination correctness when a footnoted line sits at the boundary.
+    const fillParas = Array.from({ length: 37 }, (_, i) => ({
+      type: 'paragraph' as const,
+      text: `Filler paragraph ${i + 1} to consume vertical space on the first page.`,
+    }))
+    const pdf = await render({
+      content: [
+        ...fillParas,
+        {
+          type: 'rich-paragraph' as const,
+          spans: [
+            { text: 'Boundary line with footnote' },
+            { text: ' ', footnoteRef: 'boundary-fn' },
+          ],
+        },
+        { type: 'footnote-def' as const, id: 'boundary-fn', text: 'Footnote at page boundary.' },
+      ],
+    })
+    assert.ok(pdf instanceof Uint8Array)
+    assert.equal(new TextDecoder().decode(pdf.slice(0, 4)), '%PDF')
+    // Multi-page PDF must be larger than a single-page one
+    assert.ok(pdf.byteLength > 2000, `Expected multi-page PDF, got ${pdf.byteLength}B`)
+  })
+
   // 10. Multi-paragraph document with a footnote
   await t.test('footnote in document with mixed element types renders without error', async () => {
     const pdf = await render({

@@ -31,6 +31,8 @@ export type ErrorCode =
   | 'FOOTNOTE_REF_ORPHANED'
   | 'FOOTNOTE_DEF_ORPHANED'
   | 'FOOTNOTE_DEF_DUPLICATE'
+  | 'PAGINATION_FAILED'
+  | 'RENDER_FAILED'
 
 export class PretextPdfError extends Error {
   readonly code: ErrorCode
