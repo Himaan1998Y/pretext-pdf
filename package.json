@@ -39,6 +39,10 @@
     "example:annotations": "tsx examples/phase8-annotations.ts",
     "example:assembly": "tsx examples/phase8-assembly.ts",
     "example:inline": "tsx examples/phase8-inline.ts",
+    "example:showcase-invoice": "tsx examples/showcase-invoice.ts",
+    "example:showcase-report": "tsx examples/showcase-report.ts",
+    "example:showcase-resume": "tsx examples/showcase-resume.ts",
+    "screenshots": "npm run example:showcase-invoice && npm run example:showcase-report && npm run example:showcase-resume && node scripts/screenshot.cjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

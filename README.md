@@ -38,6 +38,17 @@ JSON descriptor  →  pretext layout  →  pdf-lib renderer  →  PDF bytes
 
 ---
 
+## Output Samples
+
+Real documents generated with pretext-pdf:
+
+| Invoice | Market Report | Resume / CV |
+|---------|--------------|-------------|
+| [![Invoice](docs/screenshots/showcase-invoice.png)](examples/showcase-invoice.ts) | [![Report](docs/screenshots/showcase-report.png)](examples/showcase-report.ts) | [![Resume](docs/screenshots/showcase-resume.png)](examples/showcase-resume.ts) |
+| [View source](examples/showcase-invoice.ts) | [View source](examples/showcase-report.ts) | [View source](examples/showcase-resume.ts) |
+
+---
+
 ## Install
 
 ```bash
