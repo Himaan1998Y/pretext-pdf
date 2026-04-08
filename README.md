@@ -8,7 +8,7 @@
 [![npm downloads](https://img.shields.io/npm/dw/pretext-pdf)](https://www.npmjs.com/package/pretext-pdf)
 [![CI](https://github.com/Himaan1998Y/pretext-pdf/actions/workflows/ci.yml/badge.svg)](https://github.com/Himaan1998Y/pretext-pdf/actions)
 [![TypeScript](https://img.shields.io/badge/typescript-strict-blue)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-146%2B-brightgreen)](#test-coverage)
+[![Tests](https://img.shields.io/badge/tests-150%2B-brightgreen)](#test-coverage)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ---
@@ -55,11 +55,12 @@ Real documents generated with pretext-pdf:
 npm install pretext-pdf
 ```
 
-Optional peer dependencies:
+Optional peer dependency (for SVG support):
 ```bash
-npm install @cantoo/pdf-lib    # Required for encryption
-npm install @napi-rs/canvas    # Required for SVG support (auto-installed in most setups)
+npm install @napi-rs/canvas    # Required for SVG elements (auto-installed in most setups)
 ```
+
+> **Encryption is built-in since v0.4.0** — no extra install needed. Just add `encryption` to your document config.
 
 ---
 
@@ -289,7 +290,6 @@ try {
       case 'VALIDATION_ERROR':   // Invalid config
       case 'FONT_LOAD_FAILED':   // Font file not found
       case 'IMAGE_TOO_TALL':     // Image doesn't fit on page
-      case 'ENCRYPTION_NOT_AVAILABLE':  // @cantoo/pdf-lib not installed
       case 'ASSEMBLY_EMPTY':     // merge/assemble called with empty array
       // ... see CHANGELOG.md for full list
     }
@@ -317,12 +317,19 @@ hyphenation: { language: 'en-US' }
 hyphenation: { language: 'en-us' }
 ```
 
-### Encryption requires optional dependency
+### Encryption
 
-Install `@cantoo/pdf-lib` separately before using `doc.encryption`:
+Encryption is built-in since v0.4.0. Add `encryption` to your document config:
 
-```bash
-npm install @cantoo/pdf-lib
+```typescript
+const pdf = await render({
+  encryption: {
+    userPassword: 'open123',
+    ownerPassword: 'admin456',
+    permissions: { printing: true, copying: false, modifying: false }
+  },
+  content: [...]
+})
 ```
 
 ### SVG rendering requires optional dependency
