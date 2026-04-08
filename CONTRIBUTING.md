@@ -12,7 +12,7 @@ Thanks for your interest in pretext-pdf! We welcome contributions of all kinds: 
 
 ```bash
 # Clone the repository
-git clone https://github.com/Himanshu-Jain-32/pretext-pdf.git
+git clone https://github.com/Himaan1998Y/pretext-pdf.git
 cd pretext-pdf
 
 # Install dependencies
@@ -36,6 +36,8 @@ npm run test:unit          # Unit tests only (fast)
 npm run test:validate      # Validation & builder tests
 npm run test:e2e           # End-to-end tests
 npm run test:phases        # Phase-specific feature tests
+npm run test:phase-7       # All Phase 7 feature tests
+npm run test:phase-8       # All Phase 8 feature tests
 
 # Run all examples
 npm run example            # Invoice example
@@ -44,13 +46,15 @@ npm run example:bookmarks  # Phase 7A: Bookmarks & outline
 npm run example:toc        # Phase 7D: Table of contents
 npm run example:rtl        # Phase 7F: RTL text (Arabic/Hebrew)
 npm run example:encryption # Phase 7G: Password protection
+npm run example:forms      # Phase 8B: Interactive forms
+npm run example:callout    # Phase 8D: Callout boxes
 ```
 
 ## Workflow
 
 ### Before Writing Code
 
-1. **Search existing issues** — Check [GitHub Issues](https://github.com/Himanshu-Jain-32/pretext-pdf/issues) to avoid duplicates
+1. **Search existing issues** — Check [GitHub Issues](https://github.com/Himaan1998Y/pretext-pdf/issues) to avoid duplicates
 2. **Open an issue** for discussion on non-trivial features
 3. **Check CHANGELOG.md** to understand recent changes and avoid conflicts
 
@@ -141,6 +145,8 @@ src/
 ├── render.ts          # PDF rendering: fonts, text, tables, images
 ├── fonts.ts           # Font loading, embedding, subsetting
 ├── rich-text.ts       # Rich paragraph parsing & layout
+├── assets.ts          # Bundled asset paths (fonts, icons)
+├── node-polyfill.ts   # Node.js compatibility shims
 └── builder.ts         # Fluent builder API (createPdf fluency)
 ```
 
@@ -154,14 +160,14 @@ Each phase adds new capabilities. Current status:
 | 5 | Rich text / Builder | ✅ Complete |
 | 6 | Advanced features | ✅ Complete |
 | 7A-7G | Bookmarks, watermarks, encryption, TOC, RTL | ✅ Complete |
-| 8A | Comments/Annotations | ⏳ Planned |
-| 8B | Forms | ⏳ Planned |
-| 8C | Document assembly | ⏳ Planned |
-| 8D | Advanced layout | ⏳ Planned |
-| 8E | Digital signatures | ⏳ Planned |
-| 8F | Font subsetting improvements | ⏳ Planned |
-| 8G | **Hyperlinks** | ⏳ Planned (highest priority) |
-| 8H | Inline formatting | ⏳ Planned |
+| 8A | Comments/Annotations | ✅ Complete |
+| 8B | Interactive forms (text/checkbox/radio/dropdown/button) | ✅ Complete |
+| 8C | Document assembly | ✅ Complete |
+| 8D | Callout boxes (info/warning/tip/note) | ✅ Complete |
+| 8E | Signature placeholder | ✅ Complete |
+| 8F | Document metadata (language, producer) | ✅ Complete |
+| 8G | Hyperlinks | ✅ Complete |
+| 8H | Inline formatting (super/subscript, letterSpacing, smallCaps) | ✅ Complete |
 
 ## Reporting Bugs
 

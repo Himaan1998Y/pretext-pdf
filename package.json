@@ -2,13 +2,21 @@
   "name": "pretext-pdf",
   "version": "0.3.0",
   "description": "Declarative JSON → PDF generation with professional typography. Built on pretext's precision text layout engine.",
-  "keywords": ["pdf", "pdf-generation", "pretext", "typography", "invoice", "report", "document"],
+  "keywords": ["pdf", "pdf-generation", "pretext", "typography", "invoice", "report", "document", "typescript", "nodejs", "type-safe", "forms", "rtl", "hyphenation"],
   "author": "Himanshu Jain <himanshu@antigravity.dev>",
   "license": "MIT",
+  "homepage": "https://github.com/Himaan1998Y/pretext-pdf#readme",
+  "bugs": {
+    "url": "https://github.com/Himaan1998Y/pretext-pdf/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/Himaan1998Y/pretext-pdf.git"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "sideEffects": false,
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -25,6 +33,8 @@
     "test:validate": "tsx --test test/validate.test.ts test/builder.test.ts",
     "test:e2e": "tsx --test test/e2e.test.ts",
     "test:phases": "tsx --test test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts test/phase-8g-hyperlinks.test.ts test/phase-8h-inline-formatting.test.ts test/phase-8a-annotations.test.ts test/phase-8c-assembly.test.ts test/phase-8f-metadata.test.ts test/phase-8e-signatures.test.ts test/phase-8b-forms.test.ts test/phase-8d-callout.test.ts",
+    "test:phase-7": "tsx --test test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts",
+    "test:phase-8": "tsx --test test/phase-8g-hyperlinks.test.ts test/phase-8h-inline-formatting.test.ts test/phase-8a-annotations.test.ts test/phase-8c-assembly.test.ts test/phase-8b-forms.test.ts test/phase-8d-callout.test.ts test/phase-8e-signatures.test.ts test/phase-8f-metadata.test.ts",
     "test:8d": "tsx --test test/phase-8d-callout.test.ts",
     "test:8f": "tsx --test test/phase-8f-metadata.test.ts",
     "test:8e": "tsx --test test/phase-8e-signatures.test.ts",
@@ -43,6 +53,8 @@
     "example:annotations": "tsx examples/phase8-annotations.ts",
     "example:assembly": "tsx examples/phase8-assembly.ts",
     "example:inline": "tsx examples/phase8-inline.ts",
+    "example:forms": "tsx examples/phase8-forms.ts",
+    "example:callout": "tsx examples/phase8-callout.ts",
     "example:showcase-invoice": "tsx examples/showcase-invoice.ts",
     "example:showcase-report": "tsx examples/showcase-report.ts",
     "example:showcase-resume": "tsx examples/showcase-resume.ts",

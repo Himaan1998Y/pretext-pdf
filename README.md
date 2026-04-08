@@ -109,6 +109,45 @@ const pdf = await createPdf({ pageSize: 'A4' })
 
 ---
 
+## Agent / AI Integration
+
+pretext-pdf works great as a tool for AI agents generating PDFs on demand.
+
+### Quick pattern for LLMs
+
+```typescript
+import { render } from 'pretext-pdf'
+
+// Every PdfDocument is a plain JSON object — perfect for AI generation
+const pdf = await render({
+  metadata: { title: 'AI-Generated Report' },
+  content: [
+    { type: 'heading', level: 1, text: 'Summary' },
+    { type: 'paragraph', text: 'Generated content here.' },
+    // ... AI fills this array
+  ]
+})
+```
+
+### Key facts for AI agents
+
+- `content` is an array of typed elements — each has a `type` field
+- All fields are optional except `type` and element-specific required fields (e.g. `text`, `level`)
+- Errors are typed: `err.code` tells you exactly what went wrong
+- `render()` is fully async, safe to `await` in any context
+- Works in Node.js 18+ and modern browsers (with `@napi-rs/canvas` for SVG)
+
+### Element type reference (quick)
+
+```
+paragraph    heading(1-4)   spacer       hr           page-break
+table        image          svg          list         code
+blockquote   rich-paragraph callout      comment      form-field
+toc
+```
+
+---
+
 ## Features
 
 ### Element Types
@@ -202,7 +241,7 @@ const pdf = await render({
   watermark: { text: 'DRAFT', opacity: 0.15, rotation: -45 },
   encryption: { userPassword: 'open', ownerPassword: 'admin', permissions: { printing: true, copying: false } },
   bookmarks: { minLevel: 1, maxLevel: 3 },
-  hyphenation: { language: 'en-us', minWordLength: 6 },
+  hyphenation: { language: 'en-us', minWordLength: 6 }, // ⚠️ Use lowercase: 'en-us' not 'en-US' — matches the npm package name hyphenation.en-us
   header: { text: 'My Document — {{pageNumber}} of {{totalPages}}', align: 'right' },
   footer: { text: 'Confidential', align: 'center', color: '#999999' },
   content: [ /* ContentElement[] */ ],
@@ -260,15 +299,65 @@ try {
 
 ---
 
-## Test Coverage
+## Troubleshooting
 
-113 tests across all phases:
+### Hyphenation language not found
+
+```
+UNSUPPORTED_LANGUAGE: Language 'en-US' not supported
+```
+
+Use **lowercase** language codes that match the npm package name:
+
+```typescript
+// Wrong — 'en-US' fails on Linux (case-sensitive filesystem)
+hyphenation: { language: 'en-US' }
+
+// Correct — matches 'hyphenation.en-us' package name
+hyphenation: { language: 'en-us' }
+```
+
+### Encryption requires optional dependency
+
+Install `@cantoo/pdf-lib` separately before using `doc.encryption`:
 
 ```bash
-npm test              # All 113 tests
+npm install @cantoo/pdf-lib
+```
+
+### SVG rendering requires optional dependency
+
+Install `@napi-rs/canvas` for SVG support:
+
+```bash
+npm install @napi-rs/canvas
+```
+
+### PDF is blank or too small
+
+Check margins — if left+right margins exceed page width, content width becomes negative:
+
+```typescript
+// For narrow pages, reduce margins:
+margins: { top: 36, bottom: 36, left: 36, right: 36 }
+```
+
+### Form fields not interactive after flattenForms
+
+`flattenForms: true` bakes fields into static content — by design. Remove it to keep interactive.
+
+---
+
+## Test Coverage
+
+146 tests across all phases:
+
+```bash
+npm test              # All 146 tests
 npm run test:unit     # Validation, builder, rich-text unit tests
 npm run test:e2e      # End-to-end render tests
-npm run test:phases   # Phase 7A-7G + Phase 8A/8C/8G/8H feature tests
+npm run test:phase-7  # Phase 7A-7G feature tests
+npm run test:phase-8  # Phase 8A-8H feature tests
 ```
 
 ---
@@ -321,7 +410,7 @@ const pdf = await render({
 | Phase | Feature | Status |
 |-------|---------|--------|
 | 1–4 | Core engine, pagination, typography | ✅ |
-| 5 | Rich text, builder API | ✅ |
+| 5 | Rich text / builder API | ✅ |
 | 6 | Headers/footers, columns, decoration | ✅ |
 | 7A | PDF Bookmarks / Outline | ✅ |
 | 7B | Watermarks | ✅ |
@@ -330,14 +419,17 @@ const pdf = await render({
 | 7E | SVG support | ✅ |
 | 7F | RTL text (Arabic/Hebrew) | ✅ |
 | 7G | Encryption | ✅ |
+| 8A | Sticky note annotations | ✅ |
+| 8B | Interactive forms (text/checkbox/radio/dropdown/button) | ✅ |
+| 8C | Document assembly (merge + assemble) | ✅ |
+| 8D | Callout boxes (info/warning/tip/note) | ✅ |
+| 8E | Signature placeholder | ✅ |
+| 8F | Document metadata (language, producer) | ✅ |
 | 8G | Hyperlinks | ✅ |
 | 8H | Inline formatting (super/subscript, letterSpacing, smallCaps) | ✅ |
-| 8A | Sticky note annotations | ✅ |
-| 8C | Document assembly (merge + assemble) | ✅ |
-| 8F | Document metadata (language, producer) | ✅ |
-| 8B | Interactive forms (text/checkbox/radio/dropdown/button) | ✅ |
-| 8E | Signature placeholder | ✅ |
-| 8D | Callout boxes (info/warning/tip/note) | ✅ |
+| 9A | Digital signatures (cryptographic, PKCS#7) | 🔜 |
+| 9B | Image floats (text flowing around images) | 🔜 |
+| 9C | Font subsetting pre-computation | 🔜 |
 
 ---
 

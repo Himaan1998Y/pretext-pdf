@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       matrix:
         node-version: [18.x, 20.x, 22.x]
@@ -25,26 +25,44 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Security audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
       - name: Type check
         run: npm run typecheck
 
       - name: Build
         run: npm run build
 
-      - name: Run tests
-        run: npm test
+      - name: Unit & validation tests
+        run: npm run test:unit && npm run test:validate
 
-      - name: Run examples (smoke test)
+      - name: E2E tests
+        run: npm run test:e2e
+
+      - name: Phase 7 feature tests
+        run: npm run test:phase-7
+
+      - name: Phase 8 feature tests
+        run: npm run test:phase-8
+
+      - name: Smoke test examples (Phase 7)
         run: |
-          npm run example:watermark || true
-          npm run example:bookmarks || true
-          npm run example:toc || true
-          npm run example:rtl || true
-          npm run example:encryption || true
-          npm run example:hyperlinks || true
-          npm run example:annotations || true
-          npm run example:assembly || true
-          npm run example:inline || true
+          npm run example:watermark
+          npm run example:bookmarks
+          npm run example:toc
+          npm run example:rtl
+          npm run example:encryption
+
+      - name: Smoke test examples (Phase 8)
+        run: |
+          npm run example:hyperlinks
+          npm run example:annotations
+          npm run example:assembly
+          npm run example:inline
+          npm run example:forms
+          npm run example:callout
 
   publish:
     needs: test
