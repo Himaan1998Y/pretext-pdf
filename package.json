@@ -1,8 +1,22 @@
 {
   "name": "pretext-pdf",
-  "version": "0.4.0",
+  "version": "0.4.2",
   "description": "Declarative JSON → PDF generation with professional typography. Built on pretext's precision text layout engine.",
-  "keywords": ["pdf", "pdf-generation", "pretext", "typography", "invoice", "report", "document", "typescript", "nodejs", "type-safe", "forms", "rtl", "hyphenation"],
+  "keywords": [
+    "pdf",
+    "pdf-generation",
+    "pretext",
+    "typography",
+    "invoice",
+    "report",
+    "document",
+    "typescript",
+    "nodejs",
+    "type-safe",
+    "forms",
+    "rtl",
+    "hyphenation"
+  ],
   "author": "Himanshu Jain <himanshu@antigravity.dev>",
   "license": "MIT",
   "homepage": "https://github.com/Himaan1998Y/pretext-pdf#readme",
@@ -20,7 +34,13 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist/", "README.md", "LICENSE", "CHANGELOG.md"],
+  "files": [
+    "dist/",
+    "fonts/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "exports": {
     ".": {
       "import": "./dist/index.js",

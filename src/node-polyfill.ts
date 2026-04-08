@@ -50,13 +50,25 @@ export async function installNodePolyfill(): Promise<void> {
   // @ts-ignore — OffscreenCanvas is a browser global, not in Node.js types
   global.OffscreenCanvas = NodeOffscreenCanvas
 
+  // Resolve @fontsource/inter via createRequire to handle npm hoisting correctly.
+  // The old path.join(__dirname, '..', 'node_modules', ...) breaks when @fontsource/inter
+  // is hoisted to the consumer's node_modules (e.g. global npm install).
+  function resolveInterWoff2(filename: string): string | null {
+    try {
+      const pkgJson = require.resolve('@fontsource/inter/package.json')
+      return path.join(path.dirname(pkgJson), 'files', filename)
+    } catch {
+      return null
+    }
+  }
+
   // Register bundled Inter fonts so Pretext can measure them accurately
-  const fontVariants: Array<{ paths: string[]; family: string }> = [
+  const fontVariants: Array<{ paths: (string | null)[]; family: string }> = [
     {
       family: 'Inter',
       paths: [
-        path.join(__dirname, '..', 'node_modules', '@fontsource', 'inter', 'files', 'inter-latin-400-normal.woff2'),
-        path.join(__dirname, '..', 'node_modules', '@fontsource', 'inter', 'files', 'inter-all-400-normal.woff2'),
+        resolveInterWoff2('inter-latin-400-normal.woff2'),
+        resolveInterWoff2('inter-all-400-normal.woff2'),
         path.join(__dirname, '..', 'fonts', 'inter-latin-400-normal.woff2'),
       ],
     },
@@ -65,8 +77,8 @@ export async function installNodePolyfill(): Promise<void> {
       // bold variant automatically when the CSS font string includes "bold"
       family: 'Inter',
       paths: [
-        path.join(__dirname, '..', 'node_modules', '@fontsource', 'inter', 'files', 'inter-latin-700-normal.woff2'),
-        path.join(__dirname, '..', 'node_modules', '@fontsource', 'inter', 'files', 'inter-all-700-normal.woff2'),
+        resolveInterWoff2('inter-latin-700-normal.woff2'),
+        resolveInterWoff2('inter-all-700-normal.woff2'),
         path.join(__dirname, '..', 'fonts', 'inter-latin-700-normal.woff2'),
       ],
     },
@@ -75,7 +87,7 @@ export async function installNodePolyfill(): Promise<void> {
   let anyLoaded = false
   for (const variant of fontVariants) {
     for (const fontPath of variant.paths) {
-      if (fs.existsSync(fontPath)) {
+      if (fontPath && fs.existsSync(fontPath)) {
         try {
           GlobalFonts.registerFromPath(fontPath, variant.family)
           anyLoaded = true
