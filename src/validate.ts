@@ -146,6 +146,24 @@ export function validate(doc: PdfDocument): void {
     if (sig.fontSize !== undefined && (typeof sig.fontSize !== 'number' || sig.fontSize <= 0)) {
       throw new PretextPdfError('VALIDATION_ERROR', 'signature.fontSize must be a positive number')
     }
+    // Phase 3: crypto signature validation
+    if (sig.p12 !== undefined) {
+      if (typeof sig.p12 !== 'string' && !(sig.p12 instanceof Uint8Array)) {
+        throw new PretextPdfError('VALIDATION_ERROR', 'signature.p12 must be a file path string or Uint8Array of certificate bytes')
+      }
+      if (typeof sig.p12 === 'string' && sig.p12.trim() === '') {
+        throw new PretextPdfError('VALIDATION_ERROR', 'signature.p12 must not be an empty string')
+      }
+    }
+    if (sig.passphrase !== undefined && typeof sig.passphrase !== 'string') {
+      throw new PretextPdfError('VALIDATION_ERROR', 'signature.passphrase must be a string')
+    }
+    if (sig.contactInfo !== undefined && typeof sig.contactInfo !== 'string') {
+      throw new PretextPdfError('VALIDATION_ERROR', 'signature.contactInfo must be a string')
+    }
+    if (sig.p12 !== undefined && doc.encryption !== undefined) {
+      throw new PretextPdfError('VALIDATION_ERROR', 'Cannot use both signature.p12 (cryptographic signing) and encryption together — the encryption step would invalidate the cryptographic signature.')
+    }
   }
 
   // bookmarks
@@ -592,6 +610,25 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
       }
       if (el.spaceBefore !== undefined && (typeof el.spaceBefore !== 'number' || el.spaceBefore < 0 || !isFinite(el.spaceBefore))) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (image): 'spaceBefore' must be a non-negative finite number`)
+      }
+      // Phase 5: float validation
+      if (el.float !== undefined && el.float !== 'left' && el.float !== 'right') {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (image): 'float' must be 'left' or 'right'`)
+      }
+      if (el.float !== undefined && (!el.floatText || el.floatText.trim() === '')) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (image): 'floatText' is required when 'float' is set`)
+      }
+      if (el.floatText !== undefined && el.float === undefined) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (image): 'floatText' has no effect without 'float'`)
+      }
+      if (el.floatWidth !== undefined && (typeof el.floatWidth !== 'number' || el.floatWidth <= 0 || !isFinite(el.floatWidth))) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (image): 'floatWidth' must be a positive finite number`)
+      }
+      if (el.floatGap !== undefined && (typeof el.floatGap !== 'number' || el.floatGap < 0 || !isFinite(el.floatGap))) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (image): 'floatGap' must be a non-negative number`)
+      }
+      if (el.floatFontSize !== undefined && (typeof el.floatFontSize !== 'number' || el.floatFontSize <= 0)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (image): 'floatFontSize' must be a positive number`)
       }
       break
     }

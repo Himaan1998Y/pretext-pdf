@@ -208,7 +208,8 @@ export async function render(doc: PdfDocument): Promise<Uint8Array> {
   }
 
   const rawBytes = await renderDocument(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo)
-  return doc.encryption ? await applyEncryption(rawBytes, doc.encryption) : rawBytes
+  const signedBytes = (doc.signature?.p12) ? await applySignature(rawBytes, doc.signature) : rawBytes
+  return doc.encryption ? await applyEncryption(signedBytes, doc.encryption) : signedBytes
 }
 
 /**
@@ -259,6 +260,74 @@ export async function assemble(parts: import('./types.js').AssemblyPart[]): Prom
     pages.forEach((p: any) => target.addPage(p))
   }
   return target.save()
+}
+
+/**
+ * Stage 6b: Apply cryptographic PKCS#7/CMS signature (post-process).
+ * Requires the optional peer dep @signpdf/signpdf.
+ */
+async function applySignature(
+  pdfBytes: Uint8Array,
+  sig: NonNullable<PdfDocument['signature']>
+): Promise<Uint8Array> {
+  // Lazy-load @signpdf/signpdf — optional peer dep
+  let signpdfMod: any
+  try {
+    signpdfMod = await import('@signpdf/signpdf' as string)
+  } catch {
+    throw new PretextPdfError(
+      'SIGNATURE_DEP_MISSING',
+      'Cryptographic signing requires the @signpdf/signpdf package. Install it: npm install @signpdf/signpdf'
+    )
+  }
+
+  const { SignPdf, pdflibAddPlaceholder } = signpdfMod
+
+  // Load P12 certificate bytes
+  let p12Buffer: Buffer
+  try {
+    if (sig.p12 instanceof Uint8Array) {
+      p12Buffer = Buffer.from(sig.p12)
+    } else {
+      const { readFileSync } = await import('node:fs')
+      p12Buffer = readFileSync(sig.p12 as string)
+    }
+  } catch (e) {
+    throw new PretextPdfError(
+      'SIGNATURE_P12_LOAD_FAILED',
+      `Failed to load P12 certificate: ${e instanceof Error ? e.message : String(e)}`
+    )
+  }
+
+  // Re-load into PDFDocument to inject the byte-range placeholder dict
+  const pdfDoc = await PDFDocument.load(pdfBytes)
+
+  pdflibAddPlaceholder({
+    pdfDoc,
+    reason:      sig.reason      ?? 'Signed',
+    contactInfo: sig.contactInfo ?? '',
+    name:        sig.signerName  ?? '',
+    location:    sig.location    ?? '',
+  })
+
+  const pdfWithPlaceholder = await pdfDoc.save({ useObjectStreams: false })
+
+  const signer = new SignPdf()
+  let signedBuffer: Buffer
+  try {
+    signedBuffer = await signer.sign(
+      Buffer.from(pdfWithPlaceholder),
+      p12Buffer,
+      sig.passphrase !== undefined ? { passphrase: sig.passphrase } : undefined
+    )
+  } catch (e) {
+    throw new PretextPdfError(
+      'SIGNATURE_FAILED',
+      `PDF signing failed: ${e instanceof Error ? e.message : String(e)}`
+    )
+  }
+
+  return new Uint8Array(signedBuffer)
 }
 
 /**

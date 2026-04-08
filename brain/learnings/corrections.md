@@ -257,3 +257,5 @@
 [2026-04-08T21:40:51.893Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\package.json
 
 [2026-04-08T21:40:55.883Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\package.json
+
+[2026-04-08T22:24:32.442Z] file: f:\Antigravity\brain\projects\pretext-pdf\package.json

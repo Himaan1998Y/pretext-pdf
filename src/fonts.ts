@@ -214,6 +214,8 @@ function collectNeededFonts(doc: PdfDocument): Map<string, FontSpec & { src: str
       const weight = el.fontWeight ?? 400
       const style = el.fontStyle ?? 'normal'
       addFont(family, weight, style)
+    } else if (el.type === 'image' && el.floatFontFamily) {
+      addFont(el.floatFontFamily, 400, 'normal')
     }
     // spacer, image, hr, page-break use default font (already added)
   }

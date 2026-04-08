@@ -115,7 +115,11 @@ function renderBlock(
 
     case 'svg':
     case 'image':
-      renderImage(pdfPage, pagedBlock, geo, imageMap)
+      if (measuredBlock.floatData) {
+        renderFloatBlock(pdfPage, pagedBlock, geo, fontMap, imageMap, pdfDoc)
+      } else {
+        renderImage(pdfPage, pagedBlock, geo, imageMap)
+      }
       return
 
     case 'hr':
@@ -567,6 +571,56 @@ function renderImage(
     width: imageData.renderWidth,
     height: imageData.renderHeight,
   })
+}
+
+// ─── Float image block rendering ─────────────────────────────────────────────
+
+function renderFloatBlock(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  pagedBlock: PagedBlock,
+  geo: PageGeometry,
+  fontMap: FontMap,
+  imageMap: ImageMap,
+  pdfDoc: PDFDocument,
+): void {
+  const { measuredBlock, yFromTop } = pagedBlock
+  const fd = measuredBlock.floatData!
+  const baseAbsY = yFromTop + geo.margins.top + geo.headerHeight
+
+  // Draw image
+  const pdfImage = imageMap.get(fd.imageKey)
+  if (!pdfImage) return
+
+  const imgX = geo.margins.left + fd.imageColX
+  const imgPdfY = toPdfY(baseAbsY, fd.imageRenderHeight, geo.pageHeight)
+  pdfPage.drawImage(pdfImage, {
+    x: imgX,
+    y: imgPdfY,
+    width: fd.imageRenderWidth,
+    height: fd.imageRenderHeight,
+  })
+
+  // Draw text lines
+  const pdfFont = fontMap.get(fd.textFontKey)
+  if (!pdfFont) return
+
+  const fontHeight = pdfFont.heightAtSize(fd.textFontSize)
+  const [r, g, b] = hexToRgb(fd.textColor)
+  const textBaseX = geo.margins.left + fd.textColX
+
+  for (let i = 0; i < fd.textLines.length; i++) {
+    const line = fd.textLines[i]!
+    if (!line.text || line.text === '') continue
+    const lineAbsY = baseAbsY + (i * fd.textLineHeight)
+    const pdfY = toPdfY(lineAbsY, fontHeight, geo.pageHeight)
+    pdfPage.drawText(line.text.trimEnd(), {
+      x: textBaseX,
+      y: pdfY,
+      size: fd.textFontSize,
+      font: pdfFont,
+      color: rgb(r, g, b),
+    })
+  }
 }
 
 // ─── Horizontal rule rendering ────────────────────────────────────────────────

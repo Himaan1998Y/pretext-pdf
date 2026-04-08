@@ -152,6 +152,16 @@ export interface SignatureSpec {
   borderColor?: string
   /** Font size for text inside box in pt. Default: 8 */
   fontSize?: number
+  /**
+   * Path to a PKCS#12 (.p12/.pfx) certificate file, or Uint8Array of cert bytes.
+   * When provided, a real PKCS#7/CMS digital signature is embedded in the PDF.
+   * Requires the `@signpdf/signpdf` optional peer dependency.
+   */
+  p12?: string | Uint8Array
+  /** Passphrase to decrypt the P12 certificate. Omit if cert has no passphrase. */
+  passphrase?: string
+  /** Contact info (e.g. email) embedded in the signature dictionary. Default: '' */
+  contactInfo?: string
 }
 
 export interface BookmarkConfig {
@@ -442,6 +452,24 @@ export interface ImageElement {
   spaceAfter?: number
   /** Space above image in pt. Default: 0 */
   spaceBefore?: number
+  /**
+   * If set, renders image + floatText as a two-column composite block.
+   * 'left' = image left, text right. 'right' = image right, text left.
+   * NOTE: Constrained float only — floatText is a single paragraph alongside the image.
+   */
+  float?: 'left' | 'right'
+  /** Image column width in pt. Default: 35% of content width. */
+  floatWidth?: number
+  /** Gap between image and text columns in pt. Default: 12 */
+  floatGap?: number
+  /** Text rendered alongside the image. Required when float is set. */
+  floatText?: string
+  /** Font size for floatText in pt. Default: doc.defaultFontSize */
+  floatFontSize?: number
+  /** Font family for floatText. Default: doc.defaultFont */
+  floatFontFamily?: string
+  /** Text color for floatText as 6-digit hex. Default: '#000000' */
+  floatColor?: string
 }
 
 // ─── SVG ──────────────────────────────────────────────────────────────────────
@@ -842,6 +870,21 @@ export interface MeasuredBlock {
     columnGap: number
     columnWidth: number
     linesPerColumn: number
+  }
+  // ─── Phase 5 (Image Float): optional payload ────────────────────────────────
+  /** Only set when element.type === 'image' and element.float is set. */
+  floatData?: {
+    imageKey: string
+    imageRenderWidth: number
+    imageRenderHeight: number
+    imageColX: number
+    textColX: number
+    textColWidth: number
+    textLines: PretextLine[]
+    textFontKey: string
+    textFontSize: number
+    textLineHeight: number
+    textColor: string
   }
   // ─── Phase 7F: RTL support ────────────────────────────────────────────
   /** Set to true if this block is RTL (right-to-left text). Used to apply right-align default in render.ts. */

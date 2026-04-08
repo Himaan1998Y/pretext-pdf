@@ -24,6 +24,10 @@ export type ErrorCode =
   | 'ASSEMBLY_FAILED'
   | 'FORM_FIELD_NAME_DUPLICATE'
   | 'FORM_FLATTEN_FAILED'
+  | 'SIGNATURE_DEP_MISSING'
+  | 'SIGNATURE_P12_LOAD_FAILED'
+  | 'SIGNATURE_FAILED'
+  | 'SIGNATURE_CERT_AND_ENCRYPTION'
 
 export class PretextPdfError extends Error {
   readonly code: ErrorCode

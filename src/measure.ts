@@ -633,6 +633,88 @@ async function measureImageWithKey(
   }
 }
 
+// ─── Float image block measurement ───────────────────────────────────────────
+
+async function measureFloatImageBlock(
+  element: import('./types.js').ImageElement,
+  imageKey: string,
+  imageMap: ImageMap,
+  contentWidth: number,
+  pageContentHeight: number,
+  doc: import('./types.js').PdfDocument,
+): Promise<MeasuredBlock> {
+  const floatWidth = element.floatWidth ?? (contentWidth * 0.35)
+  const floatGap = element.floatGap ?? 12
+  const textColWidth = contentWidth - floatWidth - floatGap
+
+  if (textColWidth < 50) {
+    throw new PretextPdfError('COLUMN_WIDTH_TOO_NARROW',
+      `Float image: text column would be ${textColWidth.toFixed(1)}pt (minimum 50pt). ` +
+      `Reduce floatWidth or increase page width.`)
+  }
+
+  // Measure the image at floatWidth using a synthetic element
+  const syntheticEl: import('./types.js').ImageElement = {
+    type: 'image',
+    src: element.src,
+    ...(element.format !== undefined ? { format: element.format } : {}),
+    width: floatWidth,
+    align: 'left',
+    spaceAfter: 0,
+    spaceBefore: 0,
+  }
+  const imageBlock = await measureImageWithKey(syntheticEl, imageKey, imageMap, floatWidth, pageContentHeight)
+  const imageRenderWidth = imageBlock.imageData!.renderWidth
+  const imageRenderHeight = imageBlock.imageData!.renderHeight
+
+  // Measure the float text
+  const fontSize = element.floatFontSize ?? doc.defaultFontSize ?? 12
+  const lineHeight = fontSize * 1.5
+  const fontFamily = element.floatFontFamily ?? doc.defaultFont ?? 'Inter'
+  const fontKey = buildFontKey(fontFamily, 400, 'normal')
+
+  const textLines = await measureText(
+    element.floatText!,
+    fontSize,
+    fontFamily,
+    400,
+    textColWidth,
+    lineHeight,
+    undefined,
+  )
+
+  // Column X positions
+  const imageColX = element.float === 'left' ? 0 : textColWidth + floatGap
+  const textColX = element.float === 'left' ? floatWidth + floatGap : 0
+
+  const textHeight = textLines.length * lineHeight
+  const compositeHeight = Math.max(imageRenderHeight, textHeight)
+
+  return {
+    element,
+    height: compositeHeight,
+    lines: [],
+    fontSize: 0,
+    lineHeight: 0,
+    fontKey: '',
+    spaceAfter: element.spaceAfter ?? 0,
+    spaceBefore: element.spaceBefore ?? 0,
+    floatData: {
+      imageKey,
+      imageRenderWidth,
+      imageRenderHeight,
+      imageColX,
+      textColX,
+      textColWidth,
+      textLines,
+      textFontKey: fontKey,
+      textFontSize: fontSize,
+      textLineHeight: lineHeight,
+      textColor: element.floatColor ?? '#000000',
+    },
+  }
+}
+
 // ─── List measurement (returns MeasuredBlock[]) ───────────────────────────────
 
 async function measureList(
@@ -1332,8 +1414,13 @@ export async function measureAllBlocks(
     if (el.type === 'image') {
       // Images need their specific imageMap key (keyed by content index in assets.ts)
       const imageKey = `img-${i}`
-      const block = await measureImageWithKey(el, imageKey, imageMap, contentWidth, pageContentHeight)
-      results.push(block)
+      if (el.float) {
+        const block = await measureFloatImageBlock(el, imageKey, imageMap, contentWidth, pageContentHeight, doc)
+        results.push(block)
+      } else {
+        const block = await measureImageWithKey(el, imageKey, imageMap, contentWidth, pageContentHeight)
+        results.push(block)
+      }
     } else if (el.type === 'svg') {
       const svgKey = `svg-${i}`
       // Synthetic ImageElement reuses existing measurement logic (aspect ratio, clamping, height validation)

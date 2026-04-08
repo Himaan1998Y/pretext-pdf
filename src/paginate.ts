@@ -234,7 +234,9 @@ function placeBlock(
   const el = block.element
   // List items use the parent ListElement — keepTogether not applicable (always false)
   // Multi-column blocks are always keepTogether — no mid-column page breaks in Phase 5B
-  const keepTogether = (block.columnData !== undefined)
+  const keepTogether = (block.floatData !== undefined)
+    ? true  // Float image blocks are atomic — never split across pages
+    : (block.columnData !== undefined)
     ? true  // Force keepTogether for multi-column blocks
     : (el.type === 'comment' || el.type === 'form-field')
       ? true  // Comment/annotation and form-field blocks are kept together
