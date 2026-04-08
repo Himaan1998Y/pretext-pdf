@@ -277,7 +277,7 @@ async function applyEncryption(pdfBytes: Uint8Array, enc: NonNullable<PdfDocumen
 
   encDoc.encrypt({
     userPassword: enc.userPassword ?? '',
-    ownerPassword: enc.ownerPassword ?? globalThis.crypto.randomUUID(),
+    ownerPassword: enc.ownerPassword ?? (await import('node:crypto')).randomUUID(),
     permissions: {
       printing: enc.permissions?.printing ?? true,
       copying: enc.permissions?.copying ?? true,
