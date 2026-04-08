@@ -1,4 +1,4 @@
-import type { PdfDocument, ContentElement, FontSpec } from './types.js'
+import type { PdfDocument, ContentElement, FontSpec, CommentElement } from './types.js'
 import { PretextPdfError } from './errors.js'
 import { resolvePageDimensions } from './page-sizes.js'
 
@@ -358,6 +358,14 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
       if (el.url !== undefined && (typeof el.url !== 'string' || el.url.trim() === '')) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (paragraph): 'url' must be a non-empty string if provided`)
       }
+      if (el.letterSpacing !== undefined && (typeof el.letterSpacing !== 'number' || el.letterSpacing < 0 || !isFinite(el.letterSpacing))) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (paragraph): 'letterSpacing' must be a non-negative finite number`)
+      }
+      if (el.annotation) {
+        if (!el.annotation.contents || el.annotation.contents.trim() === '') {
+          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (paragraph): annotation.contents is required and must be non-empty`)
+        }
+      }
       break
     }
 
@@ -400,6 +408,14 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
       }
       if (el.anchor !== undefined && (typeof el.anchor !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(el.anchor))) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (heading): 'anchor' must be alphanumeric with hyphens/underscores only. Got: '${el.anchor}'`)
+      }
+      if (el.letterSpacing !== undefined && (typeof el.letterSpacing !== 'number' || el.letterSpacing < 0 || !isFinite(el.letterSpacing))) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (heading): 'letterSpacing' must be a non-negative finite number`)
+      }
+      if (el.annotation) {
+        if (!el.annotation.contents || el.annotation.contents.trim() === '') {
+          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (heading): annotation.contents is required and must be non-empty`)
+        }
       }
       break
     }
@@ -671,6 +687,9 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
         if (span.href !== undefined && (typeof span.href !== 'string' || span.href.trim() === '')) {
           throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].href must be a non-empty string if provided`)
         }
+        if (span.verticalAlign !== undefined && span.verticalAlign !== 'superscript' && span.verticalAlign !== 'subscript') {
+          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].verticalAlign must be "superscript" or "subscript"`)
+        }
       }
       if (el.fontSize !== undefined && (typeof el.fontSize !== 'number' || el.fontSize <= 0 || !isFinite(el.fontSize))) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): 'fontSize' must be a positive finite number`)
@@ -825,6 +844,17 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
       break
     }
 
+    case 'comment': {
+      const commentEl = el as CommentElement
+      if (!commentEl.contents || typeof commentEl.contents !== 'string' || commentEl.contents.trim() === '') {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (comment): 'contents' is required and must be a non-empty string`)
+      }
+      if (commentEl.color !== undefined && !HEX_COLOR_REGEX.test(commentEl.color)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (comment): 'color' must be a valid 6-digit hex color`)
+      }
+      break
+    }
+
     case 'toc-entry': {
       // Internal type — should never appear in user input
       throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: 'toc-entry' is an internal type and cannot be used in document content`)
@@ -832,7 +862,7 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
 
     default: {
       const type = (el as { type: unknown }).type
-      throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: unknown element type '${String(type)}'. Valid types: 'paragraph', 'heading', 'spacer', 'table', 'image', 'svg', 'list', 'hr', 'page-break', 'code', 'rich-paragraph', 'blockquote', 'toc'`)
+      throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: unknown element type '${String(type)}'. Valid types: 'paragraph', 'heading', 'spacer', 'table', 'image', 'svg', 'list', 'hr', 'page-break', 'code', 'rich-paragraph', 'blockquote', 'toc', 'comment'`)
     }
   }
 }

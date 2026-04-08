@@ -41,6 +41,9 @@ export type {
   BookmarkConfig,
   HyphenationConfig,
   Margins,
+  CommentElement,
+  AnnotationSpec,
+  AssemblyPart,
 } from './types.js'
 export { PretextPdfError } from './errors.js'
 export type { ErrorCode } from './errors.js'
@@ -201,6 +204,56 @@ export async function render(doc: PdfDocument): Promise<Uint8Array> {
 
   const rawBytes = await renderDocument(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo)
   return doc.encryption ? await applyEncryption(rawBytes, doc.encryption) : rawBytes
+}
+
+/**
+ * Merge multiple pre-rendered PDFs into a single PDF.
+ * @param pdfs Array of Uint8Array PDF bytes to combine
+ * @returns Combined PDF bytes
+ */
+export async function merge(pdfs: Uint8Array[]): Promise<Uint8Array> {
+  if (!pdfs || pdfs.length === 0) {
+    throw new PretextPdfError('ASSEMBLY_EMPTY', 'merge() requires at least one PDF. Received empty array.')
+  }
+  const target = await PDFDocument.create()
+  for (const bytes of pdfs) {
+    let src: any
+    try {
+      src = await PDFDocument.load(bytes)
+    } catch (e) {
+      throw new PretextPdfError('ASSEMBLY_FAILED', `Failed to load PDF for merging: ${e instanceof Error ? e.message : String(e)}`)
+    }
+    const pages = await target.copyPages(src, src.getPageIndices())
+    pages.forEach((p: any) => target.addPage(p))
+  }
+  return target.save()
+}
+
+/**
+ * Assemble a PDF from a mix of new documents and pre-rendered PDF parts.
+ * @param parts Array of AssemblyPart — each is either a doc to render or raw PDF bytes
+ * @returns Combined PDF bytes
+ */
+export async function assemble(parts: import('./types.js').AssemblyPart[]): Promise<Uint8Array> {
+  if (!parts || parts.length === 0) {
+    throw new PretextPdfError('ASSEMBLY_EMPTY', 'assemble() requires at least one part. Received empty array.')
+  }
+  const target = await PDFDocument.create()
+  for (const part of parts) {
+    if (!part.doc && !part.pdf) {
+      throw new PretextPdfError('VALIDATION_ERROR', 'Each AssemblyPart must have either a doc or pdf property.')
+    }
+    const bytes = part.pdf ?? await render(part.doc!)
+    let src: any
+    try {
+      src = await PDFDocument.load(bytes)
+    } catch (e) {
+      throw new PretextPdfError('ASSEMBLY_FAILED', `Failed to load PDF part: ${e instanceof Error ? e.message : String(e)}`)
+    }
+    const pages = await target.copyPages(src, src.getPageIndices())
+    pages.forEach((p: any) => target.addPage(p))
+  }
+  return target.save()
 }
 
 /**

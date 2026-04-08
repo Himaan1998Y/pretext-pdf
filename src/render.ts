@@ -114,6 +114,14 @@ function renderBlock(
     case 'toc-entry':
       renderTocEntry(pdfPage, pagedBlock, geo, fontMap)
       return
+
+    case 'comment': {
+      const commentEl = element as import('./types.js').CommentElement
+      const absY = pagedBlock.yFromTop + geo.margins.top + geo.headerHeight
+      const pdfY = geo.pageHeight - absY
+      addStickyNoteAnnotation(pdfDoc, pdfPage, geo.margins.left, pdfY, commentEl.contents, commentEl.author, commentEl.color, commentEl.open)
+      return
+    }
   }
 }
 
@@ -212,35 +220,61 @@ function renderTextBlock(
     const absoluteYFromTop = lineYFromTop + geo.margins.top + geo.headerHeight
     const pdfY = toPdfY(absoluteYFromTop, fontHeight, geo.pageHeight)
 
-    const trimmedText = line.text.trimEnd()
+    let trimmedText = line.text.trimEnd()
     const isLastLine = i === lines.length - 1
 
+    // Phase 8H: smallCaps — uppercase text at 80% font size
+    const hasSmallCaps = (element.type === 'paragraph' || element.type === 'heading') && (element as any).smallCaps === true
+    const effectiveFontSize = hasSmallCaps ? measuredBlock.fontSize * 0.8 : measuredBlock.fontSize
+    if (hasSmallCaps) trimmedText = trimmedText.toUpperCase()
+
+    // Phase 8H: letterSpacing — draw char by char
+    const letterSpacing = ((element.type === 'paragraph' || element.type === 'heading') && (element as any).letterSpacing > 0)
+      ? (element as any).letterSpacing as number
+      : 0
+
     let drawX: number
-    if (alignRaw === 'justify') {
-      drawJustifiedLine(pdfPage, trimmedText, isLastLine, geo.margins.left, pdfY, geo.contentWidth, measuredBlock.fontSize, pdfFont, rgb(r, g, b))
+    if (alignRaw === 'justify' && letterSpacing === 0) {
+      drawJustifiedLine(pdfPage, trimmedText, isLastLine, geo.margins.left, pdfY, geo.contentWidth, effectiveFontSize, pdfFont, rgb(r, g, b))
       drawX = geo.margins.left // used for decoration below
+    } else if (letterSpacing > 0) {
+      const alignWidth = pdfFont.widthOfTextAtSize(trimmedText, effectiveFontSize) + letterSpacing * (trimmedText.length - 1)
+      drawX = resolveX(align, geo.margins.left, geo.contentWidth, alignWidth)
+      let cx = drawX
+      for (const ch of trimmedText) {
+        pdfPage.drawText(ch, { x: cx, y: pdfY, size: effectiveFontSize, font: pdfFont, color: rgb(r, g, b) })
+        cx += pdfFont.widthOfTextAtSize(ch, effectiveFontSize) + letterSpacing
+      }
     } else {
-      const alignWidth = pdfFont.widthOfTextAtSize(trimmedText, measuredBlock.fontSize)
+      const alignWidth = pdfFont.widthOfTextAtSize(trimmedText, effectiveFontSize)
       drawX = resolveX(align, geo.margins.left, geo.contentWidth, alignWidth)
       pdfPage.drawText(trimmedText, {
         x: drawX,
         y: pdfY,
-        size: measuredBlock.fontSize,
+        size: effectiveFontSize,
         font: pdfFont,
         color: rgb(r, g, b),
       })
     }
 
     if ((element.type === 'paragraph' || element.type === 'heading') && (element.underline || element.strikethrough)) {
-      const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, measuredBlock.fontSize)
-      drawTextDecoration(pdfPage, drawX, lineWidth, pdfY, measuredBlock.fontSize, pdfFont, [r, g, b], { underline: element.underline ?? false, strikethrough: element.strikethrough ?? false })
+      const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, effectiveFontSize) + (letterSpacing > 0 ? letterSpacing * (trimmedText.length - 1) : 0)
+      drawTextDecoration(pdfPage, drawX, lineWidth, pdfY, effectiveFontSize, pdfFont, [r, g, b], { underline: element.underline ?? false, strikethrough: element.strikethrough ?? false })
     }
 
     // Phase 8G: Wire paragraph.url and heading.url for clickable links
     if ((element.type === 'paragraph' || element.type === 'heading') && element.url) {
-      const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, measuredBlock.fontSize)
-      addLinkAnnotation(pdfDoc, pdfPage, drawX, pdfY, lineWidth, measuredBlock.fontSize, element.url)
+      const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, effectiveFontSize) + (letterSpacing > 0 ? letterSpacing * (trimmedText.length - 1) : 0)
+      addLinkAnnotation(pdfDoc, pdfPage, drawX, pdfY, lineWidth, effectiveFontSize, element.url)
     }
+  }
+
+  // Phase 8A: annotation on paragraph/heading — attach sticky note at top of block
+  if ((element.type === 'paragraph' || element.type === 'heading') && (element as any).annotation) {
+    const ann = (element as any).annotation
+    const absY = yFromTop + geo.margins.top + geo.headerHeight
+    const annotPdfY = geo.pageHeight - absY
+    addStickyNoteAnnotation(pdfDoc, pdfPage, geo.margins.left, annotPdfY, ann.contents, ann.author, ann.color, ann.open)
   }
 }
 
@@ -744,22 +778,23 @@ function renderRichParagraph(
         }
 
         const fontHeight = pdfFont.heightAtSize(fragment.fontSize)
-        const pdfY = toPdfY(lineYFromTop, fontHeight, geo.pageHeight)
+        const basePdfY = toPdfY(lineYFromTop, fontHeight, geo.pageHeight)
+        const fragmentPdfY = basePdfY + (fragment.yOffset ?? 0)
         const [r, g, b] = hexToRgb(fragment.color)
 
         const drawX = geo.margins.left + colOffsetX + fragment.x
         const drawText = fragment.text.trimEnd()
         pdfPage.drawText(drawText, {
           x: drawX,
-          y: pdfY,
+          y: fragmentPdfY,
           size: fragment.fontSize,
           font: pdfFont,
           color: rgb(r, g, b),
         })
         const fragWidth = pdfFont.widthOfTextAtSize(drawText, fragment.fontSize)
-        drawTextDecoration(pdfPage, drawX, fragWidth, pdfY, fragment.fontSize, pdfFont, [r, g, b], { underline: fragment.underline ?? false, strikethrough: fragment.strikethrough ?? false })
+        drawTextDecoration(pdfPage, drawX, fragWidth, fragmentPdfY, fragment.fontSize, pdfFont, [r, g, b], { underline: fragment.underline ?? false, strikethrough: fragment.strikethrough ?? false })
         if (fragment.url) {
-          addLinkAnnotation(pdfDoc, pdfPage, drawX, pdfY, fragWidth, fragment.fontSize, fragment.url)
+          addLinkAnnotation(pdfDoc, pdfPage, drawX, fragmentPdfY, fragWidth, fragment.fontSize, fragment.url)
         }
       }
       colCumY[colIdx]! += richLine.lineHeight
@@ -783,22 +818,23 @@ function renderRichParagraph(
       }
 
       const fontHeight = pdfFont.heightAtSize(fragment.fontSize)
-      const pdfY = toPdfY(lineYFromTop, fontHeight, geo.pageHeight)
+      const basePdfY = toPdfY(lineYFromTop, fontHeight, geo.pageHeight)
+      const fragmentPdfY = basePdfY + (fragment.yOffset ?? 0)
       const [r, g, b] = hexToRgb(fragment.color)
 
       const drawX = geo.margins.left + fragment.x
       const drawText = fragment.text.trimEnd()
       pdfPage.drawText(drawText, {
         x: drawX,
-        y: pdfY,
+        y: fragmentPdfY,
         size: fragment.fontSize,
         font: pdfFont,
         color: rgb(r, g, b),
       })
       const fragWidth = pdfFont.widthOfTextAtSize(drawText, fragment.fontSize)
-      drawTextDecoration(pdfPage, drawX, fragWidth, pdfY, fragment.fontSize, pdfFont, [r, g, b], { underline: fragment.underline ?? false, strikethrough: fragment.strikethrough ?? false })
+      drawTextDecoration(pdfPage, drawX, fragWidth, fragmentPdfY, fragment.fontSize, pdfFont, [r, g, b], { underline: fragment.underline ?? false, strikethrough: fragment.strikethrough ?? false })
       if (fragment.url) {
-        addLinkAnnotation(pdfDoc, pdfPage, drawX, pdfY, fragWidth, fragment.fontSize, fragment.url)
+        addLinkAnnotation(pdfDoc, pdfPage, drawX, fragmentPdfY, fragWidth, fragment.fontSize, fragment.url)
       }
     }
 
@@ -1044,6 +1080,46 @@ function addGoToAnnotation(
     annots.push(goToAnnot)
   } else {
     pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([goToAnnot]))
+  }
+}
+
+/**
+ * Adds a sticky-note (Text) annotation at the given position.
+ */
+function addStickyNoteAnnotation(
+  pdfDoc: PDFDocument,
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  x: number,
+  pdfY: number,
+  contents: string,
+  author?: string,
+  color?: string,
+  open?: boolean
+): void {
+  const hex = (color ?? '#FFFF00').replace('#', '')
+  const r = parseInt(hex.substring(0, 2), 16) / 255
+  const g = parseInt(hex.substring(2, 4), 16) / 255
+  const b = parseInt(hex.substring(4, 6), 16) / 255
+
+  const annotRef = pdfDoc.context.register(
+    pdfDoc.context.obj({
+      Type: 'Annot',
+      Subtype: 'Text',
+      Rect: [x, pdfY - 16, x + 16, pdfY],
+      Contents: PDFString.of(contents),
+      T: author ? PDFString.of(author) : PDFNull,
+      Open: open === true,
+      Name: 'Comment',
+      C: [r, g, b],
+    })
+  )
+
+  const existingAnnots = pdfPage.node.get(PDFName.of('Annots'))
+  if (existingAnnots) {
+    const annots = pdfDoc.context.lookup(existingAnnots) as any
+    annots.push(annotRef)
+  } else {
+    pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([annotRef]))
   }
 }
 

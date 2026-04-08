@@ -166,6 +166,19 @@ export async function measureBlock(
       }
     }
 
+    case 'comment': {
+      return {
+        element,
+        height: 20,
+        lines: [],
+        fontSize: 0,
+        lineHeight: 0,
+        fontKey: '',
+        spaceAfter: (element as any).spaceAfter ?? 0,
+        spaceBefore: 0,
+      }
+    }
+
     case 'paragraph': {
       // NEW (Phase 7F): Detect and reorder RTL text
       const { visual: visualText, isRTL, logical: logicalText } = await detectAndReorderRTL(element.text, element.dir)

@@ -21,6 +21,8 @@ export type ErrorCode =
   | 'SVG_RENDER_FAILED'
   | 'WATERMARK_ROTATION_OUT_OF_RANGE'
   | 'SVG_INVALID_MARKUP'
+  | 'ASSEMBLY_EMPTY'
+  | 'ASSEMBLY_FAILED'
 
 export class PretextPdfError extends Error {
   readonly code: ErrorCode

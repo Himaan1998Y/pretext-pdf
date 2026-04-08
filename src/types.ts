@@ -141,6 +141,38 @@ export interface HyphenationConfig {
   rightMin?: number
 }
 
+export interface AnnotationSpec {
+  /** Text content shown in the popup. Required. */
+  contents: string
+  /** Author name shown in popup header. Optional. */
+  author?: string
+  /** Annotation color as 6-digit hex. Default: '#FFFF00' (yellow) */
+  color?: string
+  /** Whether the popup is open by default. Default: false */
+  open?: boolean
+}
+
+export interface CommentElement {
+  type: 'comment'
+  /** Popup text content. Required. */
+  contents: string
+  /** Author name. Optional. */
+  author?: string
+  /** Color as 6-digit hex. Default: '#FFFF00' */
+  color?: string
+  /** Whether popup is open by default. Default: false */
+  open?: boolean
+  /** Extra space below in pt. Default: 0 */
+  spaceAfter?: number
+}
+
+export interface AssemblyPart {
+  /** Render this document and include its pages */
+  doc?: PdfDocument
+  /** Pre-rendered PDF bytes to include directly */
+  pdf?: Uint8Array
+}
+
 export type ContentElement =
   | ParagraphElement
   | HeadingElement
@@ -156,6 +188,7 @@ export type ContentElement =
   | BlockquoteElement
   | TocElement
   | TocEntryElement
+  | CommentElement
 
 export interface ParagraphElement {
   type: 'paragraph'
@@ -194,6 +227,12 @@ export interface ParagraphElement {
   columnGap?: number
   /** Set to false to disable hyphenation for this element. Default: inherits from doc.hyphenation. */
   hyphenate?: false
+  /** Extra spacing between characters in pt. Default: 0 */
+  letterSpacing?: number
+  /** Simulate small-caps: uppercase text at 80% font size. Default: false */
+  smallCaps?: boolean
+  /** PDF sticky-note annotation attached to this element. */
+  annotation?: AnnotationSpec
 }
 
 export interface HeadingElement {
@@ -234,6 +273,12 @@ export interface HeadingElement {
   url?: string
   /** Named anchor destination for internal links. Allows other spans to link to this heading via href: '#anchorId'. */
   anchor?: string
+  /** Extra spacing between characters in pt. Default: 0 */
+  letterSpacing?: number
+  /** Simulate small-caps: uppercase text at 80% font size. Default: false */
+  smallCaps?: boolean
+  /** PDF sticky-note annotation attached to this element. */
+  annotation?: AnnotationSpec
 }
 
 export interface SpacerElement {
@@ -464,6 +509,10 @@ export interface RichParagraphElement {
   columns?: number
   /** Gap between columns in pt. Default: 24 */
   columnGap?: number
+  /** Extra spacing between characters in pt. Default: 0 */
+  letterSpacing?: number
+  /** Simulate small-caps: uppercase text at 80% font size. Default: false */
+  smallCaps?: boolean
 }
 
 export interface InlineSpan {
@@ -488,6 +537,8 @@ export interface InlineSpan {
   url?: string
   /** Internal anchor link: '#anchorId' to jump to a heading with matching anchor. Or external URL. Alias for url. */
   href?: string
+  /** Raise text as superscript or lower as subscript. Default: none */
+  verticalAlign?: 'superscript' | 'subscript'
 }
 
 /** A composed line from the rich-text compositor — contains multiple styled fragments */
@@ -513,6 +564,8 @@ export interface RichFragment {
   strikethrough?: boolean
   url?: string
   href?: string
+  /** Vertical baseline shift in pt. Positive = up (superscript), negative = down (subscript) */
+  yOffset?: number
 }
 
 // ─── Blockquote ───────────────────────────────────────────────────────────────

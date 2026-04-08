@@ -236,11 +236,13 @@ function placeBlock(
   // Multi-column blocks are always keepTogether — no mid-column page breaks in Phase 5B
   const keepTogether = (block.columnData !== undefined)
     ? true  // Force keepTogether for multi-column blocks
-    : el.type === 'heading'
-      ? (el.keepTogether ?? true)
-      : (el.type === 'paragraph' || el.type === 'rich-paragraph' || el.type === 'code' || el.type === 'blockquote')
-        ? (el.keepTogether ?? false)
-        : false  // list items (el.type === 'list') — never keepTogether
+    : el.type === 'comment'
+      ? true  // Comment/annotation blocks are kept together
+      : el.type === 'heading'
+        ? (el.keepTogether ?? true)
+        : (el.type === 'paragraph' || el.type === 'rich-paragraph' || el.type === 'code' || el.type === 'blockquote')
+          ? (el.keepTogether ?? false)
+          : false  // list items (el.type === 'list') — never keepTogether
 
   if (keepTogether) {
     if (currentY > 0) {

@@ -7,15 +7,42 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
-### Planned (Phase 8)
+### Planned (Phase 8 remaining)
 
-- Phase 8A: Comments/Annotations (sticky notes on elements)
 - Phase 8B: Forms (text fields, checkboxes, radio buttons, dropdowns)
-- Phase 8C: Document assembly (merge multiple PDFs, file attachments)
 - Phase 8D: Advanced layout (image floats, callout boxes)
 - Phase 8E: Digital signatures (visual + cryptographic signing)
 - Phase 8F: Font subsetting improvements (reduce file size)
-- Phase 8H: Inline formatting (superscript, subscript, letter spacing)
+
+---
+
+## [0.2.0] — 2026-04-08
+
+### Added (Phase 8H — Inline Formatting)
+- `verticalAlign: 'superscript' | 'subscript'` on `InlineSpan` in rich-paragraphs
+- Superscript renders at 65% font size, baseline shifted up by 40% of font size
+- Subscript renders at 65% font size, baseline shifted down by 20% of font size
+- `letterSpacing?: number` on `ParagraphElement`, `HeadingElement`, `RichParagraphElement` — extra pt between characters
+- `smallCaps?: boolean` on those same three element types — simulated via uppercase + 80% fontSize
+- Character-by-character rendering for letterSpacing (pdf-lib has no native spacing param)
+- 8 comprehensive tests covering all inline formatting functionality
+
+### Added (Phase 8A — Annotations/Comments)
+- New `comment` element type — sticky note annotation at position in document
+- `annotation?: AnnotationSpec` on `ParagraphElement` and `HeadingElement` — attach note to element
+- Supports: `contents`, `author`, `color` (hex), `open` (popup default state)
+- Uses PDF `Subtype: 'Text'` annotation (sticky note icon in PDF viewers)
+- 8 comprehensive tests covering all annotation functionality
+
+### Added (Phase 8C — Document Assembly)
+- New `merge(pdfs: Uint8Array[])` exported function — combine pre-rendered PDFs
+- New `assemble(parts: AssemblyPart[])` exported function — mix rendered docs + existing PDFs
+- `AssemblyPart` interface: `{ doc?: PdfDocument, pdf?: Uint8Array }`
+- New error codes: `ASSEMBLY_EMPTY`, `ASSEMBLY_FAILED`
+- 8 comprehensive tests covering all assembly functionality
+
+### Fixed
+- **CI case-sensitivity bug**: `test/phase-7-integration.test.ts` used `'en-US'` (uppercase) for hyphenation language. On Linux CI (case-sensitive filesystem) this failed with `UNSUPPORTED_LANGUAGE`. Changed to `'en-us'` to match package name `hyphenation.en-us`.
 
 ---
 

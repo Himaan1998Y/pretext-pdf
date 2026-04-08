@@ -97,7 +97,7 @@ test('Phase 7 — Feature Integration Tests', async (t) => {
     const doc: PdfDocument = {
       pageSize: 'A4',
       margins: { top: 40, bottom: 40, left: 40, right: 40 },
-      hyphenation: { language: 'en-US' },
+      hyphenation: { language: 'en-us' },
       content: [
         {
           type: 'paragraph',
@@ -132,7 +132,7 @@ test('Phase 7 — Feature Integration Tests', async (t) => {
         userPassword: 'password123',
       },
       bookmarks: { minLevel: 1, maxLevel: 3 },
-      hyphenation: { language: 'en-US' },
+      hyphenation: { language: 'en-us' },
       content: [
         { type: 'heading', level: 1, text: 'Main Report' },
         {
