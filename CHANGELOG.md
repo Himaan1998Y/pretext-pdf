@@ -15,15 +15,25 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 - Phase 8D: Advanced layout (image floats, callout boxes)
 - Phase 8E: Digital signatures (visual + cryptographic signing)
 - Phase 8F: Font subsetting improvements (reduce file size)
-- Phase 8G: Hyperlinks (internal anchors, external URLs, cross-doc links)
 - Phase 8H: Inline formatting (superscript, subscript, letter spacing)
 
 ---
 
-## [0.1.1] — 2026-04-07
+## [0.1.1] — 2026-04-08
+
+### Added
+- **Phase 8G: Hyperlinks** — Complete link annotation support:
+  - `paragraph.url` for external URI links on paragraphs
+  - `heading.url` for external URI links on headings
+  - `heading.anchor` for named PDF destinations (internal cross-references)
+  - `InlineSpan.href` for external and internal `#anchorId` links in rich-paragraphs
+  - `mailto:` scheme support for email links
+  - GoTo annotations for internal anchor references
+  - 9 comprehensive tests covering all hyperlink functionality
 
 ### Fixed
 - **Memory leak in test suite**: Removed module-level `_hypherCache` in `src/measure.ts` that accumulated ~188KB per language across 255+ test runs. Changed from cached Hypher instances to fresh instances per call (negligible performance impact, massive memory savings).
+- **Node.js version compatibility**: Replaced `--experimental-strip-types` with `tsx` runner to support Node.js 18.x, 20.x, and 22.x in CI
 - **Broken CI examples**: Removed references to non-existent Phase 8 example scripts from GitHub Actions workflow
 - **README examples mismatch**: Updated Examples section to only list 5 existing Phase 7 examples (watermark, bookmarks, toc, rtl, encryption)
 - **Test suite OOM issues**: Split large test files (paginate.test.ts) into paginate-basic.test.ts to work around Node.js `--experimental-strip-types` heap exhaustion bug on files >17KB
