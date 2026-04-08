@@ -11,7 +11,7 @@
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-Email **himanshu@antigravity.dev** with:
+Email **himaan4149@gmail.com** with:
 
 1. Description of the vulnerability
 2. Steps to reproduce
