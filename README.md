@@ -149,6 +149,20 @@ toc
 
 ---
 
+## India / GST Invoicing
+
+pretext-pdf has built-in support for Indian invoice requirements:
+
+- **₹ symbol** renders correctly (bundled Inter font includes the Rupee glyph)
+- **Indian number formatting** — helper for 1,00,000 notation (not 100,000)
+- **GST structure** — CGST/SGST (intra-state) and IGST (inter-state) table layouts
+- **Amount in words** — Indian numbering system (Lakh/Crore)
+- **SAC/HSN codes** — column support in line-item tables
+
+See [`examples/gst-invoice-india.ts`](examples/gst-invoice-india.ts) for a complete GST-compliant invoice template.
+
+---
+
 ## Features
 
 ### Element Types
@@ -437,6 +451,12 @@ const pdf = await render({
 | 9A | Digital signatures (cryptographic, PKCS#7) | 🔜 |
 | 9B | Image floats (text flowing around images) | 🔜 |
 | 9C | Font subsetting pre-computation | 🔜 |
+
+---
+
+## Migration from pdfmake
+
+Coming from pdfmake? See the **[Migration Guide](docs/MIGRATION_FROM_PDFMAKE.md)** for a complete cheat sheet covering every common pdfmake pattern and its pretext-pdf equivalent.
 
 ---
 
