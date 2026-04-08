@@ -1,4 +1,4 @@
-import { PDFDocument, PDFFont, PDFName, PDFString, PDFNull, PDFRef, rgb, degrees } from 'pdf-lib'
+import { PDFDocument, PDFFont, PDFName, PDFString, PDFNull, PDFRef, rgb, degrees } from '@cantoo/pdf-lib'
 import type {
   PdfDocument, PaginatedDocument, PagedBlock, MeasuredBlock,
   FontMap, ImageMap, PageGeometry, HeaderFooterSpec

@@ -15,6 +15,26 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [0.4.0] — 2026-04-08
+
+### Breaking Changes
+- **Migrated from `pdf-lib` to `@cantoo/pdf-lib`** — `@cantoo/pdf-lib` is now a direct `dependency` (always installed). Previously it was an optional peer dependency required only for encryption. This removes the `ENCRYPTION_NOT_AVAILABLE` error code and the separate `npm install @cantoo/pdf-lib` installation step. Encryption now works out of the box.
+- **`ENCRYPTION_NOT_AVAILABLE` error code removed** — encryption is now always available. Update any `switch` statements that handled this code.
+
+### Why this change
+`pdf-lib` (the original) has not received a meaningful commit since November 2021. `@cantoo/pdf-lib` is the actively maintained fork (v2.6.5, 107+ releases, MIT license). pretext-pdf was already using `@cantoo/pdf-lib` for encryption — this commit makes it the single source of truth for all PDF operations.
+
+### Added
+- `test/pretext-api-contract.test.ts` — canary test that asserts `@chenglou/pretext` exports the exact functions pretext-pdf depends on. Breaks loudly if pretext changes its API.
+- `docs/ROADMAP.md` — public multi-phase development plan
+
+### Changed
+- `@chenglou/pretext` version pinned to exact `0.0.3` (no caret) — prevents surprise breaking changes from upstream auto-updates
+- `test:contract` script added — runs the pretext API contract test before the full test suite
+- All internal comments updated from `pdf-lib` to `@cantoo/pdf-lib`
+
+---
+
 ## [0.3.1] — 2026-04-08
 
 ### Fixed

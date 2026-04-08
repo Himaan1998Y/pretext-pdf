@@ -1,4 +1,4 @@
-import { PDFDocument, PDFName, PDFString } from 'pdf-lib'
+import { PDFDocument, PDFName, PDFString } from '@cantoo/pdf-lib'
 import type { PdfDocument, PageGeometry, Margins, ImageMap, EncryptionSpec } from './types.js'
 import { PretextPdfError } from './errors.js'
 import { resolvePageDimensions } from './page-sizes.js'
@@ -263,22 +263,10 @@ export async function assemble(parts: import('./types.js').AssemblyPart[]): Prom
 
 /**
  * Stage 6: Apply encryption (post-process).
- * Lazy-loads @cantoo/pdf-lib only when encryption is needed.
- * Uses dynamic import with 'as string' cast to bypass TypeScript module resolution.
+ * @cantoo/pdf-lib is now a direct dependency — no lazy-load needed.
  */
 async function applyEncryption(pdfBytes: Uint8Array, enc: NonNullable<PdfDocument['encryption']>): Promise<Uint8Array> {
-  // Lazy-load @cantoo/pdf-lib — only imported when encryption is actually needed
-  let cantoo: any
-  try {
-    cantoo = await import('@cantoo/pdf-lib' as string)
-  } catch {
-    throw new PretextPdfError(
-      'ENCRYPTION_NOT_AVAILABLE',
-      'doc.encryption requires @cantoo/pdf-lib. Install it: pnpm add @cantoo/pdf-lib'
-    )
-  }
-
-  const encDoc = await cantoo.PDFDocument.load(pdfBytes)
+  const encDoc = await PDFDocument.load(pdfBytes)
 
   encDoc.encrypt({
     userPassword: enc.userPassword ?? '',

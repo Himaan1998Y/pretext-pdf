@@ -903,10 +903,10 @@ export interface PageGeometry {
 }
 
 /** Maps font key → embedded PDFFont reference */
-export type FontMap = Map<string, import('pdf-lib').PDFFont>
+export type FontMap = Map<string, import('@cantoo/pdf-lib').PDFFont>
 
 /** Maps image key → embedded PDFImage reference */
-export type ImageMap = Map<string, import('pdf-lib').PDFImage>
+export type ImageMap = Map<string, import('@cantoo/pdf-lib').PDFImage>
 
 // ─── Table measurement types ──────────────────────────────────────────────────
 

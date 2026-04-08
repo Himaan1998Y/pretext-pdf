@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib'
+import { PDFDocument } from '@cantoo/pdf-lib'
 import type { PdfDocument, ImageElement, SvgElement, ImageMap } from './types.js'
 import { PretextPdfError } from './errors.js'
 
@@ -46,7 +46,7 @@ async function loadSvgAsImage(
   widthPt: number,
   heightPt: number,
   pdfDoc: PDFDocument
-): Promise<import('pdf-lib').PDFImage> {
+): Promise<import('@cantoo/pdf-lib').PDFImage> {
   let canvasLib: any
   try {
     canvasLib = await import('@napi-rs/canvas' as string)
@@ -84,7 +84,7 @@ async function loadSvgAsImage(
  * Image keys are 'img-N' where N is the element's position in doc.content.
  * This makes keys stable and avoids collisions from duplicate src paths.
  *
- * IMPORTANT: pdf-lib image embedding is NOT thread-safe.
+ * IMPORTANT: @cantoo/pdf-lib image embedding is NOT thread-safe.
  * We load bytes in parallel but embed sequentially.
  */
 export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentWidth: number): Promise<ImageMap> {
@@ -109,7 +109,7 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
       )
     : []
 
-  // Embed sequentially (pdf-lib limitation)
+  // Embed sequentially (@cantoo/pdf-lib limitation)
   for (const { el, key, bytes } of loadResults) {
     const resolvedFormat = resolveImageFormat(el, bytes, key)
     try {
@@ -120,7 +120,7 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
     } catch (err) {
       throw new PretextPdfError(
         'IMAGE_FORMAT_MISMATCH',
-        `Image key "${key}" (format: '${resolvedFormat}'): pdf-lib failed to embed — the bytes may not be a valid ${resolvedFormat.toUpperCase()} file. Error: ${err instanceof Error ? err.message : String(err)}`
+        `Image key "${key}" (format: '${resolvedFormat}'): @cantoo/pdf-lib failed to embed — the bytes may not be a valid ${resolvedFormat.toUpperCase()} file. Error: ${err instanceof Error ? err.message : String(err)}`
       )
     }
   }
