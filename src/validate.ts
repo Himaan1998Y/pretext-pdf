@@ -25,10 +25,7 @@ export function validate(doc: PdfDocument): void {
 
   // memory guard
   if (doc.content.length > 10_000) {
-    throw new PretextPdfError(
-      'VALIDATION_ERROR',
-      `document.content has ${doc.content.length} elements. Maximum is 10,000. For large documents, split into multiple render() calls.`
-    )
+    console.warn(`[pretext-pdf] document.content has ${doc.content.length} elements (recommended max: 10,000). Large documents may be slow to render.`)
   }
 
   // page size

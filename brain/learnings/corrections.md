@@ -149,3 +149,111 @@
 [2026-04-08T12:12:29.369Z] file: F:\Antigravity\brain\projects\pretext-pdf\README.md
 
 [2026-04-08T12:13:30.984Z] file: f:\Antigravity\brain\projects\pretext-pdf\README.md
+
+[2026-04-08T13:25:11.185Z] file: f:\Antigravity\brain\projects\pretext-pdf\package.json
+
+[2026-04-08T14:33:43.689Z] file: f:\Antigravity\brain\projects\pretext-pdf\src\assets.ts
+
+[2026-04-08T14:33:44.970Z] file: f:\Antigravity\brain\projects\pretext-pdf\src\fonts.ts
+
+[2026-04-08T14:33:46.290Z] file: f:\Antigravity\brain\projects\pretext-pdf\src\index.ts
+
+[2026-04-08T14:33:47.489Z] file: f:\Antigravity\brain\projects\pretext-pdf\src\render.ts
+
+[2026-04-08T14:34:01.034Z] file: f:\Antigravity\brain\projects\pretext-pdf\src\index.ts
+
+[2026-04-08T14:36:33.490Z] file: f:\Antigravity\brain\projects\pretext-pdf\src\errors.ts
+
+[2026-04-08T14:36:43.335Z] file: f:\Antigravity\brain\projects\pretext-pdf\package.json
+
+[2026-04-08T14:36:52.419Z] file: f:\Antigravity\brain\projects\pretext-pdf\package.json
+
+[2026-04-08T14:37:50.469Z] file: f:\Antigravity\brain\projects\pretext-pdf\test\pretext-api-contract.test.ts
+
+[2026-04-08T14:38:48.974Z] file: f:\Antigravity\brain\projects\pretext-pdf\src\assets.ts
+
+[2026-04-08T14:45:33.438Z] file: f:\Antigravity\brain\projects\pretext-pdf\test\pretext-api-contract.test.ts
+
+[2026-04-08T14:46:01.017Z] file: f:\Antigravity\brain\projects\pretext-pdf\test\pretext-api-contract.test.ts
+
+[2026-04-08T14:46:19.836Z] file: f:\Antigravity\brain\projects\pretext-pdf\package.json
+
+[2026-04-08T14:47:05.169Z] file: f:\Antigravity\brain\projects\pretext-pdf\CHANGELOG.md
+
+[2026-04-08T17:46:41.210Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\package.json
+
+[2026-04-08T17:46:46.022Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\tsconfig.json
+
+[2026-04-08T17:46:50.355Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\src\utils\base64.ts
+
+[2026-04-08T17:46:59.904Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\src\tools\generate-pdf.ts
+
+[2026-04-08T17:47:27.119Z] file: f:\Antigravity\brain\projects\pretext-pdf\docs\MIGRATION_FROM_PDFMAKE.md
+
+[2026-04-08T17:47:37.486Z] file: f:\Antigravity\brain\projects\pretext-pdf\README.md
+
+[2026-04-08T17:47:43.505Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\src\tools\generate-invoice.ts
+
+[2026-04-08T17:47:47.574Z] file: f:\Antigravity\brain\projects\pretext-pdf\examples\gst-invoice-india.ts
+
+[2026-04-08T17:48:00.953Z] file: f:\Antigravity\brain\projects\pretext-pdf\README.md
+
+[2026-04-08T17:48:05.374Z] file: f:\Antigravity\brain\projects\pretext-pdf\package.json
+
+[2026-04-08T17:48:12.284Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\src\tools\generate-report.ts
+
+[2026-04-08T17:48:45.945Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\src\tools\list-elements.ts
+
+[2026-04-08T17:48:53.191Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\src\index.ts
+
+[2026-04-08T17:49:05.963Z] file: f:\Antigravity\brain\projects\pretext-pdf\examples\gst-invoice-india.ts
+
+[2026-04-08T17:49:09.519Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\test\generate-pdf.test.ts
+
+[2026-04-08T17:49:28.266Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\test\generate-invoice.test.ts
+
+[2026-04-08T17:49:44.714Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\test\generate-report.test.ts
+
+[2026-04-08T17:50:09.815Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\README.md
+
+[2026-04-08T17:50:16.049Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\smithery.yaml
+
+[2026-04-08T17:51:29.641Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\src\tools\generate-report.ts
+
+[2026-04-08T17:51:37.456Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\src\tools\list-elements.ts
+
+[2026-04-08T20:47:47.771Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\package.json
+
+[2026-04-08T20:47:53.397Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\package.json
+
+[2026-04-08T21:02:20.362Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\docs\package.json
+
+[2026-04-08T21:02:26.429Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\package.json
+
+[2026-04-08T21:02:32.711Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\package.json
+
+[2026-04-08T21:29:34.994Z] file: f:\Antigravity\brain\projects\pretext-pdf\test\phase-2-performance.test.ts
+
+[2026-04-08T21:37:57.065Z] file: f:\Antigravity\brain\projects\pretext-pdf\test\phase-2-performance.test.ts
+
+[2026-04-08T21:38:17.291Z] file: f:\Antigravity\brain\projects\pretext-pdf\test\phase-2-performance.test.ts
+
+[2026-04-08T21:38:26.383Z] file: f:\Antigravity\brain\projects\pretext-pdf\test\phase-2-performance.test.ts
+
+[2026-04-08T21:38:33.968Z] file: f:\Antigravity\brain\projects\pretext-pdf\test\phase-2-performance.test.ts
+
+[2026-04-08T21:38:52.042Z] file: f:\Antigravity\brain\projects\pretext-pdf\test\phase-2-performance.test.ts
+
+[2026-04-08T21:38:56.318Z] file: f:\Antigravity\brain\projects\pretext-pdf\test\phase-2-performance.test.ts
+
+[2026-04-08T21:39:01.507Z] file: f:\Antigravity\brain\projects\pretext-pdf\test\phase-2-performance.test.ts
+
+[2026-04-08T21:39:21.578Z] file: f:\Antigravity\brain\projects\pretext-pdf\test\phase-2-performance.test.ts
+
+[2026-04-08T21:39:48.295Z] file: f:\Antigravity\brain\projects\pretext-pdf\package.json
+
+[2026-04-08T21:39:51.694Z] file: f:\Antigravity\brain\projects\pretext-pdf\package.json
+
+[2026-04-08T21:40:51.893Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\package.json
+
+[2026-04-08T21:40:55.883Z] file: f:\Antigravity\brain\projects\pretext-pdf-mcp\package.json

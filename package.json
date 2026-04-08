@@ -1,6 +1,6 @@
 {
   "name": "pretext-pdf",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Declarative JSON → PDF generation with professional typography. Built on pretext's precision text layout engine.",
   "keywords": [
     "pdf",
@@ -52,7 +52,7 @@
     "test:unit": "tsx --test test/validate.test.ts test/builder.test.ts test/rich-text.test.ts",
     "test:validate": "tsx --test test/validate.test.ts test/builder.test.ts",
     "test:e2e": "tsx --test test/e2e.test.ts",
-    "test:phases": "tsx --test test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts test/phase-8g-hyperlinks.test.ts test/phase-8h-inline-formatting.test.ts test/phase-8a-annotations.test.ts test/phase-8c-assembly.test.ts test/phase-8f-metadata.test.ts test/phase-8e-signatures.test.ts test/phase-8b-forms.test.ts test/phase-8d-callout.test.ts",
+    "test:phases": "tsx --test test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts test/phase-8g-hyperlinks.test.ts test/phase-8h-inline-formatting.test.ts test/phase-8a-annotations.test.ts test/phase-8c-assembly.test.ts test/phase-8f-metadata.test.ts test/phase-8e-signatures.test.ts test/phase-8b-forms.test.ts test/phase-8d-callout.test.ts test/phase-2-performance.test.ts",
     "test:phase-7": "tsx --test test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts",
     "test:phase-8": "tsx --test test/phase-8g-hyperlinks.test.ts test/phase-8h-inline-formatting.test.ts test/phase-8a-annotations.test.ts test/phase-8c-assembly.test.ts test/phase-8b-forms.test.ts test/phase-8d-callout.test.ts test/phase-8e-signatures.test.ts test/phase-8f-metadata.test.ts",
     "test:8d": "tsx --test test/phase-8d-callout.test.ts",

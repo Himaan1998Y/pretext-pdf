@@ -109,6 +109,17 @@ export async function loadFonts(
     }
   }
 
+  // Phase 2-C: Pre-compute font subsets by encoding all document text.
+  // Calling pdfFont.encodeText() registers glyph IDs into the subset table
+  // before pdfDoc.save(), producing smaller and faster-to-save PDFs.
+  const textByFont = collectTextByFont(doc)
+  for (const [key, text] of textByFont) {
+    const pdfFont = fontMap.get(key)
+    if (pdfFont && text.length > 0) {
+      try { pdfFont.encodeText(text) } catch { /* non-fatal: missing glyphs fall through */ }
+    }
+  }
+
   // Set default font
   const defaultKey = buildFontKey(defaultFamily, 400, 'normal')
   if (!fontMap.has(defaultKey)) {

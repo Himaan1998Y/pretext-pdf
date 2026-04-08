@@ -817,8 +817,12 @@ async function measureTable(
       // Text area is narrower than merged cell (padding on both sides + border)
       const textWidth = mergedWidth - 2 * cellPaddingH - borderWidth
 
+      // RTL detection must happen BEFORE measuring — visual-order text is used for correct glyph layout
+      const cellDir = cell.dir ?? 'auto'
+      const { visual: cellVisualText, isRTL: cellIsRTL } = await detectAndReorderRTL(cell.text, cellDir)
+
       const lines = await measureText(
-        cell.text,
+        cellVisualText,
         cellFontSize,
         fontFamily,
         fontWeight,
@@ -829,10 +833,6 @@ async function measureTable(
 
       const cellContentHeight = Math.max(lines.length, 1) * cellLineHeight
       maxCellHeight = Math.max(maxCellHeight, cellContentHeight)
-
-      // RTL detection for table cells (same as paragraphs)
-      const cellDir = cell.dir ?? 'auto'
-      const { isRTL: cellIsRTL } = await detectAndReorderRTL(cell.text, cellDir)
 
       // Apply RTL alignment default: if align not explicitly set and text is RTL, default to right
       const align = cell.align ?? col.align ?? (cellIsRTL ? 'right' : 'left')
