@@ -3,11 +3,13 @@ import fontkit from '@pdf-lib/fontkit'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { createRequire } from 'module'
 import type { PdfDocument, FontSpec, FontMap } from './types.js'
 import { PretextPdfError } from './errors.js'
 import { buildFontKey } from './measure.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const _require = createRequire(import.meta.url)
 
 /**
  * Font loading strategy:
@@ -15,21 +17,35 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
  * - woff2 for @napi-rs/canvas measurement (canvas handles woff2 perfectly via Skia)
  *
  * TTF priority: bundled fonts/ dir first, then @fontsource woff2 as fallback
+ *
+ * NOTE: @fontsource/inter is resolved via createRequire to handle npm hoisting correctly.
+ * When pretext-pdf is installed as a package, @fontsource/inter is hoisted to the
+ * consumer's node_modules, NOT to node_modules/pretext-pdf/node_modules/@fontsource/inter.
+ * path.join(__dirname, '..', 'node_modules', ...) would fail in that case.
  */
+
+function resolveInterFile(filename: string): string | null {
+  try {
+    const pkgJson = _require.resolve('@fontsource/inter/package.json')
+    return path.join(path.dirname(pkgJson), 'files', filename)
+  } catch {
+    return null
+  }
+}
 
 /** Path to bundled Inter 400 normal font — TTF preferred for pdf-lib */
 const BUNDLED_INTER_PATHS = [
   path.join(__dirname, '..', 'fonts', 'Inter-Regular.ttf'),
-  path.join(__dirname, '..', 'node_modules', '@fontsource', 'inter', 'files', 'inter-latin-400-normal.woff2'),
-  path.join(__dirname, '..', 'node_modules', '@fontsource', 'inter', 'files', 'inter-all-400-normal.woff2'),
-]
+  resolveInterFile('inter-latin-400-normal.woff2'),
+  resolveInterFile('inter-all-400-normal.woff2'),
+].filter(Boolean) as string[]
 
 /** Path to bundled Inter 700 (bold) font — TTF preferred for pdf-lib */
 const BUNDLED_INTER_BOLD_PATHS = [
   path.join(__dirname, '..', 'fonts', 'Inter-Bold.ttf'),
-  path.join(__dirname, '..', 'node_modules', '@fontsource', 'inter', 'files', 'inter-latin-700-normal.woff2'),
-  path.join(__dirname, '..', 'node_modules', '@fontsource', 'inter', 'files', 'inter-all-700-normal.woff2'),
-]
+  resolveInterFile('inter-latin-700-normal.woff2'),
+  resolveInterFile('inter-all-700-normal.woff2'),
+].filter(Boolean) as string[]
 
 /**
  * Stage 2: Load and embed all fonts.

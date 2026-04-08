@@ -15,6 +15,13 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [0.3.1] — 2026-04-08
+
+### Fixed
+- **Critical: Font resolution when installed as npm package** — `@fontsource/inter` is now resolved via `createRequire(import.meta.url)` instead of a hardcoded relative path. Previously, `path.join(__dirname, '..', 'node_modules', '@fontsource', 'inter', ...)` failed when npm hoisted the dependency to the consumer's top-level `node_modules`, causing `FONT_LOAD_FAILED` on every install. Now resolves correctly regardless of npm hoisting behavior.
+
+---
+
 ## [0.3.0] — 2026-04-08
 
 ### Added (Phase 8B — Interactive Forms)
