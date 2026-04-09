@@ -161,6 +161,9 @@ export function validate(doc: PdfDocument): void {
     if (sig.contactInfo !== undefined && typeof sig.contactInfo !== 'string') {
       throw new PretextPdfError('VALIDATION_ERROR', 'signature.contactInfo must be a string')
     }
+    if (sig.invisible !== undefined && typeof sig.invisible !== 'boolean') {
+      throw new PretextPdfError('VALIDATION_ERROR', 'signature.invisible must be a boolean')
+    }
     if (sig.p12 !== undefined && doc.encryption !== undefined) {
       throw new PretextPdfError('VALIDATION_ERROR', 'Cannot use both signature.p12 (cryptographic signing) and encryption together — the encryption step would invalidate the cryptographic signature.')
     }
@@ -1042,6 +1045,50 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
     case 'toc-entry': {
       // Internal type — should never appear in user input
       throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: 'toc-entry' is an internal type and cannot be used in document content`)
+    }
+
+    case 'float-group': {
+      const fg = el as import('./types.js').FloatGroupElement
+      // Validate image
+      if (!fg.image || !fg.image.src || (typeof fg.image.src !== 'string' && !(fg.image.src instanceof Uint8Array))) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group): 'image.src' must be a non-empty string path or Uint8Array`)
+      }
+      if (fg.image.format !== undefined && fg.image.format !== 'png' && fg.image.format !== 'jpg' && fg.image.format !== 'auto') {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group): 'image.format' must be 'png', 'jpg', or 'auto'`)
+      }
+      if (fg.image.height !== undefined && (typeof fg.image.height !== 'number' || fg.image.height <= 0)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group): 'image.height' must be a positive number`)
+      }
+      // Validate float
+      if (fg.float !== 'left' && fg.float !== 'right') {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group): 'float' must be 'left' or 'right'`)
+      }
+      // Validate floatWidth
+      if (fg.floatWidth !== undefined && (typeof fg.floatWidth !== 'number' || fg.floatWidth <= 0 || fg.floatWidth < 30)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group): 'floatWidth' must be a number >= 30`)
+      }
+      // Validate floatGap
+      if (fg.floatGap !== undefined && (typeof fg.floatGap !== 'number' || fg.floatGap < 0)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group): 'floatGap' must be a non-negative number`)
+      }
+      // Validate content
+      if (!Array.isArray(fg.content) || fg.content.length === 0) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group): 'content' must be a non-empty array`)
+      }
+      for (let i = 0; i < fg.content.length; i++) {
+        const item = fg.content[i]!
+        if (!['paragraph', 'heading', 'rich-paragraph'].includes(item.type)) {
+          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group).content[${i}]: only 'paragraph', 'heading', and 'rich-paragraph' elements are allowed in float groups`)
+        }
+      }
+      // Validate spacing
+      if (fg.spaceBefore !== undefined && (typeof fg.spaceBefore !== 'number' || fg.spaceBefore < 0)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group): 'spaceBefore' must be a non-negative number`)
+      }
+      if (fg.spaceAfter !== undefined && (typeof fg.spaceAfter !== 'number' || fg.spaceAfter < 0)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group): 'spaceAfter' must be a non-negative number`)
+      }
+      break
     }
 
     default: {

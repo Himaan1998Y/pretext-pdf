@@ -360,7 +360,40 @@ export function collectTextByFont(
         collectItems(el.items)
         break
       }
-      // spacer, hr, page-break, image: no text to collect
+      case 'footnote-def': {
+        const key = buildFontKey(el.fontFamily ?? defaultFont, 400, 'normal')
+        addText(key, el.text)
+        break
+      }
+      case 'toc-entry': {
+        // TOC entries are measured but their text is already in the heading that created them
+        // No additional text collection needed — avoid double-subsetting
+        break
+      }
+      case 'callout': {
+        const key = buildFontKey(el.fontFamily ?? defaultFont, el.fontWeight ?? 400, 'normal')
+        addText(key, el.content)
+        break
+      }
+      case 'float-group': {
+        // Float-group contains multiple content elements — collect text from each
+        for (const contentEl of el.content) {
+          if (contentEl.type === 'paragraph') {
+            const key = buildFontKey(contentEl.fontFamily ?? defaultFont, contentEl.fontWeight ?? 400, 'normal')
+            addText(key, contentEl.text)
+          } else if (contentEl.type === 'heading') {
+            const key = buildFontKey(contentEl.fontFamily ?? defaultFont, contentEl.fontWeight ?? 700, 'normal')
+            addText(key, contentEl.text)
+          } else if (contentEl.type === 'rich-paragraph') {
+            for (const span of contentEl.spans) {
+              const key = buildFontKey(span.fontFamily ?? defaultFont, span.fontWeight ?? 400, span.fontStyle ?? 'normal')
+              addText(key, span.text)
+            }
+          }
+        }
+        break
+      }
+      // spacer, hr, page-break, image, comment: no text to collect
     }
   }
 

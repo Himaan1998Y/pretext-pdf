@@ -382,7 +382,7 @@ async function applySignature(
     } else {
       const p12Path = sig.p12 as string
       if (!path.isAbsolute(p12Path)) {
-        throw new PretextPdfError('SIGNATURE_FAILED', 'P12 path must be absolute')
+        throw new PretextPdfError('SIGNATURE_P12_LOAD_FAILED', 'P12 path must be absolute')
       }
       const { promises: fs } = await import('node:fs')
       p12Buffer = await fs.readFile(p12Path)

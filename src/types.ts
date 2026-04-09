@@ -162,6 +162,8 @@ export interface SignatureSpec {
   passphrase?: string
   /** Contact info (e.g. email) embedded in the signature dictionary. Default: '' */
   contactInfo?: string
+  /** If true, skip rendering the visual signature box (crypto-only invisible signing). Default: false */
+  invisible?: boolean
 }
 
 export interface BookmarkConfig {
@@ -279,6 +281,7 @@ export type ContentElement =
   | FormFieldElement
   | CalloutElement
   | FootnoteDefElement
+  | FloatGroupElement
 
 export interface ParagraphElement {
   type: 'paragraph'
@@ -471,6 +474,30 @@ export interface ImageElement {
   floatFontFamily?: string
   /** Text color for floatText as 6-digit hex. Default: '#000000' */
   floatColor?: string
+}
+
+// ─── Float Group ──────────────────────────────────────────────────────────────
+
+export interface FloatGroupElement {
+  type: 'float-group'
+  /** The image to float left or right. */
+  image: {
+    src: string | Uint8Array
+    format?: 'png' | 'jpg' | 'auto'
+    height?: number
+  }
+  /** Image position. 'left' = image left, text right. 'right' = image right, text left. */
+  float: 'left' | 'right'
+  /** Image column width in pt. Default: 35% of content width. */
+  floatWidth?: number
+  /** Gap between image and text columns in pt. Default: 12 */
+  floatGap?: number
+  /** Content elements rendered in the text column, top-to-bottom. */
+  content: Array<ParagraphElement | HeadingElement | RichParagraphElement>
+  /** Space above the entire float group in pt. Default: 0 */
+  spaceBefore?: number
+  /** Space below the entire float group in pt. Default: 12 */
+  spaceAfter?: number
 }
 
 // ─── SVG ──────────────────────────────────────────────────────────────────────
@@ -913,6 +940,27 @@ export interface MeasuredBlock {
     textFontSize: number
     textLineHeight: number
     textColor: string
+  }
+  // ─── Phase 9B (Float Group): optional payload ────────────────────────────────
+  /** Only set when element.type === 'float-group'. Multi-paragraph float layout. */
+  floatGroupData?: {
+    imageKey: string
+    imageRenderWidth: number
+    imageRenderHeight: number
+    imageColX: number
+    textColX: number
+    textColWidth: number
+    textItems: Array<{
+      lines: PretextLine[]
+      richLines?: RichLine[]
+      fontSize: number
+      lineHeight: number
+      fontKey: string
+      fontWeight: 400 | 700
+      spaceAfter: number
+      yOffsetFromTop: number
+    }>
+    totalTextHeight: number
   }
   // ─── Phase 7F: RTL support ────────────────────────────────────────────
   /** Set to true if this block is RTL (right-to-left text). Used to apply right-align default in render.ts. */

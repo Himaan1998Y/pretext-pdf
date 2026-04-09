@@ -1,6 +1,6 @@
 {
   "name": "pretext-pdf",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "Declarative JSON → PDF generation with professional typography. Built on pretext's precision text layout engine.",
   "keywords": [
     "pdf",
@@ -55,7 +55,7 @@
     "test:phase-3": "tsx --test test/phase-3-signatures.test.ts",
     "test:phase-4": "tsx --test test/phase-4-footnotes.test.ts",
     "test:phase-5": "tsx --test test/phase-5-image-float.test.ts",
-    "test:phases": "tsx --test test/phase-4-footnotes.test.ts test/phase-5-image-float.test.ts test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts test/phase-8g-hyperlinks.test.ts test/phase-8h-inline-formatting.test.ts test/phase-8a-annotations.test.ts test/phase-8c-assembly.test.ts test/phase-8f-metadata.test.ts test/phase-8e-signatures.test.ts test/phase-8b-forms.test.ts test/phase-8d-callout.test.ts test/phase-2-performance.test.ts test/phase-3-signatures.test.ts",
+    "test:phases": "tsx --test test/phase-4-footnotes.test.ts test/phase-5-image-float.test.ts test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts test/phase-8g-hyperlinks.test.ts test/phase-8h-inline-formatting.test.ts test/phase-8a-annotations.test.ts test/phase-8c-assembly.test.ts test/phase-8f-metadata.test.ts test/phase-8e-signatures.test.ts test/phase-8b-forms.test.ts test/phase-8d-callout.test.ts test/phase-9a-crypto-signatures.test.ts test/phase-9b-float-groups.test.ts test/phase-9c-font-subsetting.test.ts test/phase-2-performance.test.ts test/phase-3-signatures.test.ts",
     "test:phase-7": "tsx --test test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts",
     "test:phase-8": "tsx --test test/phase-8g-hyperlinks.test.ts test/phase-8h-inline-formatting.test.ts test/phase-8a-annotations.test.ts test/phase-8c-assembly.test.ts test/phase-8b-forms.test.ts test/phase-8d-callout.test.ts test/phase-8e-signatures.test.ts test/phase-8f-metadata.test.ts",
     "test:8d": "tsx --test test/phase-8d-callout.test.ts",
@@ -80,6 +80,7 @@
     "example:forms": "tsx examples/phase8-forms.ts",
     "example:callout": "tsx examples/phase8-callout.ts",
     "example:gst": "tsx examples/gst-invoice-india.ts",
+    "example:floats": "tsx examples/phase9b-float-groups.ts",
     "example:showcase-invoice": "tsx examples/showcase-invoice.ts",
     "example:showcase-report": "tsx examples/showcase-report.ts",
     "example:showcase-resume": "tsx examples/showcase-resume.ts",
@@ -111,6 +112,7 @@
   },
   "devDependencies": {
     "@cantoo/pdf-lib": "^2.6.5",
+    "@signpdf/signpdf": "^3.3.0",
     "@types/node": "^22.0.0",
     "@types/pixelmatch": "^5.2.6",
     "@types/pngjs": "^6.0.5",

@@ -96,6 +96,18 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
     const el = doc.content[i]!
     if (el.type === 'image') {
       imageEntries.push({ el, key: `img-${i}` })
+    } else if (el.type === 'float-group') {
+      // Convert float-group image to ImageElement for loading
+      const fgImage: ImageElement = {
+        type: 'image',
+        src: el.image.src,
+        ...(el.image.format !== undefined ? { format: el.image.format } : {}),
+        ...(el.image.height !== undefined ? { height: el.image.height } : {}),
+        align: 'left',
+        spaceAfter: 0,
+        spaceBefore: 0,
+      }
+      imageEntries.push({ el: fgImage, key: `float-group-${i}` })
     }
   }
 

@@ -247,6 +247,8 @@ function placeBlock(
   // Multi-column blocks are always keepTogether — no mid-column page breaks in Phase 5B
   const keepTogether = (block.floatData !== undefined)
     ? true  // Float image blocks are atomic — never split across pages
+    : (block.floatGroupData !== undefined)
+    ? true  // Float group blocks are atomic — never split across pages
     : (block.columnData !== undefined)
     ? true  // Force keepTogether for multi-column blocks
     : (el.type === 'comment' || el.type === 'form-field')
