@@ -41,3 +41,7 @@ temp/
 
 # Internal session notes (not for publishing)
 brain/
+
+# Local worktrees
+.worktrees/
+worktrees/
