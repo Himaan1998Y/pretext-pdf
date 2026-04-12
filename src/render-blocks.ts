@@ -54,6 +54,8 @@ export function renderTextBlock(
   // For resolveX, treat 'justify' as 'left' (justify is handled by drawJustifiedLine)
   const align = alignRaw === 'justify' ? 'left' : alignRaw as 'left' | 'center' | 'right'
   const fontHeight = pdfFont.heightAtSize(measuredBlock.fontSize)
+  // Narrowed reference for paragraph/heading-only fields (smallCaps, tabularNumbers, letterSpacing, annotation)
+  const textElement = (element.type === 'paragraph' || element.type === 'heading') ? element : null
 
   // Draw background color for paragraph and heading (if set)
   if ((element.type === 'paragraph' || element.type === 'heading') && element.bgColor) {
@@ -123,15 +125,15 @@ export function renderTextBlock(
     const isLastLine = i === lines.length - 1
 
     // Phase 8H: smallCaps — uppercase text at 80% font size
-    const hasSmallCaps = (element.type === 'paragraph' || element.type === 'heading') && (element as any).smallCaps === true
+    const hasSmallCaps = textElement?.smallCaps === true
     const effectiveFontSize = hasSmallCaps ? measuredBlock.fontSize * 0.8 : measuredBlock.fontSize
     if (hasSmallCaps) trimmedText = trimmedText.toUpperCase()
 
-    const hasTabular = (element.type === 'paragraph' || element.type === 'heading') && (element as any).tabularNumbers === true
+    const hasTabular = textElement?.tabularNumbers === true
 
     // Phase 8H: letterSpacing — draw char by char
-    const letterSpacing = ((element.type === 'paragraph' || element.type === 'heading') && (element as any).letterSpacing > 0)
-      ? (element as any).letterSpacing as number
+    const letterSpacing = (textElement?.letterSpacing ?? 0) > 0
+      ? textElement!.letterSpacing as number
       : 0
 
     let drawX: number
@@ -175,8 +177,8 @@ export function renderTextBlock(
   }
 
   // Phase 8A: annotation on paragraph/heading — attach sticky note at top of block
-  if ((element.type === 'paragraph' || element.type === 'heading') && (element as any).annotation) {
-    const ann = (element as any).annotation
+  if (textElement?.annotation) {
+    const ann = textElement.annotation
     const absY = yFromTop + geo.margins.top + geo.headerHeight
     const annotPdfY = geo.pageHeight - absY
     addStickyNoteAnnotation(pdfDoc, pdfPage, geo.margins.left, annotPdfY, ann.contents, ann.author, ann.color, ann.open)

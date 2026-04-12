@@ -56,6 +56,26 @@ export { createPdf } from './builder.js'
 export type { PdfBuilderOptions } from './builder.js'
 
 /**
+ * Resolve the active header and footer for a given 1-based page number.
+ * The first matching section (fromPage/toPage range) wins; falls back to
+ * doc.header / doc.footer when no section matches.
+ */
+export function resolveHeaderFooter(doc: PdfDocument, pageNumber: number): {
+  header: PdfDocument['header']
+  footer: PdfDocument['footer']
+} {
+  const section = doc.sections?.find(s => {
+    const from = s.fromPage ?? 1
+    const to = s.toPage ?? Infinity
+    return pageNumber >= from && pageNumber <= to
+  })
+  return {
+    header: section?.header ?? doc.header,
+    footer: section?.footer ?? doc.footer,
+  }
+}
+
+/**
  * Render a PdfDocument to PDF bytes.
  *
  * Works in Node.js (requires @napi-rs/canvas peer dep) and in the browser.

@@ -6,6 +6,7 @@
  */
 
 import { render } from './index.js'
+import { validate } from './validate.js'
 import type {
   PdfDocument,
   ContentElement,
@@ -45,6 +46,8 @@ export interface PdfBuilderOptions {
   header?: HeaderFooterSpec
   footer?: HeaderFooterSpec
   metadata?: DocumentMetadata
+  defaultParagraphStyle?: PdfDocument['defaultParagraphStyle']
+  sections?: PdfDocument['sections']
 }
 
 export interface PdfBuilder {
@@ -71,6 +74,10 @@ export interface PdfBuilder {
   addFootnoteDef(id: string, text: string, opts?: Partial<Omit<FootnoteDefElement, 'type' | 'id' | 'text'>>): PdfBuilder
   /** Insert an auto-generated Table of Contents. */
   addTableOfContents(opts?: Partial<Omit<TocElement, 'type'>>): PdfBuilder
+  /** Set the default paragraph/heading style applied doc-wide. */
+  defaultStyle(style: PdfDocument['defaultParagraphStyle']): PdfBuilder
+  /** Add a per-section header/footer override for the given page range. */
+  section(fromPage: number, toPage: number, overrides: { header?: HeaderFooterSpec; footer?: HeaderFooterSpec }): PdfBuilder
   toDocument(): PdfDocument
   build(): Promise<Uint8Array>
 }
@@ -89,6 +96,8 @@ export interface PdfBuilder {
  */
 export function createPdf(options: PdfBuilderOptions = {}): PdfBuilder {
   const content: ContentElement[] = []
+  let defaultParagraphStyle: PdfDocument['defaultParagraphStyle'] = options.defaultParagraphStyle
+  const sections: NonNullable<PdfDocument['sections']> = options.sections ? [...options.sections] : []
 
   return {
     /**
@@ -211,12 +220,22 @@ export function createPdf(options: PdfBuilderOptions = {}): PdfBuilder {
       return this
     },
 
+    defaultStyle(style: PdfDocument['defaultParagraphStyle']): PdfBuilder {
+      defaultParagraphStyle = style
+      return this
+    },
+
+    section(fromPage: number, toPage: number, overrides: { header?: HeaderFooterSpec; footer?: HeaderFooterSpec }): PdfBuilder {
+      sections.push({ fromPage, toPage, ...overrides })
+      return this
+    },
+
     /**
      * Get the underlying declarative document.
      * Useful for inspection, serialization, or reusing with render().
      */
     toDocument(): PdfDocument {
-      return {
+      const doc = {
         pageSize: options.pageSize,
         margins: options.margins,
         defaultFont: options.defaultFont,
@@ -226,8 +245,11 @@ export function createPdf(options: PdfBuilderOptions = {}): PdfBuilder {
         header: options.header,
         footer: options.footer,
         metadata: options.metadata,
+        ...(defaultParagraphStyle !== undefined && { defaultParagraphStyle }),
+        ...(sections.length > 0 && { sections }),
         content,
       } as PdfDocument
+      return doc
     },
 
     /**

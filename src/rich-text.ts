@@ -40,6 +40,10 @@ async function measureTokenWidth(
 /**
  * Compose mixed-format spans into laid-out RichLine[] for rendering.
  *
+ * Note: RichParagraphElement.tabularNumbers is available but not yet threaded
+ * into this function. Wire it in Wave 3 by adding a `tabularNumbers` parameter
+ * and applying drawTabularText per-fragment during render.
+ *
  * Algorithm:
  * 1. Tokenize all spans into (word, fontConfig) pairs — split on whitespace boundaries
  * 2. Measure each token's width using Pretext

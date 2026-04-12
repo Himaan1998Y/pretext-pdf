@@ -153,7 +153,40 @@ const CJK_CHAR_RE = /[\u2E80-\u2FFF\u3000-\u9FFF\uA960-\uA97F\uAC00-\uD7FF\uF900
 /** Thai (0E00–0E7F) and Lao (0E80–0EFF) — no spaces between words */
 const THAI_LAO_RE = /[\u0E00-\u0EFF]/
 
-/** Lazily-created segmenter for Thai/Lao. Intl.Segmenter is built into Node.js 16+. */
+/**
+ * Kinsoku line-start forbidden characters (JIS X 4051 subset).
+ * These must never appear at the start of a line — they are pulled
+ * back onto the previous line even if it causes a slight overflow.
+ */
+const KINSOKU_START_FORBIDDEN = new Set([
+  '。', '．', '、', '，', '！', '？',           // sentence/clause endings
+  '）', '』', '」', '】', '〕', '〉', '》',     // closing brackets
+  '・', '：', '；', '…', '‥',                  // misc
+  ')', ']', '}',                                 // ASCII closers in CJK context
+  '\uFF01', '\uFF09', '\uFF0C', '\uFF0E',        // fullwidth ! ) , .
+  '\uFF1A', '\uFF1B', '\uFF1F',                  // fullwidth : ; ?
+  '\u30FB',                                      // katakana middle dot
+])
+
+/**
+ * Lazily-created segmenter for Thai/Lao. Intl.Segmenter is built into Node.js 16+.
+ *
+ * ICU data availability: Node.js ships with either "full-icu" or "small-icu" data.
+ * Small-icu builds (common in CI/Docker) often lack Thai word-boundary data, causing
+ * Intl.Segmenter('th') to either throw or produce single-segment output (no breaks).
+ *
+ * The smoke-test (segment 'สวัสดี' and check length > 1) detects the broken case:
+ * - If ICU data is present: the segmenter returns multiple word segments → cached and used.
+ * - If ICU data is absent: the segmenter returns one segment (the whole string) → falls back.
+ *
+ * Fallback behavior: character-level tokenization (one token per Thai codepoint).
+ * This is acceptable because Thai has no spaces between words — character-level breaking
+ * produces readable text that wraps at each character boundary. It's not linguistically
+ * correct but is far better than a single overflowing line.
+ *
+ * To enable proper Thai segmentation in Node.js, use: node --icu-data-dir=<full-icu-path>
+ * or install the `full-icu` npm package and set NODE_ICU_DATA.
+ */
 let _thaiSegmenter: Intl.Segmenter | null = null
 export function getThaiSegmenter(): Intl.Segmenter | null {
   if (_thaiSegmenter !== null) return _thaiSegmenter
@@ -337,7 +370,13 @@ export async function measureTextWithHyphenation(
         if (lineText.length > 0 && spaceBefore) lineText += ' '
         lineText += text
       }
-      lines.push({ text: lineText, width: currentWidth })
+      const allCJK = currentTokens.every(t => CJK_CHAR_RE.test(t.text[0] ?? ''))
+      const lineObj: { text: string; width: number; hasCJK?: boolean } = { text: lineText, width: currentWidth }
+      if (allCJK) {
+        // @ts-ignore hint for renderer: CJK-only lines should not be stretched for justification
+        lineObj.hasCJK = true
+      }
+      lines.push(lineObj)
       currentTokens = []
       currentWidth = 0
     }
@@ -356,9 +395,17 @@ export async function measureTextWithHyphenation(
       // CJK/Thai tokens never hyphenate — just break immediately
       const isCJKLike = CJK_CHAR_RE.test(token.text[0] ?? '') || THAI_LAO_RE.test(token.text[0] ?? '')
       if (isCJKLike || token.text.length < minWordLength) {
-        flush()
-        currentTokens.push({ text: token.text, spaceBefore: false })
-        currentWidth = ww
+        // Kinsoku: if this token is start-forbidden, pull it onto the current line
+        // (accept slight overflow) rather than letting it begin the next line.
+        if (KINSOKU_START_FORBIDDEN.has(token.text)) {
+          currentTokens.push({ text: token.text, spaceBefore: false })
+          currentWidth += ww
+          flush()
+        } else {
+          flush()
+          currentTokens.push({ text: token.text, spaceBefore: false })
+          currentWidth = ww
+        }
         continue
       }
 
@@ -388,9 +435,19 @@ export async function measureTextWithHyphenation(
       }
 
       if (!hyphenated) {
-        flush()
-        currentTokens = [{ text: token.text, spaceBefore: false }]
-        currentWidth = ww
+        // Kinsoku: if this token is start-forbidden, pull it onto the current line
+        // (accept slight overflow) rather than letting it begin the next line.
+        if (KINSOKU_START_FORBIDDEN.has(token.text)) {
+          currentTokens.push({ text: token.text, spaceBefore: false })
+          currentWidth += ww
+          flush()
+          currentTokens = []
+          currentWidth = 0
+        } else {
+          flush()
+          currentTokens = [{ text: token.text, spaceBefore: false }]
+          currentWidth = ww
+        }
       }
     }
 

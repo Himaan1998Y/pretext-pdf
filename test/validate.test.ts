@@ -804,3 +804,170 @@ describe('validate — blockquote (5A.8)', () => {
     assert.ok(pdf instanceof Uint8Array)
   })
 })
+
+// ─── Phase 10 — Wave 2 Features ───────────────────────────────────────────────
+
+describe('Phase 10 — Wave 2: numeric bounds validation', () => {
+  test('throws VALIDATION_ERROR for paragraph fontSize > 500', async () => {
+    await expectError(
+      () => render({ content: [{ type: 'paragraph', text: 'hi', fontSize: 501 }] }),
+      'VALIDATION_ERROR'
+    )
+  })
+
+  test('throws VALIDATION_ERROR for heading fontSize > 500', async () => {
+    await expectError(
+      () => render({ content: [{ type: 'heading', level: 1, text: 'hi', fontSize: 501 }] }),
+      'VALIDATION_ERROR'
+    )
+  })
+
+  test('throws VALIDATION_ERROR for paragraph lineHeight > 20', async () => {
+    await expectError(
+      () => render({ content: [{ type: 'paragraph', text: 'hi', fontSize: 12, lineHeight: 21 }] }),
+      'VALIDATION_ERROR'
+    )
+  })
+
+  test('throws VALIDATION_ERROR for heading lineHeight > 20', async () => {
+    await expectError(
+      () => render({ content: [{ type: 'heading', level: 1, text: 'hi', fontSize: 12, lineHeight: 21 }] }),
+      'VALIDATION_ERROR'
+    )
+  })
+
+  test('throws VALIDATION_ERROR for paragraph letterSpacing > 200', async () => {
+    await expectError(
+      () => render({ content: [{ type: 'paragraph', text: 'hi', letterSpacing: 201 }] }),
+      'VALIDATION_ERROR'
+    )
+  })
+
+  test('throws VALIDATION_ERROR for heading letterSpacing > 200', async () => {
+    await expectError(
+      () => render({ content: [{ type: 'heading', level: 1, text: 'hi', letterSpacing: 201 }] }),
+      'VALIDATION_ERROR'
+    )
+  })
+})
+
+describe('Phase 10 — Wave 2: heading empty text', () => {
+  test('throws VALIDATION_ERROR for heading with empty text string', async () => {
+    await expectError(
+      () => render({ content: [{ type: 'heading', level: 1, text: '' }] }),
+      'VALIDATION_ERROR'
+    )
+  })
+
+  test('throws VALIDATION_ERROR for heading with whitespace-only text', async () => {
+    await expectError(
+      () => render({ content: [{ type: 'heading', level: 1, text: '   ' }] }),
+      'VALIDATION_ERROR'
+    )
+  })
+})
+
+describe('Phase 10 — Wave 2: InlineSpan url + href mutual exclusivity', () => {
+  test('throws VALIDATION_ERROR for span with both url and href', async () => {
+    await expectError(
+      () => render({
+        content: [{
+          type: 'rich-paragraph',
+          spans: [{ text: 'click me', url: 'https://example.com', href: '#section1' }],
+        }],
+      }),
+      'VALIDATION_ERROR'
+    )
+  })
+})
+
+describe('Phase 10 — Wave 2: rich-paragraph dir and letterSpacing validation', () => {
+  test('throws VALIDATION_ERROR for rich-paragraph with invalid dir', async () => {
+    await expectError(
+      // @ts-expect-error intentional
+      () => render({ content: [{ type: 'rich-paragraph', spans: [{ text: 'hi' }], dir: 'sideways' }] }),
+      'VALIDATION_ERROR'
+    )
+  })
+
+  test('throws VALIDATION_ERROR for rich-paragraph with letterSpacing > 200', async () => {
+    await expectError(
+      () => render({ content: [{ type: 'rich-paragraph', spans: [{ text: 'hi' }], letterSpacing: 300 }] }),
+      'VALIDATION_ERROR'
+    )
+  })
+})
+
+describe('Phase 10 — Wave 2: builder validates via render()', () => {
+  test('render() with empty heading text throws VALIDATION_ERROR', async () => {
+    await expectError(
+      () => render({ content: [{ type: 'heading', level: 1, text: '' }] }),
+      'VALIDATION_ERROR'
+    )
+  })
+})
+
+describe('Phase 10 — Wave 2: ordered list with 15 items smoke test', () => {
+  test('ordered list with 15 items renders successfully', async () => {
+    const items = Array.from({ length: 15 }, (_, i) => ({ text: `Item ${i + 1}` }))
+    const pdf = await render({ content: [{ type: 'list', style: 'ordered', items }] })
+    assert.ok(pdf instanceof Uint8Array)
+    assert.ok(pdf.byteLength > 0)
+  })
+})
+
+describe('Phase 10 — Wave 2: defaultParagraphStyle', () => {
+  test('doc with defaultParagraphStyle.fontSize = 14 renders successfully', async () => {
+    const pdf = await render({
+      defaultParagraphStyle: { fontSize: 14 },
+      content: [{ type: 'paragraph', text: 'Uses default style' }],
+    })
+    assert.ok(pdf instanceof Uint8Array)
+    assert.ok(pdf.byteLength > 0)
+  })
+})
+
+describe('Phase 10 — Wave 2: doc.sections', () => {
+  test('doc with sections renders successfully', async () => {
+    const pdf = await render({
+      sections: [{ fromPage: 1, toPage: 1, header: { text: 'Page 1 only' } }],
+      content: [{ type: 'paragraph', text: 'hello' }],
+    })
+    assert.ok(pdf instanceof Uint8Array)
+    assert.ok(pdf.byteLength > 0)
+  })
+
+  test('throws VALIDATION_ERROR for section with fromPage: 0', async () => {
+    await expectError(
+      () => render({
+        sections: [{ fromPage: 0, toPage: 1, header: { text: 'bad' } }],
+        content: [{ type: 'paragraph', text: 'hi' }],
+      }),
+      'VALIDATION_ERROR'
+    )
+  })
+
+  test('throws VALIDATION_ERROR for section with fromPage > toPage', async () => {
+    await expectError(
+      () => render({
+        sections: [{ fromPage: 3, toPage: 1, header: { text: 'bad' } }],
+        content: [{ type: 'paragraph', text: 'hi' }],
+      }),
+      'VALIDATION_ERROR'
+    )
+  })
+})
+
+describe('Phase 10 — Wave 2: tabularNumbers on rich-paragraph', () => {
+  test('rich-paragraph with tabularNumbers: true renders without error', async () => {
+    const pdf = await render({
+      content: [{
+        type: 'rich-paragraph',
+        spans: [{ text: '1234567890' }],
+        tabularNumbers: true,
+      }],
+    })
+    assert.ok(pdf instanceof Uint8Array)
+    assert.ok(pdf.byteLength > 0)
+  })
+})

@@ -35,6 +35,33 @@ export interface PdfDocument {
   hyphenation?: HyphenationConfig
   /** PDF document metadata written into the file's properties. */
   metadata?: DocumentMetadata
+  /**
+   * Default style applied to every paragraph and heading that does not
+   * explicitly set the field. Explicit element-level values always win.
+   */
+  defaultParagraphStyle?: {
+    fontSize?: number
+    lineHeight?: number
+    fontFamily?: string
+    fontWeight?: 400 | 700
+    color?: string
+    align?: 'left' | 'center' | 'right' | 'justify'
+    letterSpacing?: number
+    spaceBefore?: number
+    spaceAfter?: number
+  }
+  /**
+   * Page-range overrides for header/footer. Sections are matched by page number
+   * (1-based). The first matching section wins. Falls back to doc.header/footer.
+   */
+  sections?: Array<{
+    /** First page this section applies to (1-based, inclusive). Default: 1 */
+    fromPage?: number
+    /** Last page this section applies to (1-based, inclusive). Default: Infinity */
+    toPage?: number
+    header?: PdfDocument['header']
+    footer?: PdfDocument['footer']
+  }>
   /** Document content elements, rendered top-to-bottom. */
   content: ContentElement[]
   /** If true, flatten all form fields into static content (no longer interactive). Default: false */
@@ -674,6 +701,11 @@ export interface RichParagraphElement {
   letterSpacing?: number
   /** Simulate small-caps: uppercase text at 80% font size. Default: false */
   smallCaps?: boolean
+  /**
+   * Render digits (0–9) at a fixed slot width (widest digit in font).
+   * Ensures numeric columns align regardless of digit width variation (1 vs 0 etc.).
+   */
+  tabularNumbers?: boolean
 }
 
 export interface InlineSpan {

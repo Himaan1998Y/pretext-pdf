@@ -110,13 +110,13 @@ export async function measureBlock(
       // NEW (Phase 7F): Detect and reorder RTL text
       const { visual: visualText, isRTL, logical: logicalText } = await detectAndReorderRTL(element.text, element.dir)
 
-      const fontSize = element.fontSize ?? baseFontSize
+      const fontSize = element.fontSize ?? doc.defaultParagraphStyle?.fontSize ?? baseFontSize
       // smallCaps renders at 80% of fontSize — measure at the same size to avoid
       // overestimating block height and wasting vertical space
-      const effectiveFontSize = (element as any).smallCaps === true ? fontSize * 0.8 : fontSize
-      const lineHeight = element.lineHeight ?? doc.defaultLineHeight ?? (effectiveFontSize * 1.5)
-      const fontFamily = element.fontFamily ?? baseFont
-      const fontWeight = element.fontWeight ?? 400
+      const effectiveFontSize = element.smallCaps === true ? fontSize * 0.8 : fontSize
+      const lineHeight = element.lineHeight ?? doc.defaultParagraphStyle?.lineHeight ?? doc.defaultLineHeight ?? (effectiveFontSize * 1.5)
+      const fontFamily = element.fontFamily ?? doc.defaultParagraphStyle?.fontFamily ?? baseFont
+      const fontWeight = element.fontWeight ?? doc.defaultParagraphStyle?.fontWeight ?? 400
       const fontKey = buildFontKey(fontFamily, fontWeight, 'normal')
 
       const columns = element.columns ?? 1
@@ -143,7 +143,7 @@ export async function measureBlock(
       // but pretext doesn't know about it. Reduce measureWidth so line-breaks happen
       // before the rendered text would overflow. Formula: scale by avgCharWidth /
       // (avgCharWidth + spacing), where avgCharWidth ≈ 0.5 * effectiveFontSize.
-      const letterSpacingValue = (element as any).letterSpacing ?? 0
+      const letterSpacingValue = element.letterSpacing ?? doc.defaultParagraphStyle?.letterSpacing ?? 0
       if (letterSpacingValue > 0) {
         const avgCharWidth = effectiveFontSize * 0.5
         measureWidth = Math.max(10, measureWidth * avgCharWidth / (avgCharWidth + letterSpacingValue))
@@ -152,7 +152,7 @@ export async function measureBlock(
       // CRITICAL (Phase 7F): Measure the VISUAL-ORDER text (what will actually be rendered).
       // smallCaps uppercases at render time — measure the same uppercase text so
       // line-break widths match what is actually drawn.
-      const measureText_ = (element as any).smallCaps === true ? visualText.toUpperCase() : visualText
+      const measureText_ = element.smallCaps === true ? visualText.toUpperCase() : visualText
       const lines = await measureText(measureText_, effectiveFontSize, fontFamily, fontWeight, measureWidth, lineHeight, opts)
 
       if (columns > 1) {
@@ -161,6 +161,8 @@ export async function measureBlock(
       }
 
       // Construct result with or without columnData depending on columns value
+      const paraSpaceAfter = element.spaceAfter ?? doc.defaultParagraphStyle?.spaceAfter ?? 0
+      const paraSpaceBefore = element.spaceBefore ?? doc.defaultParagraphStyle?.spaceBefore ?? 0
       if (columnData) {
         return {
           element,
@@ -169,8 +171,8 @@ export async function measureBlock(
           fontSize,
           lineHeight,
           fontKey,
-          spaceAfter: element.spaceAfter ?? 0,
-          spaceBefore: element.spaceBefore ?? 0,
+          spaceAfter: paraSpaceAfter,
+          spaceBefore: paraSpaceBefore,
           columnData,
           isRTL,  // NEW (Phase 7F)
           ...(isRTL && { logicalText }),  // NEW: Only store logical text when RTL
@@ -183,8 +185,8 @@ export async function measureBlock(
           fontSize,
           lineHeight,
           fontKey,
-          spaceAfter: element.spaceAfter ?? 0,
-          spaceBefore: element.spaceBefore ?? 0,
+          spaceAfter: paraSpaceAfter,
+          spaceBefore: paraSpaceBefore,
           isRTL,  // NEW (Phase 7F)
           ...(isRTL && { logicalText }),  // NEW: Only store logical text when RTL
         }
@@ -196,25 +198,26 @@ export async function measureBlock(
       const { visual: visualText, isRTL, logical: logicalText } = await detectAndReorderRTL(element.text, element.dir)
 
       const defaults = HEADING_DEFAULTS[element.level]
-      const fontSize = element.fontSize ?? (baseFontSize * defaults.sizeMultiplier)
+      const baseHeadingFontSize = doc.defaultParagraphStyle?.fontSize ?? baseFontSize
+      const fontSize = element.fontSize ?? (baseHeadingFontSize * defaults.sizeMultiplier)
       // smallCaps renders at 80% — measure at effective size
-      const effectiveFontSize = (element as any).smallCaps === true ? fontSize * 0.8 : fontSize
-      const lineHeight = element.lineHeight ?? doc.defaultLineHeight ?? (effectiveFontSize * 1.4)
-      const fontFamily = element.fontFamily ?? baseFont
-      const fontWeight = element.fontWeight ?? defaults.fontWeight
+      const effectiveFontSize = element.smallCaps === true ? fontSize * 0.8 : fontSize
+      const lineHeight = element.lineHeight ?? doc.defaultParagraphStyle?.lineHeight ?? doc.defaultLineHeight ?? (effectiveFontSize * 1.4)
+      const fontFamily = element.fontFamily ?? doc.defaultParagraphStyle?.fontFamily ?? baseFont
+      const fontWeight = element.fontWeight ?? doc.defaultParagraphStyle?.fontWeight ?? defaults.fontWeight
       const fontKey = buildFontKey(fontFamily, fontWeight, 'normal')
 
       const opts = hyphenatorOpts && element.hyphenate !== false ? hyphenatorOpts : undefined
 
       // Compensate for letterSpacing (same logic as paragraph above)
-      const headingLetterSpacing = (element as any).letterSpacing ?? 0
+      const headingLetterSpacing = element.letterSpacing ?? doc.defaultParagraphStyle?.letterSpacing ?? 0
       const headingMeasureWidth = headingLetterSpacing > 0
         ? Math.max(10, contentWidth * (effectiveFontSize * 0.5) / (effectiveFontSize * 0.5 + headingLetterSpacing))
         : contentWidth
 
       // CRITICAL (Phase 7F): Measure the VISUAL-ORDER text (what will actually be rendered).
       // smallCaps uppercases at render time — measure uppercase for consistent line widths.
-      const headingMeasureText = (element as any).smallCaps === true ? visualText.toUpperCase() : visualText
+      const headingMeasureText = element.smallCaps === true ? visualText.toUpperCase() : visualText
       const lines = await measureText(headingMeasureText, effectiveFontSize, fontFamily, fontWeight, headingMeasureWidth, lineHeight, opts)
 
       return {
@@ -224,8 +227,8 @@ export async function measureBlock(
         fontSize,
         lineHeight,
         fontKey,
-        spaceAfter: element.spaceAfter ?? defaults.spaceAfter,
-        spaceBefore: element.spaceBefore ?? defaults.spaceBefore,
+        spaceAfter: element.spaceAfter ?? doc.defaultParagraphStyle?.spaceAfter ?? defaults.spaceAfter,
+        spaceBefore: element.spaceBefore ?? doc.defaultParagraphStyle?.spaceBefore ?? defaults.spaceBefore,
         isRTL,  // NEW (Phase 7F)
         ...(isRTL && { logicalText }),  // NEW: Only store logical text when RTL
       }
@@ -825,19 +828,8 @@ async function measureList(
   const fontSize = element.fontSize ?? baseFontSize
   const lineHeight = element.lineHeight ?? doc.defaultLineHeight ?? (fontSize * 1.5)
   const indent = element.indent ?? 20
-  const markerWidth = element.markerWidth ?? 20
   const itemSpaceAfter = element.itemSpaceAfter ?? 4
   const fontKey = buildFontKey(baseFontFamily, 400, 'normal')
-
-  // Width available for item text (after indent + marker column)
-  const textWidth = contentWidth - indent - markerWidth
-
-  if (textWidth <= 0) {
-    throw new PretextPdfError(
-      'VALIDATION_ERROR',
-      `List indent (${indent}pt) + markerWidth (${markerWidth}pt) exceeds contentWidth (${contentWidth}pt). Reduce indent or markerWidth.`
-    )
-  }
 
   const blocks: MeasuredBlock[] = []
 
@@ -872,6 +864,28 @@ async function measureList(
         allItems.push({ text: nested.text, marker: nestedMarker, isNested: true, isFirstInList: false, fontWeight: nested.fontWeight ?? 400 })
       }
     }
+  }
+
+  // Compute markerWidth: use explicit override if set, otherwise measure widest marker
+  let markerWidth: number
+  if (element.markerWidth != null) {
+    markerWidth = element.markerWidth
+  } else {
+    const widestMarker = element.style === 'ordered'
+      ? `${allItems.length}.`
+      : (element.marker ?? '•')
+    const measured = await measureNaturalTextWidth(widestMarker, fontSize, baseFontFamily, 400)
+    markerWidth = Math.max(16, measured + 6)
+  }
+
+  // Width available for item text (after indent + marker column)
+  const textWidth = contentWidth - indent - markerWidth
+
+  if (textWidth <= 0) {
+    throw new PretextPdfError(
+      'VALIDATION_ERROR',
+      `List indent (${indent}pt) + markerWidth (${markerWidth}pt) exceeds contentWidth (${contentWidth}pt). Reduce indent or markerWidth.`
+    )
   }
 
   for (let i = 0; i < allItems.length; i++) {
