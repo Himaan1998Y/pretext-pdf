@@ -83,9 +83,14 @@ export function validate(doc: PdfDocument): void {
     }
   }
 
-  // margins can't make content area zero/negative
+  // margins must be non-negative and can't make content area zero/negative
   if (doc.margins) {
     const m = doc.margins
+    for (const side of ['top', 'bottom', 'left', 'right'] as const) {
+      if (m[side] !== undefined && (typeof m[side] !== 'number' || m[side]! < 0 || !isFinite(m[side]!))) {
+        throw new PretextPdfError('VALIDATION_ERROR', `margins.${side} must be a non-negative finite number. Got: ${m[side]}`)
+      }
+    }
     const [pageW, pageH] = resolvePageDimensions(doc.pageSize)
     const left = m.left ?? 72
     const right = m.right ?? 72

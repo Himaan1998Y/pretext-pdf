@@ -53,6 +53,17 @@ describe('validate — page sizes', () => {
       'PAGE_TOO_SMALL'
     )
   })
+
+  test('throws VALIDATION_ERROR for negative margin values', async () => {
+    await expectError(
+      () => render({ margins: { top: -10, bottom: 72, left: 72, right: 72 }, content: [{ type: 'paragraph', text: 'hi' }] }),
+      'VALIDATION_ERROR'
+    )
+    await expectError(
+      () => render({ margins: { top: 72, bottom: 72, left: -5, right: 72 }, content: [{ type: 'paragraph', text: 'hi' }] }),
+      'VALIDATION_ERROR'
+    )
+  })
 })
 
 // ─── Paragraph validation ─────────────────────────────────────────────────────
