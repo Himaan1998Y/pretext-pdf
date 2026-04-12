@@ -157,6 +157,10 @@ export async function measureAllBlocks(
     if (el.type === 'image') {
       // Images need their specific imageMap key (keyed by content index in assets.ts)
       const imageKey = `img-${i}`
+      // Skip images that failed to load (not in imageMap) — they were already logged as warnings
+      if (!imageMap.has(imageKey)) {
+        continue
+      }
       if (el.float) {
         const block = await measureFloatImageBlock(el, imageKey, imageMap, contentWidth, pageContentHeight, doc)
         results.push(block)
@@ -166,6 +170,10 @@ export async function measureAllBlocks(
       }
     } else if (el.type === 'svg') {
       const svgKey = `svg-${i}`
+      // Skip SVGs that failed to load (not in imageMap)
+      if (!imageMap.has(svgKey)) {
+        continue
+      }
       // Synthetic ImageElement reuses existing measurement logic (aspect ratio, clamping, height validation)
       const syntheticImage: import('./types.js').ImageElement = {
         type: 'image',
@@ -183,6 +191,10 @@ export async function measureAllBlocks(
     } else if (el.type === 'float-group') {
       const { measureFloatGroup } = await import('./measure-blocks.js')
       const imageKey = `float-group-${i}`
+      // Skip float-groups if their image failed to load
+      if (!imageMap.has(imageKey)) {
+        continue
+      }
       const block = await measureFloatGroup(el, imageKey, imageMap, contentWidth, pageContentHeight, doc, hyphenatorOpts)
       results.push(block)
     } else {

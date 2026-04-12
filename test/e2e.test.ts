@@ -928,4 +928,28 @@ describe('e2e — auto-width table columns', () => {
     assert.ok(isPdfBytes(pdf))
     writeOutput('e2e-p3-auto-width-mixed.pdf', pdf)
   })
+
+  test('document with unreachable image URL skips gracefully (no crash)', async () => {
+    // Capture warnings to verify the image load failure is logged
+    const originalWarn = console.warn
+    const warnings: string[] = []
+    console.warn = (...args: any[]) => warnings.push(args.join(' '))
+
+    try {
+      const pdf = await render({
+        content: [
+          { type: 'paragraph', text: 'Before image.' },
+          { type: 'image', src: 'https://this-domain-does-not-exist-invalid.test/image.png', width: 100, height: 100 },
+          { type: 'paragraph', text: 'After image — the document still renders even though the image failed to load.' },
+        ],
+      })
+
+      assert.ok(isPdfBytes(pdf), 'PDF should still generate despite unreachable image')
+      assert.ok(pdf.byteLength > 1000, 'PDF should have content')
+      assert.ok(warnings.some(w => w.includes('[pretext-pdf]') && w.includes('Image')), 'Should log image load warning')
+      writeOutput('e2e-image-unreachable.pdf', pdf)
+    } finally {
+      console.warn = originalWarn
+    }
+  })
 })

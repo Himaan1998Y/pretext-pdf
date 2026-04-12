@@ -125,6 +125,9 @@ async function loadSvgAsImage(
  *
  * IMPORTANT: @cantoo/pdf-lib image embedding is NOT thread-safe.
  * We load bytes in parallel but embed sequentially.
+ *
+ * Images that fail to load (network error, file not found, unreachable URL) are
+ * logged as warnings but do not crash the document — the document renders without that image.
  */
 export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentWidth: number): Promise<ImageMap> {
   const imageMap: ImageMap = new Map()
@@ -150,9 +153,9 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
     }
   }
 
-  // Load all image bytes in parallel
+  // Load all image bytes in parallel; capture both successes and failures
   const loadResults = imageEntries.length > 0
-    ? await Promise.all(
+    ? await Promise.allSettled(
         imageEntries.map(async ({ el, key }) => {
           const bytes = await loadImageBytes(el, key)
           return { el, key, bytes }
@@ -160,8 +163,16 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
       )
     : []
 
-  // Embed sequentially (@cantoo/pdf-lib limitation)
-  for (const { el, key, bytes } of loadResults) {
+  // Process results: embed successful images, warn on failures
+  for (const result of loadResults) {
+    if (result.status === 'rejected') {
+      const err = result.reason
+      const msg = err instanceof Error ? err.message : String(err)
+      console.warn(`[pretext-pdf] Image load skipped: ${msg}`)
+      continue
+    }
+
+    const { el, key, bytes } = result.value
     const resolvedFormat = resolveImageFormat(el, bytes, key)
     try {
       const pdfImage = resolvedFormat === 'png'
@@ -169,10 +180,8 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
         : await pdfDoc.embedJpg(bytes)
       imageMap.set(key, pdfImage)
     } catch (err) {
-      throw new PretextPdfError(
-        'IMAGE_FORMAT_MISMATCH',
-        `Image key "${key}" (format: '${resolvedFormat}'): @cantoo/pdf-lib failed to embed — the bytes may not be a valid ${resolvedFormat.toUpperCase()} file. Error: ${err instanceof Error ? err.message : String(err)}`
-      )
+      console.warn(`[pretext-pdf] Image embed failed: Image key "${key}" (format: '${resolvedFormat}'): ${err instanceof Error ? err.message : String(err)}`)
+      // Continue without this image rather than crashing
     }
   }
 
@@ -240,37 +249,64 @@ function resolveImageFormat(el: ImageElement, bytes: Uint8Array, key: string): '
   )
 }
 
-/** Load image bytes from a file path or Uint8Array */
+/** Load image bytes from a URL, file path, or Uint8Array */
 async function loadImageBytes(el: ImageElement, key: string): Promise<Uint8Array> {
   // Already have bytes — use directly
   if (el.src instanceof Uint8Array) {
     return el.src
   }
 
-  // String path — load from filesystem
-  const filePath = el.src
+  const src = el.src
 
-  if (!filePath || typeof filePath !== 'string') {
-    throw new PretextPdfError('IMAGE_LOAD_FAILED', `Image "${key}": 'src' must be a non-empty string path or Uint8Array`)
+  if (!src || typeof src !== 'string') {
+    throw new PretextPdfError('IMAGE_LOAD_FAILED', `Image "${key}": 'src' must be a non-empty string path, URL, or Uint8Array`)
   }
 
-  // Dynamic import — tree-shaken in browser builds, only loaded when src is a file path
+  // HTTPS/HTTP URL — fetch it
+  if (src.startsWith('https://') || src.startsWith('http://')) {
+    let resp: Response
+    try {
+      resp = await fetch(src)
+    } catch (err) {
+      throw new PretextPdfError(
+        'IMAGE_LOAD_FAILED',
+        `Image "${key}": failed to fetch URL "${src}": ${err instanceof Error ? err.message : String(err)}`
+      )
+    }
+    if (!resp.ok) {
+      throw new PretextPdfError(
+        'IMAGE_LOAD_FAILED',
+        `Image "${key}": URL returned HTTP ${resp.status}: "${src}"`
+      )
+    }
+    try {
+      const buf = await resp.arrayBuffer()
+      return new Uint8Array(buf)
+    } catch (err) {
+      throw new PretextPdfError(
+        'IMAGE_LOAD_FAILED',
+        `Image "${key}": failed to read response body from "${src}": ${err instanceof Error ? err.message : String(err)}`
+      )
+    }
+  }
+
+  // File path — load from filesystem
   const fs = await import('fs')
 
-  if (!fs.existsSync(filePath)) {
+  if (!fs.existsSync(src)) {
     throw new PretextPdfError(
       'IMAGE_LOAD_FAILED',
-      `Image "${key}": file not found at "${filePath}". Check the path in the image element's 'src' field.`
+      `Image "${key}": file not found at "${src}". Check the path in the image element's 'src' field.`
     )
   }
 
   try {
-    const buffer = fs.readFileSync(filePath)
+    const buffer = fs.readFileSync(src)
     return new Uint8Array(buffer)
   } catch (err) {
     throw new PretextPdfError(
       'IMAGE_LOAD_FAILED',
-      `Image "${key}": failed to read file "${filePath}": ${err instanceof Error ? err.message : String(err)}`
+      `Image "${key}": failed to read file "${src}": ${err instanceof Error ? err.message : String(err)}`
     )
   }
 }

@@ -427,42 +427,49 @@ describe('validate — image', () => {
     )
   })
 
-  test('accepts format: auto (default)', async () => {
-    // Without a real image file we can't render, but validation should pass
-    // This should fail with IMAGE_LOAD_FAILED (file not found), not VALIDATION_ERROR
-    await assert.rejects(
-      () => render({ content: [{ type: 'image', src: '/nonexistent.png', format: 'auto', width: 100, height: 100 }] }),
-      (err: unknown) => {
-        assert.ok(err instanceof PretextPdfError)
-        assert.notEqual(err.code, 'VALIDATION_ERROR', 'Should fail at load, not validation')
-        return true
-      }
-    )
+  test('accepts format: auto (default) — missing file is skipped gracefully', async () => {
+    // Without a real image file, the image is skipped gracefully (logged as warning)
+    // Validation passes; the document renders without the missing image
+    const originalWarn = console.warn
+    const warnings: string[] = []
+    console.warn = (...args: any[]) => warnings.push(args.join(' '))
+    try {
+      const pdf = await render({ content: [{ type: 'image', src: '/nonexistent.png', format: 'auto', width: 100, height: 100 }] })
+      assert.ok(pdf instanceof Uint8Array, 'Should still return a PDF despite missing image')
+      assert.ok(warnings.some(w => w.includes('[pretext-pdf]') && w.includes('Image')), 'Should log image load warning')
+    } finally {
+      console.warn = originalWarn
+    }
   })
 
-  test('format auto-detects PNG from Uint8Array magic bytes (fails at embed, not validation)', async () => {
-    // Minimal PNG magic bytes — passes validation, fails at pdf-lib embed
+  test('corrupt PNG (magic bytes only) is skipped gracefully with warning', async () => {
+    // Minimal PNG magic bytes — passes validation but is corrupt, fails at pdf-lib embed
+    // Now handled gracefully: document renders without the image (logged as warning)
     const pngMagic = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
-    await assert.rejects(
-      () => render({ content: [{ type: 'image', src: pngMagic, width: 100, height: 100 }] }),
-      (err: unknown) => {
-        assert.ok(err instanceof PretextPdfError)
-        assert.notEqual(err.code, 'VALIDATION_ERROR', 'Should fail at embed (IMAGE_FORMAT_MISMATCH), not validation')
-        return true
-      }
-    )
+    const originalWarn = console.warn
+    const warnings: string[] = []
+    console.warn = (...args: any[]) => warnings.push(args.join(' '))
+    try {
+      const pdf = await render({ content: [{ type: 'image', src: pngMagic, width: 100, height: 100 }] })
+      assert.ok(pdf instanceof Uint8Array, 'Should still return a PDF despite corrupt image')
+      assert.ok(warnings.some(w => w.includes('[pretext-pdf]') && w.includes('Image')), 'Should log image embed warning')
+    } finally {
+      console.warn = originalWarn
+    }
   })
 
-  test('format auto-detects JPEG from Uint8Array magic bytes (fails at embed, not validation)', async () => {
+  test('corrupt JPEG (magic bytes only) is skipped gracefully with warning', async () => {
     const jpegMagic = new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10])
-    await assert.rejects(
-      () => render({ content: [{ type: 'image', src: jpegMagic, width: 100, height: 100 }] }),
-      (err: unknown) => {
-        assert.ok(err instanceof PretextPdfError)
-        assert.notEqual(err.code, 'VALIDATION_ERROR', 'Should fail at embed, not validation')
-        return true
-      }
-    )
+    const originalWarn = console.warn
+    const warnings: string[] = []
+    console.warn = (...args: any[]) => warnings.push(args.join(' '))
+    try {
+      const pdf = await render({ content: [{ type: 'image', src: jpegMagic, width: 100, height: 100 }] })
+      assert.ok(pdf instanceof Uint8Array, 'Should still return a PDF despite corrupt image')
+      assert.ok(warnings.some(w => w.includes('[pretext-pdf]') && w.includes('Image')), 'Should log image embed warning')
+    } finally {
+      console.warn = originalWarn
+    }
   })
 
   test('throws VALIDATION_ERROR for negative spaceAfter on image', async () => {
