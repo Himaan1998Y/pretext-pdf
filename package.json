@@ -37,6 +37,7 @@
   "files": [
     "dist/",
     "fonts/",
+    "docs/screenshots/",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
@@ -100,7 +101,7 @@
   },
   "peerDependencies": {
     "@napi-rs/canvas": "^0.1.57",
-    "@signpdf/signpdf": "^3.2.0"
+    "@signpdf/signpdf": "^3.3.0"
   },
   "peerDependenciesMeta": {
     "@napi-rs/canvas": {
@@ -111,7 +112,6 @@
     }
   },
   "devDependencies": {
-    "@cantoo/pdf-lib": "^2.6.5",
     "@signpdf/signpdf": "^3.3.0",
     "@types/node": "^22.0.0",
     "@types/pixelmatch": "^5.2.6",

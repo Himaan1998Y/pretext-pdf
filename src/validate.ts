@@ -59,7 +59,7 @@ export function validate(doc: PdfDocument): void {
     throw new PretextPdfError('VALIDATION_ERROR', `document.content has ${doc.content.length} elements (hard limit: 50,000). Split into multiple documents.`)
   }
   if (doc.content.length > 10_000) {
-    console.warn(`[pretext-pdf] document.content has ${doc.content.length} elements (recommended max: 10,000). Large documents may be slow to render.`)
+    console.warn(`[pretext-pdf] Performance advisory: document.content has ${doc.content.length} elements (recommended max: 10,000). Large documents may be slow.`)
   }
 
   // page size

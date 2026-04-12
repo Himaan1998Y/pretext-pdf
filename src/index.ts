@@ -48,6 +48,9 @@ export type {
   AnnotationSpec,
   AssemblyPart,
   FormFieldElement,
+  TocElement,
+  FootnoteDefElement,
+  FloatGroupElement,
 } from './types.js'
 export { PretextPdfError } from './errors.js'
 export type { ErrorCode } from './errors.js'
@@ -59,8 +62,9 @@ export type { PdfBuilderOptions } from './builder.js'
  * Resolve the active header and footer for a given 1-based page number.
  * The first matching section (fromPage/toPage range) wins; falls back to
  * doc.header / doc.footer when no section matches.
+ * Internal — used by the render pipeline. Not part of the public API.
  */
-export function resolveHeaderFooter(doc: PdfDocument, pageNumber: number): {
+function resolveHeaderFooter(doc: PdfDocument, pageNumber: number): {
   header: PdfDocument['header']
   footer: PdfDocument['footer']
 } {

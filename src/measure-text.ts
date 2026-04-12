@@ -70,7 +70,7 @@ export async function detectAndReorderRTL(
       const visual = getReorderedString(text, embedLevelsResult)
       return { visual, isRTL: true, logical: text }
     } catch (err) {
-      console.warn('bidi-js error during RTL reordering:', err)
+      console.error('[pretext-pdf] bidi-js RTL reordering failed — rendering logical order as fallback:', err)
       return { visual: text, isRTL: false, logical: text }
     }
   }

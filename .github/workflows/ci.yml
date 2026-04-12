@@ -35,17 +35,17 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Contract tests
+        run: npm run test:contract
+
       - name: Unit & validation tests
-        run: npm run test:unit && npm run test:validate
+        run: npm run test:unit
 
       - name: E2E tests
         run: npm run test:e2e
 
-      - name: Phase 7 feature tests
-        run: npm run test:phase-7
-
-      - name: Phase 8 feature tests
-        run: npm run test:phase-8
+      - name: All phase tests (phases 2–9)
+        run: npm run test:phases
 
       - name: Smoke test examples (Phase 7)
         run: |

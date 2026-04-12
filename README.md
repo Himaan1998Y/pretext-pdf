@@ -454,15 +454,15 @@ margins: { top: 36, bottom: 36, left: 36, right: 36 }
 
 ## Test Coverage
 
-188+ tests across all phases with 100% pass rate:
+389+ tests across all phases with 100% pass rate:
 
 ```bash
-npm test              # All 188+ tests
+npm test              # Full suite (unit + e2e + all phases)
 npm run test:unit     # Validation, builder, rich-text unit tests
 npm run test:e2e      # End-to-end render tests
 npm run test:phase-7  # Phase 7A-7G feature tests
 npm run test:phase-8  # Phase 8A-8H feature tests
-npm run test:audit    # Security audit fixes (Phases 0-4)
+npm run test:phases   # All phase tests (7–9, performance, signatures)
 ```
 
 **Coverage**: Type safety, path validation, error handling, boundary cases, crypto signing, document assembly, and all content elements.
