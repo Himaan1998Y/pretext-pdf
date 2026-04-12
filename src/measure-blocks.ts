@@ -111,7 +111,10 @@ export async function measureBlock(
       const { visual: visualText, isRTL, logical: logicalText } = await detectAndReorderRTL(element.text, element.dir)
 
       const fontSize = element.fontSize ?? baseFontSize
-      const lineHeight = element.lineHeight ?? doc.defaultLineHeight ?? (fontSize * 1.5)
+      // smallCaps renders at 80% of fontSize — measure at the same size to avoid
+      // overestimating block height and wasting vertical space
+      const effectiveFontSize = (element as any).smallCaps === true ? fontSize * 0.8 : fontSize
+      const lineHeight = element.lineHeight ?? doc.defaultLineHeight ?? (effectiveFontSize * 1.5)
       const fontFamily = element.fontFamily ?? baseFont
       const fontWeight = element.fontWeight ?? 400
       const fontKey = buildFontKey(fontFamily, fontWeight, 'normal')
@@ -122,22 +125,39 @@ export async function measureBlock(
       let columnData: { columnCount: number; columnGap: number; columnWidth: number; linesPerColumn: number } | undefined
 
       // Multi-column layout
+      let computedColumnWidth = contentWidth
       if (columns > 1) {
-        const columnWidth = (contentWidth - (columns - 1) * columnGap) / columns
-        if (columnWidth < 50) {
-          throw new PretextPdfError('COLUMN_WIDTH_TOO_NARROW', `Column width would be ${columnWidth.toFixed(1)}pt, which is below the minimum 50pt. Reduce columns, increase columnGap, or increase page width.`)
+        if (columns > 20) {
+          throw new PretextPdfError('VALIDATION_ERROR', `columns must be 1–20, got ${columns}`)
         }
-        measureWidth = columnWidth
+        computedColumnWidth = (contentWidth - (columns - 1) * columnGap) / columns
+        if (computedColumnWidth < 50) {
+          throw new PretextPdfError('COLUMN_WIDTH_TOO_NARROW', `Column width would be ${computedColumnWidth.toFixed(1)}pt, which is below the minimum 50pt. Reduce columns, increase columnGap, or increase page width.`)
+        }
+        measureWidth = computedColumnWidth
       }
 
       const opts = hyphenatorOpts && element.hyphenate !== false ? hyphenatorOpts : undefined
-      // CRITICAL (Phase 7F): Measure the VISUAL-ORDER text (what will actually be rendered)
-      const lines = await measureText(visualText, fontSize, fontFamily, fontWeight, measureWidth, lineHeight, opts)
+
+      // Compensate for letterSpacing: render adds `spacing` pts after each character,
+      // but pretext doesn't know about it. Reduce measureWidth so line-breaks happen
+      // before the rendered text would overflow. Formula: scale by avgCharWidth /
+      // (avgCharWidth + spacing), where avgCharWidth ≈ 0.5 * effectiveFontSize.
+      const letterSpacingValue = (element as any).letterSpacing ?? 0
+      if (letterSpacingValue > 0) {
+        const avgCharWidth = effectiveFontSize * 0.5
+        measureWidth = Math.max(10, measureWidth * avgCharWidth / (avgCharWidth + letterSpacingValue))
+      }
+
+      // CRITICAL (Phase 7F): Measure the VISUAL-ORDER text (what will actually be rendered).
+      // smallCaps uppercases at render time — measure the same uppercase text so
+      // line-break widths match what is actually drawn.
+      const measureText_ = (element as any).smallCaps === true ? visualText.toUpperCase() : visualText
+      const lines = await measureText(measureText_, effectiveFontSize, fontFamily, fontWeight, measureWidth, lineHeight, opts)
 
       if (columns > 1) {
-        const columnWidth = (contentWidth - (columns - 1) * columnGap) / columns
-        const linesPerColumn = Math.ceil(lines.length / columns)
-        columnData = { columnCount: columns, columnGap, columnWidth, linesPerColumn }
+        const linesPerColumn = Math.max(1, Math.ceil(lines.length / columns))
+        columnData = { columnCount: columns, columnGap, columnWidth: computedColumnWidth, linesPerColumn }
       }
 
       // Construct result with or without columnData depending on columns value
@@ -177,14 +197,25 @@ export async function measureBlock(
 
       const defaults = HEADING_DEFAULTS[element.level]
       const fontSize = element.fontSize ?? (baseFontSize * defaults.sizeMultiplier)
-      const lineHeight = element.lineHeight ?? doc.defaultLineHeight ?? (fontSize * 1.4) // tighter for headings
+      // smallCaps renders at 80% — measure at effective size
+      const effectiveFontSize = (element as any).smallCaps === true ? fontSize * 0.8 : fontSize
+      const lineHeight = element.lineHeight ?? doc.defaultLineHeight ?? (effectiveFontSize * 1.4)
       const fontFamily = element.fontFamily ?? baseFont
       const fontWeight = element.fontWeight ?? defaults.fontWeight
       const fontKey = buildFontKey(fontFamily, fontWeight, 'normal')
 
       const opts = hyphenatorOpts && element.hyphenate !== false ? hyphenatorOpts : undefined
-      // CRITICAL (Phase 7F): Measure the VISUAL-ORDER text (what will actually be rendered)
-      const lines = await measureText(visualText, fontSize, fontFamily, fontWeight, contentWidth, lineHeight, opts)
+
+      // Compensate for letterSpacing (same logic as paragraph above)
+      const headingLetterSpacing = (element as any).letterSpacing ?? 0
+      const headingMeasureWidth = headingLetterSpacing > 0
+        ? Math.max(10, contentWidth * (effectiveFontSize * 0.5) / (effectiveFontSize * 0.5 + headingLetterSpacing))
+        : contentWidth
+
+      // CRITICAL (Phase 7F): Measure the VISUAL-ORDER text (what will actually be rendered).
+      // smallCaps uppercases at render time — measure uppercase for consistent line widths.
+      const headingMeasureText = (element as any).smallCaps === true ? visualText.toUpperCase() : visualText
+      const lines = await measureText(headingMeasureText, effectiveFontSize, fontFamily, fontWeight, headingMeasureWidth, lineHeight, opts)
 
       return {
         element,
@@ -201,9 +232,9 @@ export async function measureBlock(
     }
 
     case 'hr': {
-      const spaceAbove = element.spaceAbove ?? 12
+      const spaceAbove = element.spaceAbove ?? element.spaceBefore ?? 12
       const thickness = element.thickness ?? 0.5
-      const spaceBelow = element.spaceBelow ?? 12
+      const spaceBelow = element.spaceBelow ?? element.spaceAfter ?? 12
       return {
         element,
         height: spaceAbove + thickness + spaceBelow,
@@ -898,33 +929,43 @@ async function measureTable(
   const borderColor = element.borderColor ?? '#cccccc'
   const headerBgColor = element.headerBgColor ?? '#f5f5f5'
 
-  // Pre-pass: measure natural widths for 'auto' columns
-  // NOTE: with colspan, we map cells to their starting column index
+  // Pre-pass: measure natural widths for 'auto' columns — run all in parallel
   const hasAutoColumns = element.columns.some(c => c.width === 'auto')
   let naturalWidths: number[] | undefined
   if (hasAutoColumns) {
     naturalWidths = new Array(element.columns.length).fill(0)
+    // Collect all auto-column cells first (sequential index tracking)
+    type AutoCellJob = { colIdx: number; cs: number; fontWeight: 400|700; cellFontSize: number; cellFamily: string; text: string }
+    const jobs: AutoCellJob[] = []
     for (const row of element.rows) {
-      let colIdx = 0  // track column position accounting for colspan
+      let colIdx = 0
       for (const cell of row.cells) {
         const cs = cell.colspan ?? 1
-        // For auto columns: measure natural width and distribute across spanned columns
-        // For now, attribute full width to the first column of the span
         if (element.columns[colIdx]?.width === 'auto') {
-          const fontWeight = cell.fontWeight ?? (row.isHeader ? 700 : 400)
-          const cellFontSize = cell.fontSize ?? fontSize
-          const cellFamily = cell.fontFamily ?? baseFontFamily
-          const w = await measureNaturalTextWidth(cell.text, cellFontSize, cellFamily, fontWeight)
-          const cellNaturalWidth = w + 2 * cellPaddingH
-          // Distribute across spanned columns
-          const perColumn = cellNaturalWidth / cs
-          for (let si = colIdx; si < colIdx + cs && si < element.columns.length; si++) {
-            if (element.columns[si]?.width === 'auto') {
-              naturalWidths[si] = Math.max(naturalWidths[si]!, perColumn)
-            }
-          }
+          jobs.push({
+            colIdx, cs,
+            fontWeight: (cell.fontWeight ?? (row.isHeader ? 700 : 400)) as 400|700,
+            cellFontSize: cell.fontSize ?? fontSize,
+            cellFamily: cell.fontFamily ?? baseFontFamily,
+            text: cell.text,
+          })
         }
         colIdx += cs
+      }
+    }
+    // Measure all auto cells in parallel
+    const widths = await Promise.all(
+      jobs.map(j => measureNaturalTextWidth(j.text, j.cellFontSize, j.cellFamily, j.fontWeight))
+    )
+    // Assign results back
+    for (let i = 0; i < jobs.length; i++) {
+      const { colIdx, cs } = jobs[i]!
+      const cellNaturalWidth = widths[i]! + 2 * cellPaddingH
+      const perColumn = cellNaturalWidth / cs
+      for (let si = colIdx; si < colIdx + cs && si < element.columns.length; si++) {
+        if (element.columns[si]?.width === 'auto') {
+          naturalWidths[si] = Math.max(naturalWidths[si]!, perColumn)
+        }
       }
     }
   }
@@ -937,84 +978,86 @@ async function measureTable(
     ? element.headerRows
     : element.rows.filter(r => r.isHeader).length
 
-  // Measure all rows
-  const measuredRows: MeasuredTableRow[] = []
-
+  // Measure all rows — parallelize all cell async work across the entire table at once
+  // Step 1: Compute all synchronous cell metadata (colStart tracking is sequential)
+  type CellMeta = {
+    cell: import('./types.js').TableCell
+    row: import('./types.js').TableRow
+    cs: number
+    col: import('./types.js').ColumnDef
+    mergedWidth: number
+    fontWeight: 400 | 700
+    fontFamily: string
+    cellFontSize: number
+    cellLineHeight: number
+    cellFontKey: string
+    textWidth: number
+    cellDir: 'ltr' | 'rtl' | 'auto'
+  }
+  const allCellMeta: CellMeta[] = []
   for (const row of element.rows) {
-    const measuredCells: MeasuredTableCell[] = []
-    let maxCellHeight = 0
-    let colStart = 0  // track column position accounting for colspan
-
+    let colStart = 0
     for (const cell of row.cells) {
       const cs = cell.colspan ?? 1
       const col = element.columns[colStart]!
-
-      // Calculate merged width: sum of spanned column widths + borders between them
       let mergedWidth = 0
       for (let si = colStart; si < colStart + cs && si < columnWidths.length; si++) {
         mergedWidth += columnWidths[si]!
-        if (si < colStart + cs - 1) mergedWidth += borderWidth  // border between columns
+        if (si < colStart + cs - 1) mergedWidth += borderWidth
       }
-
-      const fontWeight = cell.fontWeight ?? (row.isHeader ? 700 : 400)
+      const fontWeight = (cell.fontWeight ?? (row.isHeader ? 700 : 400)) as 400 | 700
       const fontFamily = cell.fontFamily ?? baseFontFamily
       const cellFontSize = cell.fontSize ?? fontSize
       const cellLineHeight = doc.defaultLineHeight ?? (cellFontSize * 1.5)
       const cellFontKey = buildFontKey(fontFamily, fontWeight, 'normal')
-
-      // Text area is narrower than merged cell (padding on both sides + border)
       const textWidth = mergedWidth - 2 * cellPaddingH - borderWidth
-
-      // RTL detection must happen BEFORE measuring — visual-order text is used for correct glyph layout
-      const cellDir = cell.dir ?? 'auto'
-      const { visual: cellVisualText, isRTL: cellIsRTL } = await detectAndReorderRTL(cell.text, cellDir)
-
-      const lines = await measureText(
-        cellVisualText,
-        cellFontSize,
-        fontFamily,
-        fontWeight,
-        Math.max(textWidth, 1),
-        cellLineHeight,
-        hyphenatorOpts
-      )
-
-      const cellContentHeight = Math.max(lines.length, 1) * cellLineHeight
-      maxCellHeight = Math.max(maxCellHeight, cellContentHeight)
-
-      // Apply RTL alignment default: if align not explicitly set and text is RTL, default to right
-      const align = cell.align ?? col.align ?? (cellIsRTL ? 'right' : 'left')
-
-      const measuredCell: import('./types.js').MeasuredTableCell = {
-        lines,
-        fontSize: cellFontSize,
-        lineHeight: cellLineHeight,
-        fontKey: cellFontKey,
-        fontFamily,
-        align,
-        color: cell.color ?? '#000000',
-        colspan: cs,
-        mergedWidth,
-        isRTL: cellIsRTL,
-      }
-      if (cell.bgColor !== undefined) measuredCell.bgColor = cell.bgColor
-      measuredCells.push(measuredCell)
-
+      const cellDir = (cell.dir ?? 'auto') as 'ltr' | 'rtl' | 'auto'
+      allCellMeta.push({ cell, row, cs, col, mergedWidth, fontWeight, fontFamily, cellFontSize, cellLineHeight, cellFontKey, textWidth, cellDir })
       colStart += cs
     }
+  }
 
-    // Row height = tallest cell content + vertical padding on both sides
-    const rowHeight = maxCellHeight + 2 * cellPaddingV
-
-    // Compute which column boundaries have active vertical lines (not spanned by merged cells)
-    const activeBoundaries = computeActiveBoundaries(row.cells, element.columns.length)
-
-    measuredRows.push({
-      cells: measuredCells,
-      height: rowHeight,
-      isHeader: row.isHeader ?? false,
-      activeBoundaries,
+  // Step 2: Run all RTL detection + text measurement in parallel across the whole table
+  const cellResults = await Promise.all(
+    allCellMeta.map(async (m) => {
+      const { visual: cellVisualText, isRTL: cellIsRTL } = await detectAndReorderRTL(m.cell.text, m.cellDir)
+      const lines = await measureText(cellVisualText, m.cellFontSize, m.fontFamily, m.fontWeight, Math.max(m.textWidth, 1), m.cellLineHeight, hyphenatorOpts)
+      return { cellVisualText, cellIsRTL, lines }
     })
+  )
+
+  // Step 3: Reassemble into measuredRows
+  const measuredRows: MeasuredTableRow[] = []
+  let cellIdx = 0
+  for (const row of element.rows) {
+    const measuredCells: MeasuredTableCell[] = []
+    let maxCellHeight = 0
+    for (const _ of row.cells) {
+      const m = allCellMeta[cellIdx]!
+      const { cellIsRTL, lines } = cellResults[cellIdx]!
+      const cellContentHeight = Math.max(lines.length, 1) * m.cellLineHeight
+      maxCellHeight = Math.max(maxCellHeight, cellContentHeight)
+      const align = m.cell.align ?? m.col.align ?? (cellIsRTL ? 'right' : 'left')
+      const measuredCell: MeasuredTableCell = {
+        lines,
+        fontSize: m.cellFontSize,
+        lineHeight: m.cellLineHeight,
+        fontKey: m.cellFontKey,
+        fontFamily: m.fontFamily,
+        align,
+        color: m.cell.color ?? '#000000',
+        colspan: m.cs,
+        mergedWidth: m.mergedWidth,
+        isRTL: cellIsRTL,
+        ...(m.cell.tabularNumbers !== undefined && { tabularNumbers: m.cell.tabularNumbers }),
+      }
+      if (m.cell.bgColor !== undefined) measuredCell.bgColor = m.cell.bgColor
+      measuredCells.push(measuredCell)
+      cellIdx++
+    }
+    const rowHeight = maxCellHeight + 2 * cellPaddingV
+    const activeBoundaries = computeActiveBoundaries(row.cells, element.columns.length)
+    measuredRows.push({ cells: measuredCells, height: rowHeight, isHeader: row.isHeader ?? false, activeBoundaries })
   }
 
   // Header rows are the first N rows

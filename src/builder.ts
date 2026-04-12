@@ -18,6 +18,12 @@ import type {
   RichParagraphElement,
   BlockquoteElement,
   HorizontalRuleElement,
+  CalloutElement,
+  SvgElement,
+  CommentElement,
+  FormFieldElement,
+  FootnoteDefElement,
+  TocElement,
   InlineSpan,
   Margins,
   FontSpec,
@@ -53,6 +59,18 @@ export interface PdfBuilder {
   addHr(opts?: Partial<Omit<HorizontalRuleElement, 'type'>>): PdfBuilder
   addSpacer(height: number): PdfBuilder
   addPageBreak(): PdfBuilder
+  /** Render an inline SVG string (requires @napi-rs/canvas peer dep). */
+  addSvg(svg: string, opts?: Partial<Omit<SvgElement, 'type' | 'svg'>>): PdfBuilder
+  /** Add a callout box (info / warning / tip / note). */
+  addCallout(content: string, opts?: Partial<Omit<CalloutElement, 'type' | 'content'>>): PdfBuilder
+  /** Add an invisible sticky-note comment annotation. */
+  addComment(contents: string, opts?: Partial<Omit<CommentElement, 'type' | 'contents'>>): PdfBuilder
+  /** Add an interactive AcroForm field (text, checkbox, radio, dropdown, button). */
+  addFormField(opts: Omit<FormFieldElement, 'type'>): PdfBuilder
+  /** Define a reusable footnote (referenced by footnote-ref spans in rich paragraphs). */
+  addFootnoteDef(id: string, text: string, opts?: Partial<Omit<FootnoteDefElement, 'type' | 'id' | 'text'>>): PdfBuilder
+  /** Insert an auto-generated Table of Contents. */
+  addTableOfContents(opts?: Partial<Omit<TocElement, 'type'>>): PdfBuilder
   toDocument(): PdfDocument
   build(): Promise<Uint8Array>
 }
@@ -160,6 +178,36 @@ export function createPdf(options: PdfBuilderOptions = {}): PdfBuilder {
      */
     addPageBreak(): PdfBuilder {
       content.push({ type: 'page-break' })
+      return this
+    },
+
+    addSvg(svg: string, opts?: Partial<Omit<SvgElement, 'type' | 'svg'>>): PdfBuilder {
+      content.push({ type: 'svg', svg, ...opts } as SvgElement)
+      return this
+    },
+
+    addCallout(c: string, opts?: Partial<Omit<CalloutElement, 'type' | 'content'>>): PdfBuilder {
+      content.push({ type: 'callout', content: c, ...opts } as CalloutElement)
+      return this
+    },
+
+    addComment(contents: string, opts?: Partial<Omit<CommentElement, 'type' | 'contents'>>): PdfBuilder {
+      content.push({ type: 'comment', contents, ...opts } as CommentElement)
+      return this
+    },
+
+    addFormField(opts: Omit<FormFieldElement, 'type'>): PdfBuilder {
+      content.push({ type: 'form-field', ...opts } as FormFieldElement)
+      return this
+    },
+
+    addFootnoteDef(id: string, text: string, opts?: Partial<Omit<FootnoteDefElement, 'type' | 'id' | 'text'>>): PdfBuilder {
+      content.push({ type: 'footnote-def', id, text, ...opts } as FootnoteDefElement)
+      return this
+    },
+
+    addTableOfContents(opts?: Partial<Omit<TocElement, 'type'>>): PdfBuilder {
+      content.push({ type: 'toc', ...opts } as TocElement)
       return this
     },
 

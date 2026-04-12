@@ -75,8 +75,8 @@ export async function detectAndReorderRTL(
     }
   }
 
-  // Step 2: Auto-detect dominant direction
-  const rtlRanges = /[\u0590-\u05FF\u0600-\u06FF\u0700-\u074F]/g
+  // Step 2: Auto-detect dominant direction (full RTL block coverage, UAX #9)
+  const rtlRanges = /[\u0590-\u08FF\uFB1D-\uFB4F\uFB50-\uFDFF\uFE70-\uFEFF\u{10800}-\u{10CFF}\u{10D00}-\u{10D3F}\u{10E80}-\u{10EFF}\u{10F30}-\u{10FFF}\u{1E800}-\u{1E95F}\u{1EC70}-\u{1ECBF}\u{1EE00}-\u{1EEFF}]/gu
   const rtlCount = (text.match(rtlRanges) ?? []).length
   const ltrCount = (text.match(/[a-zA-Z0-9]/g) ?? []).length
 
@@ -139,9 +139,153 @@ export async function measureNaturalTextWidth(
   return Math.max(0, ...lines.map(l => l.width))
 }
 
+// ─── Script-Aware Tokenization ────────────────────────────────────────────────
+
+/**
+ * CJK Unified Ideographs and adjacent blocks that require character-level line breaking.
+ * Each CJK character is its own break point — no spaces between them.
+ * Covers: CJK Radicals, CJK Symbols, Hiragana, Katakana, Bopomofo, Hangul,
+ *         CJK Unified Ideographs (4E00–9FFF), Extensions A–G, Compat Ideographs.
+ * Unicode source: https://www.unicode.org/faq/han_unification.html
+ */
+const CJK_CHAR_RE = /[\u2E80-\u2FFF\u3000-\u9FFF\uA960-\uA97F\uAC00-\uD7FF\uF900-\uFAFF\uFE10-\uFE1F\uFE30-\uFE4F\uFF01-\uFF60\u{20000}-\u{3FFFD}]/u
+
+/** Thai (0E00–0E7F) and Lao (0E80–0EFF) — no spaces between words */
+const THAI_LAO_RE = /[\u0E00-\u0EFF]/
+
+/** Lazily-created segmenter for Thai/Lao. Intl.Segmenter is built into Node.js 16+. */
+let _thaiSegmenter: Intl.Segmenter | null = null
+export function getThaiSegmenter(): Intl.Segmenter | null {
+  if (_thaiSegmenter !== null) return _thaiSegmenter
+  try {
+    // Check ICU data availability before caching
+    const seg = new Intl.Segmenter('th', { granularity: 'word' })
+    // Quick smoke-test — some Node builds lack Thai ICU data
+    const test = [...seg.segment('สวัสดี')]
+    if (test.length > 1) { _thaiSegmenter = seg; return seg }
+  } catch { /* fall through */ }
+  _thaiSegmenter = null  // mark permanently unavailable so we don't retry
+  return null
+}
+
+/**
+ * Insert zero-width spaces (U+200B) at Thai/Lao word boundaries so that
+ * canvas/Skia can break lines at those points. Used by the non-hyphenation path.
+ */
+function insertThaiBreaks(text: string): string {
+  const seg = getThaiSegmenter()
+  if (!seg) return text  // no ICU data — return unchanged; lines may overflow
+
+  const result: string[] = []
+  let inThaiRun = false
+
+  // Process character by character, only segmenting Thai/Lao runs
+  const parts = text.split(/([\u0E00-\u0EFF]+)/)
+  for (const part of parts) {
+    if (THAI_LAO_RE.test(part)) {
+      const words: string[] = []
+      for (const { segment, isWordLike } of seg.segment(part)) {
+        if (isWordLike !== false && segment.trim()) words.push(segment)
+        else words.push(segment)
+      }
+      result.push(words.join('\u200B'))
+    } else {
+      result.push(part)
+    }
+  }
+  return result.join('')
+}
+
+/** A single wrapping unit: a word/char and whether it was preceded by a space */
+interface WrappingToken { text: string; spaceBefore: boolean }
+
+/**
+ * Tokenize a paragraph into wrapping units:
+ * - CJK ideographs: one character per token, no space before consecutive CJK
+ * - Thai/Lao: split by Intl.Segmenter word boundaries (falls back to char-level)
+ * - Latin / other scripts: split on whitespace (standard behaviour)
+ *
+ * Preserves the original space intent: a token with spaceBefore=true contributes
+ * one spaceWidth to the line width and one ' ' to the line text.
+ */
+function tokenizeParagraph(para: string): WrappingToken[] {
+  const tokens: WrappingToken[] = []
+  // Use spread to get proper Unicode scalar values (handles surrogate pairs)
+  const chars = [...para]
+  let i = 0
+  let pendingSpace = false   // whether the next non-space token has a space before it
+  let lastWasCJK = false
+
+  while (i < chars.length) {
+    const ch = chars[i]!
+
+    if (ch === ' ' || ch === '\t') {
+      pendingSpace = true
+      lastWasCJK = false
+      i++
+      continue
+    }
+
+    if (CJK_CHAR_RE.test(ch)) {
+      // Between consecutive CJK chars there is no space — only honour a real
+      // whitespace character that appeared between them in the source text.
+      tokens.push({ text: ch, spaceBefore: pendingSpace && !lastWasCJK ? true : (pendingSpace && tokens.length > 0) })
+      pendingSpace = false
+      lastWasCJK = true
+      i++
+      continue
+    }
+
+    if (THAI_LAO_RE.test(ch)) {
+      // Collect the contiguous Thai/Lao run, then segment it into words
+      let run = ''
+      while (i < chars.length && THAI_LAO_RE.test(chars[i]!)) { run += chars[i]; i++ }
+      const seg = getThaiSegmenter()
+      let first = true
+      if (seg) {
+        for (const { segment, isWordLike } of seg.segment(run)) {
+          if (segment.trim() === '') continue
+          if (isWordLike === false) continue  // skip punctuation segments
+          tokens.push({ text: segment, spaceBefore: first ? pendingSpace : false })
+          first = false
+        }
+      } else {
+        // ICU not available: fall back to character-level (safe but not ideal)
+        for (const c of [...run]) {
+          tokens.push({ text: c, spaceBefore: first ? pendingSpace : false })
+          first = false
+        }
+      }
+      pendingSpace = false
+      lastWasCJK = false
+      continue
+    }
+
+    // Latin / other: collect until whitespace, CJK, or Thai/Lao
+    let word = ''
+    while (
+      i < chars.length &&
+      chars[i] !== ' ' && chars[i] !== '\t' &&
+      !CJK_CHAR_RE.test(chars[i]!) &&
+      !THAI_LAO_RE.test(chars[i]!)
+    ) {
+      word += chars[i]; i++
+    }
+    if (word) {
+      tokens.push({ text: word, spaceBefore: pendingSpace && tokens.length > 0 })
+      pendingSpace = false
+      lastWasCJK = false
+    }
+  }
+
+  return tokens
+}
+
+// ─── Hyphenation + Script-Aware Line-Breaking ─────────────────────────────────
+
 /**
  * Full hyphenation path: intelligently splits text into lines with Liang's algorithm.
- * Uses greedy bin packing with hyphenation at word boundaries.
+ * Handles CJK (character-level breaks), Thai/Lao (Intl.Segmenter), and Latin (space + hyphens).
  * Returns lines with actual hyphens added to hyphenated words.
  */
 export async function measureTextWithHyphenation(
@@ -161,12 +305,11 @@ export async function measureTextWithHyphenation(
   }
 
   let spaceWidth = await measure(' ')
-  // Fallback if canvas returns 0 for space
   if (spaceWidth === 0) {
     const aWidth = await measure('a')
     const aaWidth = await measure('a a')
     spaceWidth = aaWidth - 2 * aWidth
-    if (spaceWidth <= 0) spaceWidth = aWidth * 0.3 // Reasonable estimate
+    if (spaceWidth <= 0) spaceWidth = Math.max(1, aWidth * 0.3)
   }
 
   const allLines: Array<{ text: string; width: number }> = []
@@ -177,66 +320,77 @@ export async function measureTextWithHyphenation(
       continue
     }
 
-    const words = para.split(/\s+/).filter(w => w.length > 0)
-    // Pre-measure all unique words in this paragraph
-    const uniqueWords = new Set(words)
-    for (const w of uniqueWords) {
-      await measure(w)
-    }
+    const tokens = tokenizeParagraph(para)
+
+    // Pre-measure all unique token texts in parallel
+    const unique = [...new Set(tokens.map(t => t.text))]
+    await Promise.all(unique.map(w => measure(w)))
 
     const lines: Array<{ text: string; width: number }> = []
-    let currentWords: string[] = []
+    let currentTokens: WrappingToken[] = []
     let currentWidth = 0
 
     const flush = () => {
-      if (currentWords.length > 0) {
-        lines.push({ text: currentWords.join(' '), width: currentWidth })
-        currentWords = []
-        currentWidth = 0
+      if (currentTokens.length === 0) return
+      let lineText = ''
+      for (const { text, spaceBefore } of currentTokens) {
+        if (lineText.length > 0 && spaceBefore) lineText += ' '
+        lineText += text
       }
+      lines.push({ text: lineText, width: currentWidth })
+      currentTokens = []
+      currentWidth = 0
     }
 
-    for (const word of words) {
-      const ww = widthCache.get(word)!
-      const addW = currentWords.length > 0 ? spaceWidth + ww : ww
+    for (const token of tokens) {
+      const ww = widthCache.get(token.text)!
+      const gap = (token.spaceBefore && currentTokens.length > 0) ? spaceWidth : 0
+      const addW = gap + ww
 
-      if (currentWidth + addW <= maxWidth || currentWords.length === 0) {
-        currentWords.push(word)
+      if (currentWidth + addW <= maxWidth || currentTokens.length === 0) {
+        currentTokens.push(token)
         currentWidth += addW
-      } else {
-        // Try hyphenation
-        let hyphenated = false
+        continue
+      }
 
-        if (word.length >= minWordLength) {
-          const sylls = hypher.hyphenate(word)
+      // CJK/Thai tokens never hyphenate — just break immediately
+      const isCJKLike = CJK_CHAR_RE.test(token.text[0] ?? '') || THAI_LAO_RE.test(token.text[0] ?? '')
+      if (isCJKLike || token.text.length < minWordLength) {
+        flush()
+        currentTokens.push({ text: token.text, spaceBefore: false })
+        currentWidth = ww
+        continue
+      }
 
-          for (let split = sylls.length - 1; split >= 1; split--) {
-            const prefix = sylls.slice(0, split).join('')
-            const suffix = sylls.slice(split).join('')
-            if (prefix.length < leftMin || suffix.length < rightMin) continue
+      // Latin word — try hyphenation
+      let hyphenated = false
+      const sylls = hypher.hyphenate(token.text)
 
-            const hyphenPart = prefix + '-'
-            const hw = await measure(hyphenPart)
-            const addHW = currentWords.length > 0 ? spaceWidth + hw : hw
+      for (let split = sylls.length - 1; split >= 1; split--) {
+        const prefix = sylls.slice(0, split).join('')
+        const suffix = sylls.slice(split).join('')
+        if (prefix.length < leftMin || suffix.length < rightMin) continue
 
-            if (currentWidth + addHW <= maxWidth) {
-              currentWords.push(hyphenPart)
-              currentWidth += addHW
-              flush()
-              await measure(suffix)
-              currentWords = [suffix]
-              currentWidth = widthCache.get(suffix)!
-              hyphenated = true
-              break
-            }
-          }
-        }
+        const hyphenPart = prefix + '-'
+        const hw = await measure(hyphenPart)
+        const addHW = (token.spaceBefore && currentTokens.length > 0 ? spaceWidth : 0) + hw
 
-        if (!hyphenated) {
+        if (currentWidth + addHW <= maxWidth) {
+          currentTokens.push({ text: hyphenPart, spaceBefore: token.spaceBefore })
+          currentWidth += addHW
           flush()
-          currentWords = [word]
-          currentWidth = ww
+          await measure(suffix)
+          currentTokens = [{ text: suffix, spaceBefore: false }]
+          currentWidth = widthCache.get(suffix)!
+          hyphenated = true
+          break
         }
+      }
+
+      if (!hyphenated) {
+        flush()
+        currentTokens = [{ text: token.text, spaceBefore: false }]
+        currentWidth = ww
       }
     }
 
@@ -272,8 +426,17 @@ export async function measureText(
     return await measureTextWithHyphenation(text, fontString, maxWidth, hyphenatorOpts)
   }
 
-  // No hyphenation: use direct pretext layout
-  const prepared = prepareWithSegments(text, fontString, {})
+  // Thai/Lao: Skia/canvas doesn't segment Thai — insert zero-width spaces at word
+  // boundaries so pretext's line-breaker can split correctly.
+  const needsThaiSeg = THAI_LAO_RE.test(text)
+  const layoutText = needsThaiSeg ? insertThaiBreaks(text) : text
+
+  // No hyphenation: use direct pretext layout (handles CJK character-level breaks natively)
+  const prepared = prepareWithSegments(layoutText, fontString, {})
   const result = layoutWithLines(prepared, maxWidth, 99999)
-  return result.lines ?? []
+  // Strip zero-width spaces from output line texts (they're layout hints, not content)
+  return (result.lines ?? []).map((l: { text: string; width: number }) => ({
+    text: l.text.replace(/\u200B/g, ''),
+    width: l.width,
+  }))
 }

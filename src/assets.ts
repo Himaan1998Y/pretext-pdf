@@ -4,7 +4,10 @@ import { PretextPdfError } from './errors.js'
 
 // ─── SVG helpers ──────────────────────────────────────────────────────────────
 
+const SVG_MAX_BYTES = 5 * 1024 * 1024  // 5 MB — prevent ReDoS on giant SVG strings
+
 function parseSvgViewBox(svg: string): { width: number; height: number } | null {
+  if (svg.length > SVG_MAX_BYTES) return null  // too large to scan safely
   const match = svg.match(/viewBox=["']([^"']+)["']/)
   if (!match) return null
   const parts = match[1]!.split(/[\s,]+/).map(Number)
@@ -14,6 +17,7 @@ function parseSvgViewBox(svg: string): { width: number; height: number } | null 
 }
 
 function parseSvgAttributes(svg: string): { width: number; height: number } | null {
+  if (svg.length > SVG_MAX_BYTES) return null  // too large to scan safely
   const wMatch = svg.match(/<svg[^>]*\swidth=["'](\d+(?:\.\d+)?)["']/)
   const hMatch = svg.match(/<svg[^>]*\sheight=["'](\d+(?:\.\d+)?)["']/)
   if (!wMatch || !hMatch) return null
@@ -23,7 +27,8 @@ function parseSvgAttributes(svg: string): { width: number; height: number } | nu
 }
 
 function resolveSvgDimensions(el: SvgElement, contentWidth: number): { widthPt: number; heightPt: number } {
-  const viewbox = parseSvgViewBox(el.svg) ?? parseSvgAttributes(el.svg)
+  const svgStr = el.svg ?? ''
+  const viewbox = parseSvgViewBox(svgStr) ?? parseSvgAttributes(svgStr)
   const aspectRatio = viewbox ? viewbox.height / viewbox.width : null
 
   if (el.width !== undefined && el.height !== undefined) {
@@ -39,6 +44,40 @@ function resolveSvgDimensions(el: SvgElement, contentWidth: number): { widthPt: 
   const widthPt = Math.min(contentWidth, contentWidth)  // Already at contentWidth, but explicit for clarity
   const heightPt = aspectRatio !== null ? widthPt * aspectRatio : 200
   return { widthPt, heightPt }
+}
+
+/**
+ * Resolve SVG content string from either an inline `svg` field or a `src` file/URL.
+ * Throws PretextPdfError if neither is provided or the source cannot be loaded.
+ */
+async function resolveSvgContent(el: SvgElement): Promise<string> {
+  if (el.svg) return el.svg
+
+  if (!el.src) {
+    throw new PretextPdfError('SVG_LOAD_FAILED', "SvgElement requires either 'svg' (inline string) or 'src' (file path or https:// URL)")
+  }
+
+  // HTTPS URL
+  if (el.src.startsWith('https://') || el.src.startsWith('http://')) {
+    let resp: Response
+    try {
+      resp = await fetch(el.src)
+    } catch (err) {
+      throw new PretextPdfError('SVG_LOAD_FAILED', `SVG URL fetch failed for "${el.src}": ${err instanceof Error ? err.message : String(err)}`)
+    }
+    if (!resp.ok) {
+      throw new PretextPdfError('SVG_LOAD_FAILED', `SVG URL returned HTTP ${resp.status}: "${el.src}"`)
+    }
+    return resp.text()
+  }
+
+  // File path
+  const [fs, pathMod] = await Promise.all([import('fs'), import('path')])
+  const filePath = pathMod.normalize(el.src)
+  if (!fs.existsSync(filePath)) {
+    throw new PretextPdfError('SVG_LOAD_FAILED', `SVG file not found: "${filePath}"`)
+  }
+  return fs.readFileSync(filePath, 'utf-8')
 }
 
 async function loadSvgAsImage(
@@ -142,8 +181,9 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
     const el = doc.content[i]!
     if (el.type === 'svg') {
       const key = `svg-${i}`
-      const { widthPt, heightPt } = resolveSvgDimensions(el, contentWidth)
-      const pdfImage = await loadSvgAsImage(el.svg, widthPt, heightPt, pdfDoc)
+      const svgContent = await resolveSvgContent(el)
+      const { widthPt, heightPt } = resolveSvgDimensions({ ...el, svg: svgContent }, contentWidth)
+      const pdfImage = await loadSvgAsImage(svgContent, widthPt, heightPt, pdfDoc)
       imageMap.set(key, pdfImage)
     }
   }
@@ -152,9 +192,15 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
   if (doc.watermark?.image) {
     const src = doc.watermark.image
     try {
-      const bytes = src instanceof Uint8Array
-        ? src
-        : new Uint8Array((await import('fs')).readFileSync(src as string))
+      let bytes: Uint8Array
+      if (src instanceof Uint8Array) {
+        bytes = src
+      } else {
+        const [fs, pathMod] = await Promise.all([import('fs'), import('path')])
+        const filePath = pathMod.normalize(src as string)
+        if (!fs.existsSync(filePath)) throw new Error(`Watermark image not found: "${filePath}"`)
+        bytes = new Uint8Array(fs.readFileSync(filePath))
+      }
       const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47
       const pdfImage = isPng
         ? await pdfDoc.embedPng(bytes)

@@ -351,8 +351,8 @@ function splitBlock(
       linesAfterChunk < config.minWidowLines &&
       linesInChunk > config.minWidowLines
     ) {
-      linesInChunk = linesInChunk - (config.minWidowLines - linesAfterChunk)
-      linesInChunk = Math.max(linesInChunk, config.minOrphanLines)
+      const reduction = config.minWidowLines - linesAfterChunk
+      linesInChunk = Math.max(config.minOrphanLines, linesInChunk - reduction)
     }
 
     linesInChunk = Math.min(linesInChunk, totalRemainingLines)

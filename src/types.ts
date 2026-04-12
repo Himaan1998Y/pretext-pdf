@@ -324,6 +324,11 @@ export interface ParagraphElement {
   letterSpacing?: number
   /** Simulate small-caps: uppercase text at 80% font size. Default: false */
   smallCaps?: boolean
+  /**
+   * Render digits (0–9) at a fixed slot width (widest digit in font).
+   * Ensures numeric columns align regardless of digit width variation (1 vs 0 etc.).
+   */
+  tabularNumbers?: boolean
   /** PDF sticky-note annotation attached to this element. */
   annotation?: AnnotationSpec
 }
@@ -370,6 +375,11 @@ export interface HeadingElement {
   letterSpacing?: number
   /** Simulate small-caps: uppercase text at 80% font size. Default: false */
   smallCaps?: boolean
+  /**
+   * Render digits (0–9) at a fixed slot width (widest digit in font).
+   * Ensures numeric columns align regardless of digit width variation (1 vs 0 etc.).
+   */
+  tabularNumbers?: boolean
   /** PDF sticky-note annotation attached to this element. */
   annotation?: AnnotationSpec
 }
@@ -436,6 +446,11 @@ export interface TableCell {
   bgColor?: string
   /** Number of columns this cell spans. Default: 1 */
   colspan?: number
+  /**
+   * Render digits (0–9) at a fixed slot width (widest digit in font).
+   * Ensures numeric columns align regardless of digit width variation (1 vs 0 etc.).
+   */
+  tabularNumbers?: boolean
 }
 
 // ─── Image ────────────────────────────────────────────────────────────────────
@@ -504,8 +519,15 @@ export interface FloatGroupElement {
 
 export interface SvgElement {
   type: 'svg'
-  /** SVG content string. Must be a valid SVG document. */
-  svg: string
+  /** Inline SVG markup string. Either `svg` or `src` is required. */
+  svg?: string
+  /**
+   * Path to an SVG file (absolute path) or an https:// URL.
+   * Either `svg` or `src` is required.
+   * @example src: path.join(__dirname, 'chart.svg')
+   * @example src: 'https://example.com/logo.svg'
+   */
+  src?: string
   /** Rendered width in pt. Default: available content width */
   width?: number
   /** Rendered height in pt. Auto-computed from SVG viewBox if not set */
@@ -570,10 +592,14 @@ export interface HorizontalRuleElement {
   thickness?: number
   /** Line color (hex). Default: '#cccccc' */
   color?: string
-  /** Space above line in pt. Default: 12 */
+  /** Space above line in pt. Default: 12. Alias: spaceBefore */
   spaceAbove?: number
-  /** Space below line in pt. Default: 12 */
+  /** Space below line in pt. Default: 12. Alias: spaceAfter */
   spaceBelow?: number
+  /** Alias for spaceAbove — consistent with paragraph/heading naming */
+  spaceBefore?: number
+  /** Alias for spaceAfter — consistent with paragraph/heading naming */
+  spaceAfter?: number
 }
 
 // ─── Page Break ───────────────────────────────────────────────────────────────
@@ -1075,6 +1101,8 @@ export interface MeasuredTableCell {
   mergedWidth: number
   /** RTL text detected in this cell (for alignment defaults) */
   isRTL?: boolean
+  /** Render digits at fixed slot width for column alignment */
+  tabularNumbers?: boolean
 }
 
 // ─── Image measurement types ──────────────────────────────────────────────────

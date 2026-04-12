@@ -2,8 +2,39 @@ import type { PdfDocument, ContentElement, FontSpec, CommentElement } from './ty
 import { PretextPdfError } from './errors.js'
 import { resolvePageDimensions } from './page-sizes.js'
 
-/** RTL Unicode ranges: Arabic, Hebrew, Thaana, Syriac */
-const RTL_REGEX = /[\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F]/
+/**
+ * RTL strong bidi characters — Bidi_Class=R or AL per UAX #9.
+ * Block-level coverage following Unicode DerivedBidiClass defaults.
+ * Source: https://www.unicode.org/Public/17.0.0/ucd/extracted/DerivedBidiClass.txt
+ *
+ * BMP blocks:
+ *   0590–05FF  Hebrew
+ *   0600–06FF  Arabic
+ *   0700–074F  Syriac
+ *   0750–077F  Arabic Supplement
+ *   0780–07BF  Thaana (Maldivian)
+ *   07C0–07FF  N'Ko (West African)
+ *   0800–083F  Samaritan
+ *   0840–085F  Mandaic
+ *   0860–086F  Syriac Supplement
+ *   0870–089F  Arabic Extended-B
+ *   08A0–08FF  Arabic Extended-A
+ *   FB1D–FB4F  Hebrew Presentation Forms
+ *   FB50–FDFF  Arabic Presentation Forms-A
+ *   FE70–FEFF  Arabic Presentation Forms-B
+ * Supplementary plane blocks (requires /u flag):
+ *   10800–10CFF  Ancient Semitic (Cypriot, Imperial Aramaic, Palmyrene,
+ *                Nabataean, Hatran, Phoenician, Lydian, Old South/North
+ *                Arabian, Manichaean, Avestan, Inscriptional Parthian/
+ *                Pahlavi, Old Turkic, Old Hungarian)
+ *   10D00–10D3F  Hanifi Rohingya
+ *   10E80–10EFF  Yezidi + Arabic Extended-C
+ *   10F30–10FFF  Sogdian, Old Uyghur, Chorasmian, Elymaic
+ *   1E800–1E95F  Mende Kikakui + Adlam (Fulani)
+ *   1EC70–1ECBF  Indic Siyaq Numbers (AL)
+ *   1EE00–1EEFF  Arabic Mathematical Alphabetic Symbols
+ */
+const RTL_REGEX = /[\u0590-\u08FF\uFB1D-\uFB4F\uFB50-\uFDFF\uFE70-\uFEFF\u{10800}-\u{10CFF}\u{10D00}-\u{10D3F}\u{10E80}-\u{10EFF}\u{10F30}-\u{10FFF}\u{1E800}-\u{1E95F}\u{1EC70}-\u{1ECBF}\u{1EE00}-\u{1EEFF}]/u
 
 /** Valid 6-digit hex color */
 const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/
@@ -24,6 +55,9 @@ export function validate(doc: PdfDocument): void {
   }
 
   // memory guard
+  if (doc.content.length > 50_000) {
+    throw new PretextPdfError('VALIDATION_ERROR', `document.content has ${doc.content.length} elements (hard limit: 50,000). Split into multiple documents.`)
+  }
   if (doc.content.length > 10_000) {
     console.warn(`[pretext-pdf] document.content has ${doc.content.length} elements (recommended max: 10,000). Large documents may be slow to render.`)
   }
@@ -39,6 +73,12 @@ export function validate(doc: PdfDocument): void {
       throw new PretextPdfError(
         'VALIDATION_ERROR',
         'pageSize array must be [width, height] with two positive finite numbers in pt'
+      )
+    }
+    if (w > 14400 || h > 14400) {
+      throw new PretextPdfError(
+        'VALIDATION_ERROR',
+        `pageSize [${w}, ${h}] exceeds maximum 14400pt (200 inches). Values this large cause rendering overflow.`
       )
     }
   }
@@ -548,6 +588,12 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
           if (col.width !== 'auto' && !STAR_WIDTH_REGEX.test(col.width)) {
             throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): columns[${ci}].width must be a positive number, proportional string like '2*' or '*', or 'auto'. Got: '${col.width}'`)
           }
+          if (col.width !== 'auto') {
+            const multiplier = parseFloat(col.width)
+            if (!isNaN(multiplier) && multiplier > 1000) {
+              throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): columns[${ci}].width multiplier ${multiplier} exceeds maximum 1000`)
+            }
+          }
         } else {
           throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): columns[${ci}].width must be a number or string like '2*' or 'auto'`)
         }
@@ -680,11 +726,16 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
     }
 
     case 'svg': {
-      if (typeof el.svg !== 'string' || el.svg.trim() === '') {
-        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (svg): 'svg' must be a non-empty string`)
+      const hasSvg = typeof el.svg === 'string' && el.svg.trim().length > 0
+      const hasSrc = typeof el.src === 'string' && el.src.trim().length > 0
+      if (!hasSvg && !hasSrc) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (svg): either 'svg' (inline markup) or 'src' (file path / https:// URL) is required`)
       }
-      if (!el.svg.trim().startsWith('<')) {
+      if (hasSvg && !el.svg!.trim().startsWith('<')) {
         throw new PretextPdfError('SVG_INVALID_MARKUP', `${prefix} (svg): 'svg' must be valid SVG markup (must start with '<')`)
+      }
+      if (hasSrc && !el.src!.startsWith('/') && !el.src!.startsWith('https://') && !el.src!.startsWith('http://') && !/^[A-Za-z]:[/\\]/.test(el.src!)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (svg): 'src' must be an absolute file path or an https:// URL`)
       }
       if (el.width !== undefined && (typeof el.width !== 'number' || el.width <= 0 || !isFinite(el.width))) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (svg): 'width' must be a positive finite number`)

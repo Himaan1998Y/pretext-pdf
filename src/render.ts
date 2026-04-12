@@ -193,6 +193,8 @@ function renderBlock(
     case 'comment': {
       const commentEl = element as import('./types.js').CommentElement
       const absY = pagedBlock.yFromTop + geo.margins.top + geo.headerHeight
+      // Sticky-note annotations are point annotations (no height), so we don't subtract
+      // element height — toPdfY(absY, 0, pageHeight) = pageHeight - absY is correct.
       const pdfY = geo.pageHeight - absY
       addStickyNoteAnnotation(pdfDoc, pdfPage, geo.margins.left, pdfY, commentEl.contents, commentEl.author, commentEl.color, commentEl.open)
       return

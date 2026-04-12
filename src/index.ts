@@ -89,11 +89,10 @@ export async function render(doc: PdfDocument): Promise<Uint8Array> {
   // ── Resolve page geometry ──────────────────────────────────────────────────────
   const [pageWidth, pageHeight] = resolvePageDimensions(doc.pageSize)
   const margins: Margins = {
-    top: 72,
-    bottom: 72,
-    left: 72,
-    right: 72,
-    ...doc.margins,
+    top:    doc.margins?.top    ?? 72,
+    bottom: doc.margins?.bottom ?? 72,
+    left:   doc.margins?.left   ?? 72,
+    right:  doc.margins?.right  ?? 72,
   }
   const contentWidth = pageWidth - margins.left - margins.right
 
@@ -120,8 +119,11 @@ export async function render(doc: PdfDocument): Promise<Uint8Array> {
     }
   }
 
-  const fontMap = await loadFonts(doc, pdfDoc)
-  const imageMap = await loadImages(doc, pdfDoc, contentWidth)
+  // Load fonts and images in parallel — both are I/O-bound and independent
+  const [fontMap, imageMap] = await Promise.all([
+    loadFonts(doc, pdfDoc),
+    loadImages(doc, pdfDoc, contentWidth),
+  ])
 
   // ── Measure header/footer heights (needed to compute available content area) ───
   const defaultFont = doc.defaultFont ?? 'Inter'
@@ -231,19 +233,17 @@ export async function render(doc: PdfDocument): Promise<Uint8Array> {
     const pageFootnoteRefs = new Map<number, string[]>()
     for (let pageIdx = 0; pageIdx < pass1.pages.length; pageIdx++) {
       const page = pass1.pages[pageIdx]!
-      const refsOnPage: string[] = []
+      const refsOnPageSet = new Set<string>()
       for (const pagedBlock of page.blocks) {
         const el = pagedBlock.measuredBlock.element
         if (el.type === 'rich-paragraph') {
           for (const span of el.spans) {
-            if (span.footnoteRef && !refsOnPage.includes(span.footnoteRef)) {
-              refsOnPage.push(span.footnoteRef)
-            }
+            if (span.footnoteRef) refsOnPageSet.add(span.footnoteRef)
           }
         }
       }
-      if (refsOnPage.length > 0) {
-        pageFootnoteRefs.set(pageIdx, refsOnPage)
+      if (refsOnPageSet.size > 0) {
+        pageFootnoteRefs.set(pageIdx, [...refsOnPageSet])
       }
     }
 
@@ -265,8 +265,11 @@ export async function render(doc: PdfDocument): Promise<Uint8Array> {
 
     // Annotate each RenderedPage with its footnote items
     for (const [pageIdx, refIds] of pageFootnoteRefs) {
-      const page = paginatedDoc.pages[pageIdx]
-      if (pageIdx >= paginatedDoc.pages.length || !page) {
+      if (pageIdx >= paginatedDoc.pages.length) {
+        throw new PretextPdfError('PAGINATION_FAILED', `Footnote zone computed for page ${pageIdx} but document only has ${paginatedDoc.pages.length} pages. This is a pagination bug.`)
+      }
+      const page = paginatedDoc.pages[pageIdx]!
+      if (!page) {
         throw new PretextPdfError('PAGINATION_FAILED', `Footnote zone computed for page ${pageIdx} but document only has ${paginatedDoc.pages.length} pages. This is a pagination bug.`)
       }
       {

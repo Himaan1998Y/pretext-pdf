@@ -182,15 +182,17 @@ export function renderFormField(
   const absYTop = yFromTop + geo.margins.top + geo.headerHeight
   const fieldBottomPdfY = geo.pageHeight - absYTop - labelHeight - fieldHeight
 
-  // Draw label if set
+  // Draw label if set — baseline must be inset by font height so glyphs sit within the block
   if (el.label && labelHeight > 0) {
     const font = fontMap.get(block.measuredBlock.fontKey)
     if (font) {
-      const labelPdfY = geo.pageHeight - absYTop
+      const labelFontSize = el.fontSize ?? 12
+      const fontHeight = font.heightAtSize(labelFontSize)
+      const labelPdfY = geo.pageHeight - absYTop - fontHeight
       pdfPage.drawText(el.label, {
         x,
         y: labelPdfY,
-        size: el.fontSize ?? 12,
+        size: labelFontSize,
         font,
         color: rgb(0, 0, 0),
       })

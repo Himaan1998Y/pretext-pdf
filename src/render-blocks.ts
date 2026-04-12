@@ -18,6 +18,7 @@ import {
   resolveX,
   resolveTokens,
   hexToRgb,
+  drawTabularText,
 } from './render-utils.js'
 import { renderTocEntry, renderFormField } from './render-extras.js'
 import { buildFontKey } from './measure.js'
@@ -126,13 +127,15 @@ export function renderTextBlock(
     const effectiveFontSize = hasSmallCaps ? measuredBlock.fontSize * 0.8 : measuredBlock.fontSize
     if (hasSmallCaps) trimmedText = trimmedText.toUpperCase()
 
+    const hasTabular = (element.type === 'paragraph' || element.type === 'heading') && (element as any).tabularNumbers === true
+
     // Phase 8H: letterSpacing — draw char by char
     const letterSpacing = ((element.type === 'paragraph' || element.type === 'heading') && (element as any).letterSpacing > 0)
       ? (element as any).letterSpacing as number
       : 0
 
     let drawX: number
-    if (alignRaw === 'justify' && letterSpacing === 0) {
+    if (alignRaw === 'justify' && letterSpacing === 0 && !hasTabular) {
       drawJustifiedLine(pdfPage, trimmedText, isLastLine, geo.margins.left, pdfY, geo.contentWidth, effectiveFontSize, pdfFont, rgb(r, g, b))
       drawX = geo.margins.left // used for decoration below
     } else if (letterSpacing > 0) {
@@ -143,6 +146,10 @@ export function renderTextBlock(
         pdfPage.drawText(ch, { x: cx, y: pdfY, size: effectiveFontSize, font: pdfFont, color: rgb(r, g, b) })
         cx += pdfFont.widthOfTextAtSize(ch, effectiveFontSize) + letterSpacing
       }
+    } else if (hasTabular) {
+      const alignWidth = pdfFont.widthOfTextAtSize(trimmedText, effectiveFontSize)
+      drawX = resolveX(align, geo.margins.left, geo.contentWidth, alignWidth)
+      drawTabularText(pdfPage, trimmedText, drawX, pdfY, effectiveFontSize, pdfFont, rgb(r, g, b))
     } else {
       const alignWidth = pdfFont.widthOfTextAtSize(trimmedText, effectiveFontSize)
       drawX = resolveX(align, geo.margins.left, geo.contentWidth, alignWidth)
@@ -393,7 +400,11 @@ export function renderTable(
           const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, cell.fontSize)
           const x = resolveX(cell.align, textAreaX, textAreaWidth, lineWidth)
 
-          pdfPage.drawText(trimmedText, { x, y: pdfY, size: cell.fontSize, font: pdfFont, color: rgb(r, g, b) })
+          if (cell.tabularNumbers) {
+            drawTabularText(pdfPage, trimmedText, x, pdfY, cell.fontSize, pdfFont, rgb(r, g, b))
+          } else {
+            pdfPage.drawText(trimmedText, { x, y: pdfY, size: cell.fontSize, font: pdfFont, color: rgb(r, g, b) })
+          }
         }
       }
 
@@ -753,7 +764,7 @@ export function renderCallout(
   const chunkHeight = topPad + titleH + lines.length * lh + bottomPad
 
   const boxAbsY = yFromTop + geo.margins.top + geo.headerHeight
-  const boxPdfY = geo.pageHeight - boxAbsY - chunkHeight
+  const boxPdfY = toPdfY(boxAbsY, chunkHeight, geo.pageHeight)
 
   // Background
   const [bgR, bgG, bgB] = hexToRgb(backgroundColor)

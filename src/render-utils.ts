@@ -37,7 +37,7 @@ export function drawJustifiedLine(
 
   const wordWidths = words.map(w => pdfFont.widthOfTextAtSize(w, fontSize))
   const totalWordWidth = wordWidths.reduce((s, w) => s + w, 0)
-  const gapSize = (availableWidth - totalWordWidth) / (words.length - 1)
+  const gapSize = Math.max(0, (availableWidth - totalWordWidth) / (words.length - 1))
 
   let curX = x
   for (let i = 0; i < words.length; i++) {
@@ -216,6 +216,45 @@ export function drawTextDecoration(
   }
 }
 
+const DIGIT_CHARS = '0123456789'
+
+/**
+ * Draw text with tabular (monospaced) digit spacing.
+ * Each digit occupies a fixed slot = widest digit glyph in the font at the given size.
+ * Non-digit characters render at their natural width.
+ *
+ * First-principle rationale: proportional fonts vary digit widths (1 is narrower than 0).
+ * Tabular mode normalises all digits to the same advance, so columns of numbers
+ * align perfectly with no font-specific OpenType tables required.
+ */
+export function drawTabularText(
+  pdfPage: ReturnType<PDFDocument['addPage']>,
+  text: string,
+  x: number,
+  pdfY: number,
+  fontSize: number,
+  pdfFont: PDFFont,
+  color: ReturnType<typeof rgb>
+): void {
+  let slotWidth = 0
+  for (const d of DIGIT_CHARS) {
+    const w = pdfFont.widthOfTextAtSize(d, fontSize)
+    if (w > slotWidth) slotWidth = w
+  }
+
+  let curX = x
+  for (const ch of text) {
+    if (DIGIT_CHARS.includes(ch)) {
+      const charW = pdfFont.widthOfTextAtSize(ch, fontSize)
+      pdfPage.drawText(ch, { x: curX + (slotWidth - charW) / 2, y: pdfY, size: fontSize, font: pdfFont, color })
+      curX += slotWidth
+    } else {
+      pdfPage.drawText(ch, { x: curX, y: pdfY, size: fontSize, font: pdfFont, color })
+      curX += pdfFont.widthOfTextAtSize(ch, fontSize)
+    }
+  }
+}
+
 /**
  * THE ONLY place where top-down coords are converted to pdf-lib bottom-up coords.
  * @param yFromTop - distance from top of page in pt
@@ -250,9 +289,12 @@ export function resolveTokens(text: string, pageNumber: number, totalPages: numb
     .replace('{{totalPages}}', String(totalPages))
 }
 
-/** Parse a 6-digit hex color string to normalized RGB [0,1] triple */
-export function hexToRgb(hex: string): [number, number, number] {
+/** Parse a 6-digit hex color string to normalized RGB [0,1] triple.
+ *  Falls back to black on invalid/missing input to prevent NaN from reaching pdf-lib. */
+export function hexToRgb(hex: string | null | undefined): [number, number, number] {
+  if (!hex || typeof hex !== 'string') return [0, 0, 0]
   const clean = hex.startsWith('#') ? hex.slice(1) : hex
+  if (!/^[0-9a-fA-F]{6}$/.test(clean)) return [0, 0, 0]
   const r = parseInt(clean.slice(0, 2), 16) / 255
   const g = parseInt(clean.slice(2, 4), 16) / 255
   const b = parseInt(clean.slice(4, 6), 16) / 255
