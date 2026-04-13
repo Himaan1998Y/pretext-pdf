@@ -66,6 +66,13 @@ export interface PdfDocument {
   content: ContentElement[]
   /** If true, flatten all form fields into static content (no longer interactive). Default: false */
   flattenForms?: boolean
+  /**
+   * Called when an image fails to load (file not found, URL error, embed failure).
+   * Return 'skip' to silently omit the image (default behavior).
+   * Return 'throw' to abort rendering with the original error.
+   * If omitted, failures are logged as warnings and the image is skipped.
+   */
+  onImageLoadError?: (src: string | Uint8Array, error: Error) => 'skip' | 'throw'
 }
 
 export interface DocumentMetadata {

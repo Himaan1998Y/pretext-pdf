@@ -164,11 +164,15 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
     : []
 
   // Process results: embed successful images, warn on failures
-  for (const result of loadResults) {
+  for (let ri = 0; ri < loadResults.length; ri++) {
+    const result = loadResults[ri]!
+    const entry = imageEntries[ri]!
+
     if (result.status === 'rejected') {
-      const err = result.reason
-      const msg = err instanceof Error ? err.message : String(err)
-      console.warn(`[pretext-pdf] Image load skipped: ${msg}`)
+      const err = result.reason instanceof Error ? result.reason : new Error(String(result.reason))
+      const action = doc.onImageLoadError ? doc.onImageLoadError(entry.el.src, err) : 'skip'
+      if (action === 'throw') throw err
+      console.warn(`[pretext-pdf] Image load skipped: ${err.message}`)
       continue
     }
 
@@ -180,7 +184,10 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
         : await pdfDoc.embedJpg(bytes)
       imageMap.set(key, pdfImage)
     } catch (err) {
-      console.warn(`[pretext-pdf] Image embed failed: Image key "${key}" (format: '${resolvedFormat}'): ${err instanceof Error ? err.message : String(err)}`)
+      const error = err instanceof Error ? err : new Error(String(err))
+      const action = doc.onImageLoadError ? doc.onImageLoadError(entry.el.src, error) : 'skip'
+      if (action === 'throw') throw error
+      console.warn(`[pretext-pdf] Image embed failed: Image key "${key}" (format: '${resolvedFormat}'): ${error.message}`)
       // Continue without this image rather than crashing
     }
   }

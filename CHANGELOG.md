@@ -15,6 +15,24 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [0.5.2] — 2026-04-13
+
+### Added
+
+- **`onImageLoadError` callback on `PdfDocument`** — gives callers control over image load failures. Return `'skip'` to silently omit the image (preserves existing default behavior). Return `'throw'` to abort rendering with the original error. Previously, all image failures were silently downgraded to `console.warn` with no way to detect them programmatically.
+
+  ```typescript
+  await render({
+    content: [...],
+    onImageLoadError: (src, error) => {
+      myLogger.warn('Image skipped', { src, error })
+      return 'skip'   // or 'throw' to abort
+    }
+  })
+  ```
+
+---
+
 ## [0.4.0] — 2026-04-08
 
 ### Breaking Changes

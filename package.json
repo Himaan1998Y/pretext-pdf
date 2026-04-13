@@ -1,6 +1,6 @@
 {
   "name": "pretext-pdf",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Declarative JSON → PDF generation with professional typography. Built on pretext's precision text layout engine.",
   "keywords": [
     "pdf",
