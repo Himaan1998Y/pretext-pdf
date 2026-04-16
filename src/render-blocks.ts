@@ -79,7 +79,7 @@ export function renderTextBlock(
   // Multi-column layout — mirrors single-column features (smallCaps, letterSpacing, justify, decoration)
   const columnData = measuredBlock.columnData
   if (columnData) {
-    const { columnCount, columnGap, columnWidth, linesPerColumn } = columnData
+    const { columnGap, columnWidth, linesPerColumn } = columnData
     const hasSmallCaps = textElement?.smallCaps === true
     const mcFontSize = hasSmallCaps ? measuredBlock.fontSize * 0.8 : measuredBlock.fontSize
     const hasTabular = textElement?.tabularNumbers === true
@@ -98,11 +98,12 @@ export function renderTextBlock(
       const colX = geo.margins.left + colIdx * (columnWidth + columnGap)
       let trimmedText = line.text.trimEnd()
       if (hasSmallCaps) trimmedText = trimmedText.toUpperCase()
-      const isLastLine = i === lines.length - 1
+      // Last line of each column should not be force-justified (left-align instead)
+      const isLastLineInCol = lineInCol === linesPerColumn - 1 || i === lines.length - 1
 
       let drawX: number
       if (alignRaw === 'justify' && letterSpacing === 0 && !hasTabular) {
-        drawJustifiedLine(pdfPage, trimmedText, isLastLine, colX, pdfY, columnWidth, mcFontSize, pdfFont, rgb(r, g, b))
+        drawJustifiedLine(pdfPage, trimmedText, isLastLineInCol, colX, pdfY, columnWidth, mcFontSize, pdfFont, rgb(r, g, b))
         drawX = colX
       } else if (letterSpacing > 0) {
         const alignWidth = pdfFont.widthOfTextAtSize(trimmedText, mcFontSize) + letterSpacing * (trimmedText.length - 1)
