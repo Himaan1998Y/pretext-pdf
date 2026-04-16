@@ -1292,7 +1292,23 @@ const DEFAULT_HIGHLIGHT_THEME: Record<string, string> = {
   params:   '#24292f',
   punctuation: '#24292f',
   operator: '#24292f',
+  regexp:   '#0a3069',
+  variable: '#953800',
+  property: '#0550ae',
+  tag:      '#116329',
+  selector: '#116329',
+  subst:    '#24292f',
+  'template-tag':    '#cf222e',
+  'template-string': '#0a3069',
+  symbol:   '#0550ae',
+  addition: '#116329',
+  deletion: '#cf222e',
+  section:  '#0550ae',
 }
+
+/** Cached highlight.js module (loaded once, reused across code blocks) */
+let _hljsCache: any = null
+let _hljsLoadAttempted = false
 
 /**
  * Tokenize source code into per-line colored spans using highlight.js.
@@ -1305,13 +1321,15 @@ async function tokenizeCodeForHighlighting(
   measuredLineCount: number,
   customTheme?: Record<string, string | undefined>
 ): Promise<Array<Array<{ text: string; color: string }>> | undefined> {
-  let hljs: any
-  try {
-    hljs = await import('highlight.js' as string)
-    hljs = hljs.default ?? hljs
-  } catch {
-    return undefined
+  if (!_hljsLoadAttempted) {
+    _hljsLoadAttempted = true
+    try {
+      const mod = await import('highlight.js' as string)
+      _hljsCache = mod.default ?? mod
+    } catch { /* not installed */ }
   }
+  if (!_hljsCache) return undefined
+  const hljs = _hljsCache
 
   const theme: Record<string, string> = { ...DEFAULT_HIGHLIGHT_THEME }
   if (customTheme) {
@@ -1359,8 +1377,8 @@ function parseHighlightHtml(
       const tag = html.slice(i, closeTag + 1)
 
       if (tag.startsWith('<span')) {
-        // Extract class: <span class="hljs-keyword">
-        const classMatch = tag.match(/class="hljs-(\w+)"/)
+        // Extract class: <span class="hljs-keyword"> or <span class="hljs-template-string">
+        const classMatch = tag.match(/class="hljs-([\w-]+)"/)
         const cls = classMatch ? classMatch[1]! : ''
         colorStack.push(theme[cls] ?? defaultColor)
       } else if (tag === '</span>') {
@@ -1368,16 +1386,19 @@ function parseHighlightHtml(
       }
       i = closeTag + 1
     } else if (html[i] === '&') {
-      // HTML entities: &amp; &lt; &gt; &quot;
+      // HTML entities: named (&amp;), hex (&#x3D;), decimal (&#96;)
       const semi = html.indexOf(';', i)
-      if (semi !== -1 && semi - i < 8) {
+      if (semi !== -1 && semi - i < 10) {
         const entity = html.slice(i, semi + 1)
-        let ch = entity
+        let ch: string
         if (entity === '&amp;') ch = '&'
         else if (entity === '&lt;') ch = '<'
         else if (entity === '&gt;') ch = '>'
         else if (entity === '&quot;') ch = '"'
         else if (entity === '&#x27;' || entity === '&apos;') ch = "'"
+        else if (entity.startsWith('&#x')) ch = String.fromCodePoint(parseInt(entity.slice(3, -1), 16))
+        else if (entity.startsWith('&#')) ch = String.fromCodePoint(parseInt(entity.slice(2, -1), 10))
+        else ch = entity // unknown named entity — keep as-is
         lines[lines.length - 1]!.push({ text: ch, color: colorStack[colorStack.length - 1]! })
         i = semi + 1
       } else {
