@@ -167,6 +167,88 @@ describe('Phase 2 — Performance & Correctness', () => {
     assert.ok(pdf instanceof Uint8Array)
   })
 
+  // 2-A enhanced: multi-column feature parity with single-column
+  test('multi-column paragraph with smallCaps renders without error', async () => {
+    const pdf = await render({
+      content: [{
+        type: 'paragraph',
+        columns: 2,
+        smallCaps: true,
+        text: 'Small caps text in two columns. This should render uppercase at 80% font size across both columns.',
+      }]
+    })
+    assert.ok(pdf instanceof Uint8Array)
+  })
+
+  test('multi-column paragraph with letterSpacing renders without error', async () => {
+    const pdf = await render({
+      content: [{
+        type: 'paragraph',
+        columns: 2,
+        letterSpacing: 1.5,
+        text: 'Letter spaced text in two columns. Each character should have extra spacing between them.',
+      }]
+    })
+    assert.ok(pdf instanceof Uint8Array)
+  })
+
+  test('multi-column paragraph with justify alignment renders without error', async () => {
+    const pdf = await render({
+      content: [{
+        type: 'paragraph',
+        columns: 2,
+        align: 'justify',
+        text: 'Justified text in two columns. Word spacing should be adjusted to fill each line within the column boundaries from edge to edge.',
+      }]
+    })
+    assert.ok(pdf instanceof Uint8Array)
+  })
+
+  test('multi-column paragraph with underline and strikethrough renders without error', async () => {
+    const pdf = await render({
+      content: [{
+        type: 'paragraph',
+        columns: 2,
+        underline: true,
+        text: 'Underlined text in two columns. Each line should have an underline decoration within its column.',
+      }]
+    })
+    assert.ok(pdf instanceof Uint8Array)
+    const pdf2 = await render({
+      content: [{
+        type: 'paragraph',
+        columns: 2,
+        strikethrough: true,
+        text: 'Strikethrough text in two columns. Each line should have a strikethrough decoration.',
+      }]
+    })
+    assert.ok(pdf2 instanceof Uint8Array)
+  })
+
+  test('multi-column paragraph with tabularNumbers renders without error', async () => {
+    const pdf = await render({
+      content: [{
+        type: 'paragraph',
+        columns: 2,
+        tabularNumbers: true,
+        text: 'Numbers 1234567890 should align vertically. Second column: 9876543210 with tabular figures.',
+      }]
+    })
+    assert.ok(pdf instanceof Uint8Array)
+  })
+
+  test('multi-column paragraph with url renders link annotation', async () => {
+    const pdf = await render({
+      content: [{
+        type: 'paragraph',
+        columns: 2,
+        url: 'https://example.com',
+        text: 'Clickable two-column paragraph. Each line in each column should be a hyperlink.',
+      }]
+    })
+    assert.ok(pdf instanceof Uint8Array)
+  })
+
   test('columns out of range (>6) throws VALIDATION_ERROR', async () => {
     await assert.rejects(
       () => render({

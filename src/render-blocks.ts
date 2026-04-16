@@ -76,10 +76,15 @@ export function renderTextBlock(
     })
   }
 
-  // Multi-column layout
+  // Multi-column layout — mirrors single-column features (smallCaps, letterSpacing, justify, decoration)
   const columnData = measuredBlock.columnData
   if (columnData) {
     const { columnCount, columnGap, columnWidth, linesPerColumn } = columnData
+    const hasSmallCaps = textElement?.smallCaps === true
+    const mcFontSize = hasSmallCaps ? measuredBlock.fontSize * 0.8 : measuredBlock.fontSize
+    const hasTabular = textElement?.tabularNumbers === true
+    const letterSpacing = (textElement?.letterSpacing ?? 0) > 0 ? textElement!.letterSpacing as number : 0
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!
       if (line.text === '') continue
@@ -91,23 +96,51 @@ export function renderTextBlock(
       const pdfY = toPdfY(absoluteYFromTop, fontHeight, geo.pageHeight)
 
       const colX = geo.margins.left + colIdx * (columnWidth + columnGap)
-      const trimmedText = line.text.trimEnd()
-      const alignWidth = pdfFont.widthOfTextAtSize(trimmedText, measuredBlock.fontSize)
-      const x = resolveX(align, colX, columnWidth, alignWidth)
+      let trimmedText = line.text.trimEnd()
+      if (hasSmallCaps) trimmedText = trimmedText.toUpperCase()
+      const isLastLine = i === lines.length - 1
 
-      pdfPage.drawText(trimmedText, {
-        x,
-        y: pdfY,
-        size: measuredBlock.fontSize,
-        font: pdfFont,
-        color: rgb(r, g, b),
-      })
-
-      // Phase 8G: Wire paragraph.url and heading.url for clickable links (multi-column)
-      if ((element.type === 'paragraph' || element.type === 'heading') && element.url) {
-        const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, measuredBlock.fontSize)
-        addLinkAnnotation(pdfDoc, pdfPage, x, pdfY, lineWidth, measuredBlock.fontSize, element.url)
+      let drawX: number
+      if (alignRaw === 'justify' && letterSpacing === 0 && !hasTabular) {
+        drawJustifiedLine(pdfPage, trimmedText, isLastLine, colX, pdfY, columnWidth, mcFontSize, pdfFont, rgb(r, g, b))
+        drawX = colX
+      } else if (letterSpacing > 0) {
+        const alignWidth = pdfFont.widthOfTextAtSize(trimmedText, mcFontSize) + letterSpacing * (trimmedText.length - 1)
+        drawX = resolveX(align, colX, columnWidth, alignWidth)
+        let cx = drawX
+        for (const ch of trimmedText) {
+          pdfPage.drawText(ch, { x: cx, y: pdfY, size: mcFontSize, font: pdfFont, color: rgb(r, g, b) })
+          cx += pdfFont.widthOfTextAtSize(ch, mcFontSize) + letterSpacing
+        }
+      } else if (hasTabular) {
+        const alignWidth = pdfFont.widthOfTextAtSize(trimmedText, mcFontSize)
+        drawX = resolveX(align, colX, columnWidth, alignWidth)
+        drawTabularText(pdfPage, trimmedText, drawX, pdfY, mcFontSize, pdfFont, rgb(r, g, b))
+      } else {
+        const alignWidth = pdfFont.widthOfTextAtSize(trimmedText, mcFontSize)
+        drawX = resolveX(align, colX, columnWidth, alignWidth)
+        pdfPage.drawText(trimmedText, { x: drawX, y: pdfY, size: mcFontSize, font: pdfFont, color: rgb(r, g, b) })
       }
+
+      // Text decoration (underline, strikethrough)
+      if ((element.type === 'paragraph' || element.type === 'heading') && (element.underline || element.strikethrough)) {
+        const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, mcFontSize) + (letterSpacing > 0 ? letterSpacing * (trimmedText.length - 1) : 0)
+        drawTextDecoration(pdfPage, drawX, lineWidth, pdfY, mcFontSize, pdfFont, [r, g, b], { underline: element.underline ?? false, strikethrough: element.strikethrough ?? false })
+      }
+
+      // Hyperlink annotation
+      if ((element.type === 'paragraph' || element.type === 'heading') && element.url) {
+        const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, mcFontSize) + (letterSpacing > 0 ? letterSpacing * (trimmedText.length - 1) : 0)
+        addLinkAnnotation(pdfDoc, pdfPage, drawX, pdfY, lineWidth, mcFontSize, element.url)
+      }
+    }
+
+    // Sticky note annotation (once per block, not per line)
+    if (textElement?.annotation) {
+      const ann = textElement.annotation
+      const absY = yFromTop + geo.margins.top + geo.headerHeight
+      const annotPdfY = geo.pageHeight - absY
+      addStickyNoteAnnotation(pdfDoc, pdfPage, geo.margins.left, annotPdfY, ann.contents, ann.author, ann.color, ann.open)
     }
     return // skip standard single-column path
   }
