@@ -9,7 +9,7 @@
  * Those functions are tested indirectly via the full render() pipeline in e2e.test.ts.
  * This file only asserts the exported API shape hasn't changed.
  *
- * Current pinned version: 0.0.3 (see package.json — exact pin, no caret)
+ * Current pinned version: 0.0.5 (see package.json — exact pin, no caret)
  * Fork contingency: if @chenglou/pretext is abandoned, fork to a private repo
  *   and update the package.json dependency accordingly.
  */

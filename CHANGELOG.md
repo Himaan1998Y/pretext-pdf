@@ -1,5 +1,7 @@
 # Changelog
 
+<!-- markdownlint-disable MD024 -->
+
 All notable changes to pretext-pdf are documented here.
 Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
@@ -12,6 +14,14 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 - Phase 9A: Digital signatures (cryptographic PKCS#7 via `@signpdf/signpdf`)
 - Phase 9B: Image floats (text flowing alongside images — requires paginator rewrite)
 - Phase 9C: Font subsetting pre-computation (explicit glyph hints for icon fonts)
+
+---
+
+## [0.5.3] — 2026-04-16
+
+### Changed
+
+- **Upgraded `@chenglou/pretext` from 0.0.3 to 0.0.5** — picks up improved text analysis accuracy (~35% larger analysis module), better measurement precision, extracted bidi-data module for cleaner tree-shaking, and new `rich-inline` export (not yet used by pretext-pdf). No breaking changes — `prepareWithSegments()` and `layoutWithLines()` APIs are unchanged. All 223 tests pass, 3 example PDFs visually verified (RTL, TOC, hyperlinks).
 
 ---
 
