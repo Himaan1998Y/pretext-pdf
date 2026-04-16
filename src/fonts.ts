@@ -350,6 +350,14 @@ export function collectTextByFont(
         break
       }
       case 'list': {
+        // List marker characters: bullets (•, ◦) for unordered, digits+dot for ordered
+        const listFont = buildFontKey(defaultFont, 400, 'normal')
+        if (el.style === 'ordered') {
+          addText(listFont, '0123456789.')
+        } else {
+          addText(listFont, el.marker ?? '•')
+          addText(listFont, '◦') // nested unordered uses hollow bullet
+        }
         const collectItems = (items: import('./types.js').ListItem[]) => {
           for (const item of items) {
             const key = buildFontKey(defaultFont, item.fontWeight ?? 400, 'normal')
@@ -366,8 +374,11 @@ export function collectTextByFont(
         break
       }
       case 'toc-entry': {
-        // TOC entries are measured but their text is already in the heading that created them
-        // No additional text collection needed — avoid double-subsetting
+        // Heading text is already collected from the heading element — skip it to avoid duplication.
+        // But TOC renders leader chars (dots) and page number digits that aren't in the heading.
+        const tocKey = buildFontKey(el.fontFamily ?? defaultFont, (el.fontWeight ?? 400) as 400 | 700, 'normal')
+        addText(tocKey, '0123456789')
+        if (el.leader) addText(tocKey, el.leader)
         break
       }
       case 'callout': {
@@ -420,6 +431,20 @@ export function collectTextByFont(
   if (doc.footer) {
     const key = buildFontKey(doc.footer.fontFamily ?? defaultFont, doc.footer.fontWeight ?? 400, 'normal')
     addText(key, doc.footer.text + DIGITS)
+  }
+
+  // Section-specific header/footer overrides (per-page-range)
+  if (doc.sections) {
+    for (const section of doc.sections) {
+      if (section.header) {
+        const key = buildFontKey(section.header.fontFamily ?? defaultFont, section.header.fontWeight ?? 400, 'normal')
+        addText(key, section.header.text + DIGITS)
+      }
+      if (section.footer) {
+        const key = buildFontKey(section.footer.fontFamily ?? defaultFont, section.footer.fontWeight ?? 400, 'normal')
+        addText(key, section.footer.text + DIGITS)
+      }
+    }
   }
 
   // Watermark text (if present)
