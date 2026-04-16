@@ -428,6 +428,15 @@ export function collectTextByFont(
     addText(key, doc.watermark.text)
   }
 
+  // Signature placeholder (renders labels + user text using Inter-400-normal)
+  if (doc.signature) {
+    const sigKey = buildFontKey(defaultFont, 400, 'normal')
+    addText(sigKey, 'Signed by: Signature Date')
+    if (doc.signature.signerName) addText(sigKey, doc.signature.signerName)
+    if (doc.signature.reason) addText(sigKey, doc.signature.reason)
+    if (doc.signature.location) addText(sigKey, doc.signature.location)
+  }
+
   // Concatenate all text for each font key into one string
   const result = new Map<string, string>()
   for (const [key, texts] of textSets) {
