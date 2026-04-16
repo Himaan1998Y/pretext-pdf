@@ -728,6 +728,12 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
           if (cell.bgColor !== undefined && !HEX_COLOR_REGEX.test(cell.bgColor)) {
             throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].bgColor must be a 6-digit hex string`)
           }
+          if (cell.dir !== undefined && !['ltr', 'rtl', 'auto'].includes(cell.dir)) {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].dir must be 'ltr', 'rtl', or 'auto'`)
+          }
+          if (cell.align !== undefined && !['left', 'center', 'right'].includes(cell.align)) {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].align must be 'left', 'center', or 'right'`)
+          }
         }
       }
 
