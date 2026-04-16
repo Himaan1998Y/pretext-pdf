@@ -1,0 +1,12 @@
+{
+  "name": "pretext-pdf-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "pretext-pdf": "^0.5.3"
+  }
+}
