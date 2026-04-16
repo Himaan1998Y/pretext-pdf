@@ -8,43 +8,52 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a2e; }
 
-    header { background: #1a1a2e; color: #fff; padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+    header { background: #1a1a2e; color: #fff; padding: 12px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
     header h1 { font-size: 16px; font-weight: 600; }
     header a { color: #7cb3ff; font-size: 13px; text-decoration: none; }
     header a:hover { text-decoration: underline; }
     .badge { background: #0070f3; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+    .spacer { flex: 1; }
+    .hint { font-size: 11px; color: #888; }
+    .hint kbd { background: #3a3a5e; padding: 1px 5px; border-radius: 3px; font-family: inherit; font-size: 10px; }
 
     .tabs { display: flex; background: #2a2a4e; padding: 0 16px; }
-    .tab { padding: 10px 20px; font-size: 13px; font-weight: 500; color: #aaa; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+    .tab { padding: 10px 20px; font-size: 13px; font-weight: 500; color: #aaa; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; user-select: none; }
     .tab:hover { color: #fff; }
     .tab.active { color: #fff; border-bottom-color: #0070f3; }
 
     .main { display: flex; height: calc(100vh - 92px); }
 
     .editor-pane { width: 50%; display: flex; flex-direction: column; border-right: 1px solid #ddd; }
-    .editor-toolbar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #fff; border-bottom: 1px solid #eee; }
+    .editor-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #fff; border-bottom: 1px solid #eee; }
     .btn { padding: 6px 16px; font-size: 13px; font-weight: 600; border: none; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
     .btn-primary { background: #0070f3; color: #fff; }
     .btn-primary:hover { background: #005ed4; }
-    .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
-    .status { font-size: 12px; color: #888; }
+    .btn-primary:disabled { background: #999; cursor: not-allowed; }
+    .btn-secondary { background: #eee; color: #333; }
+    .btn-secondary:hover { background: #ddd; }
+    .btn-secondary:disabled { background: #eee; color: #aaa; cursor: not-allowed; }
+    .status { font-size: 12px; color: #888; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .status.error { color: #e53e3e; }
     .status.ok { color: #38a169; }
 
-    textarea { flex: 1; width: 100%; padding: 12px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12.5px; line-height: 1.5; border: none; outline: none; resize: none; background: #fafafa; tab-size: 2; }
+    textarea { flex: 1; width: 100%; padding: 12px; font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace; font-size: 12.5px; line-height: 1.5; border: none; outline: none; resize: none; background: #fafafa; tab-size: 2; }
 
     .preview-pane { width: 50%; background: #e8e8e8; display: flex; flex-direction: column; }
-    .preview-toolbar { padding: 8px 12px; background: #fff; border-bottom: 1px solid #eee; font-size: 12px; color: #888; }
+    .preview-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #fff; border-bottom: 1px solid #eee; font-size: 12px; color: #888; }
+    .preview-toolbar .spacer { flex: 1; }
     iframe { flex: 1; border: none; background: #fff; }
-    .placeholder { flex: 1; display: flex; align-items: center; justify-content: center; color: #999; font-size: 14px; }
+    .placeholder { flex: 1; display: flex; align-items: center; justify-content: center; color: #999; font-size: 14px; text-align: center; line-height: 1.6; }
   </style>
 </head>
 <body>
   <header>
     <h1>pretext-pdf</h1>
-    <span class="badge">v0.5.3</span>
+    <span class="badge" id="versionBadge">loading...</span>
     <a href="https://github.com/Himaan1998Y/pretext-pdf" target="_blank">GitHub</a>
     <a href="https://www.npmjs.com/package/pretext-pdf" target="_blank">npm</a>
+    <span class="spacer"></span>
+    <span class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to render</span>
   </header>
 
   <div class="tabs">
@@ -57,14 +66,18 @@
   <div class="main">
     <div class="editor-pane">
       <div class="editor-toolbar">
-        <button class="btn btn-primary" id="renderBtn" onclick="renderPdf()">Generate PDF</button>
+        <button class="btn btn-primary" id="renderBtn">Generate PDF</button>
+        <button class="btn btn-secondary" id="downloadBtn" disabled>Download</button>
         <span class="status" id="status"></span>
       </div>
       <textarea id="editor" spellcheck="false"></textarea>
     </div>
     <div class="preview-pane">
-      <div class="preview-toolbar" id="previewInfo">Click "Generate PDF" to preview</div>
-      <div class="placeholder" id="placeholder">PDF preview will appear here</div>
+      <div class="preview-toolbar">
+        <span id="previewInfo">Rendering first PDF...</span>
+        <span class="spacer"></span>
+      </div>
+      <div class="placeholder" id="placeholder">Generating your first PDF...</div>
       <iframe id="pdfFrame" style="display:none"></iframe>
     </div>
   </div>
@@ -77,11 +90,11 @@ const PRESETS = {
     pageSize: "A4",
     margins: { top: 50, bottom: 50, left: 56, right: 56 },
     defaultFontSize: 10,
-    footer: { text: "Page {{pageNumber}} of {{totalPages}}  ·  Generated by pretext-pdf", fontSize: 8, color: "#aaaaaa", align: "center" },
+    footer: { text: "Page {{pageNumber}} of {{totalPages}}  \u00b7  Generated by pretext-pdf", fontSize: 8, color: "#aaaaaa", align: "center" },
     content: [
       { type: "heading", level: 1, text: "Antigravity Systems", fontSize: 22, color: "#1a1a2e", spaceAfter: 2 },
-      { type: "paragraph", text: "AI Infrastructure & Consulting  ·  Gurugram, Haryana  ·  GSTIN: 06AABCA1234Z1ZK", fontSize: 9, color: "#666666", spaceAfter: 2 },
-      { type: "paragraph", text: "hello@antigravity.dev  ·  +91 98765 43210", fontSize: 9, color: "#0070f3", spaceAfter: 16 },
+      { type: "paragraph", text: "AI Infrastructure & Consulting  \u00b7  Gurugram, Haryana  \u00b7  GSTIN: 06AABCA1234Z1ZK", fontSize: 9, color: "#666666", spaceAfter: 2 },
+      { type: "paragraph", text: "hello@antigravity.dev  \u00b7  +91 98765 43210", fontSize: 9, color: "#0070f3", spaceAfter: 16 },
       { type: "hr", color: "#1a1a2e", thickness: 2, spaceBelow: 14 },
       { type: "heading", level: 3, text: "INVOICE", fontSize: 18, color: "#1a1a2e", spaceAfter: 8 },
       {
@@ -127,15 +140,13 @@ const PRESETS = {
     content: [
       { type: "spacer", height: 40 },
       { type: "heading", level: 1, text: "Quarterly Business Report", fontSize: 28, color: "#1a1a2e", align: "center", spaceAfter: 10, bookmark: false },
-      { type: "paragraph", text: "Q1 2026  ·  Antigravity Systems", fontSize: 12, color: "#555555", align: "center", spaceAfter: 6 },
+      { type: "paragraph", text: "Q1 2026  \u00b7  Antigravity Systems", fontSize: 12, color: "#555555", align: "center", spaceAfter: 6 },
       { type: "hr", color: "#1a1a2e", thickness: 2, spaceBelow: 40 },
       { type: "toc", title: "Contents", showTitle: true, leader: ".", minLevel: 1, maxLevel: 2, fontSize: 11, spaceAfter: 20 },
       { type: "page-break" },
-
       { type: "heading", level: 1, text: "Executive Summary", spaceAfter: 8 },
-      { type: "paragraph", text: "Q1 2026 delivered strong results across all business lines. Revenue grew 34% quarter-over-quarter driven by enterprise AI consulting engagements. The LLM fine-tuning pipeline product achieved product-market fit with 12 active enterprise clients. Infrastructure costs were optimized through migration to OVH, reducing cloud spend by 42%.", spaceAfter: 12 },
-      { type: "callout", style: "tip", title: "Key Highlight", content: "Annual Recurring Revenue crossed Rs.2.4 Crore — a 3x increase from Q4 2025.", spaceAfter: 16 },
-
+      { type: "paragraph", text: "Q1 2026 delivered strong results across all business lines. Revenue grew 34% quarter-over-quarter driven by enterprise AI consulting engagements. The LLM fine-tuning pipeline product achieved product-market fit with 12 active enterprise clients.", spaceAfter: 12 },
+      { type: "callout", style: "tip", title: "Key Highlight", content: "Annual Recurring Revenue crossed Rs.2.4 Crore \u2014 a 3x increase from Q4 2025.", spaceAfter: 16 },
       { type: "heading", level: 1, text: "Financial Overview", spaceAfter: 8 },
       { type: "paragraph", text: "The following table summarizes key financial metrics for Q1 2026 compared to the previous quarter.", spaceAfter: 8 },
       {
@@ -150,7 +161,6 @@ const PRESETS = {
         ],
         headerBgColor: "#1a1a2e", borderColor: "#e0e0e0", borderWidth: 0.5, cellPaddingH: 10, cellPaddingV: 6, spaceAfter: 16
       },
-
       { type: "heading", level: 1, text: "Product Updates", spaceAfter: 8 },
       { type: "heading", level: 2, text: "pretext-pdf Library", spaceAfter: 6 },
       { type: "paragraph", text: "The pretext-pdf open-source library reached v0.5.3 with 223 tests passing across all phases. Key additions include encryption, interactive forms, digital signatures, RTL text support, and document assembly.", spaceAfter: 8 },
@@ -161,9 +171,8 @@ const PRESETS = {
         { text: "Deployed auto-restart CI/CD pipeline to OVH VPS" }
       ] },
       { type: "callout", style: "info", title: "Next Milestone", content: "v1.0 stability declaration targeted for end of April 2026.", spaceAfter: 12 },
-
       { type: "heading", level: 1, text: "Outlook", spaceAfter: 8 },
-      { type: "paragraph", text: "Q2 priorities include launching the pretext-pdf Cloud API for web-only users, publishing comparison content for SEO acquisition, and expanding the enterprise consulting pipeline into BFSI verticals.", spaceAfter: 8 }
+      { type: "paragraph", text: "Q2 priorities include launching the Cloud API for web-only users, publishing comparison content for SEO acquisition, and expanding the enterprise consulting pipeline into BFSI verticals.", spaceAfter: 8 }
     ]
   },
 
@@ -173,28 +182,25 @@ const PRESETS = {
     defaultFontSize: 10,
     content: [
       { type: "heading", level: 1, text: "Himanshu Jain", fontSize: 24, color: "#1a1a2e", spaceAfter: 2 },
-      { type: "paragraph", text: "AI Systems Architect  ·  Entrepreneur  ·  Gurugram, India", fontSize: 11, color: "#555555", spaceAfter: 3 },
+      { type: "paragraph", text: "AI Systems Architect  \u00b7  Entrepreneur  \u00b7  Gurugram, India", fontSize: 11, color: "#555555", spaceAfter: 3 },
       { type: "rich-paragraph", fontSize: 10, spans: [
         { text: "himanshu@antigravity.dev", color: "#0070f3" },
-        { text: "  ·  github.com/Himaan1998Y  ·  +91 98765 43210", color: "#555555" }
+        { text: "  \u00b7  github.com/Himaan1998Y  \u00b7  +91 98765 43210", color: "#555555" }
       ], spaceAfter: 6 },
       { type: "hr", color: "#1a1a2e", thickness: 1.5, spaceBelow: 10 },
-
       { type: "heading", level: 3, text: "PROFILE", fontSize: 9, color: "#888888", letterSpacing: 2, smallCaps: true, spaceAfter: 4 },
       { type: "paragraph", text: "Founder and AI architect with 4+ years building AI-powered products. Deep expertise in LLM integration, multi-agent orchestration, and data pipeline architecture.", spaceAfter: 10 },
-
       { type: "heading", level: 3, text: "EXPERIENCE", fontSize: 9, color: "#888888", letterSpacing: 2, smallCaps: true, spaceAfter: 6 },
       { type: "rich-paragraph", fontSize: 11, spans: [
         { text: "Founder & CEO", fontWeight: 700 },
-        { text: "  ·  Antigravity Systems", color: "#333333" },
-        { text: "  ·  2022 – Present", color: "#888888" }
+        { text: "  \u00b7  Antigravity Systems", color: "#333333" },
+        { text: "  \u00b7  2022 \u2013 Present", color: "#888888" }
       ], spaceAfter: 4 },
       { type: "list", style: "unordered", fontSize: 10, spaceAfter: 8, items: [
         { text: "Built AI infrastructure platform serving 12+ enterprise clients" },
         { text: "Designed multi-agent content pipeline processing 500+ articles/month" },
-        { text: "Open-sourced pretext-pdf — declarative PDF generation library" }
+        { text: "Open-sourced pretext-pdf \u2014 declarative PDF generation library" }
       ] },
-
       { type: "heading", level: 3, text: "SKILLS", fontSize: 9, color: "#888888", letterSpacing: 2, smallCaps: true, spaceAfter: 6 },
       {
         type: "table",
@@ -207,13 +213,11 @@ const PRESETS = {
         ],
         borderColor: "#e8e8e8", borderWidth: 0.5, cellPaddingH: 8, cellPaddingV: 5, spaceAfter: 10
       },
-
       { type: "heading", level: 3, text: "EDUCATION", fontSize: 9, color: "#888888", letterSpacing: 2, smallCaps: true, spaceAfter: 6 },
       { type: "rich-paragraph", fontSize: 10, spans: [
         { text: "B.E. Mechanical + MBA", fontWeight: 700 },
-        { text: "  ·  Thapar Institute, Patiala  ·  2018–2022  ·  GPA: 8.4/10", color: "#555555" }
+        { text: "  \u00b7  Thapar Institute, Patiala  \u00b7  2018\u20132022  \u00b7  GPA: 8.4/10", color: "#555555" }
       ], spaceAfter: 10 },
-
       { type: "hr", color: "#e0e0e0", spaceBelow: 6 },
       { type: "paragraph", text: "Generated with pretext-pdf", fontSize: 8, color: "#aaaaaa", align: "center" }
     ]
@@ -228,89 +232,155 @@ const PRESETS = {
       { type: "paragraph", text: "Edit this JSON to build your own PDF. The full PdfDocument schema supports 20+ element types including tables, lists, images, code blocks, callout boxes, forms, and more.", spaceAfter: 12 },
       { type: "paragraph", text: "Try adding elements from the list below:", spaceAfter: 8 },
       { type: "list", style: "unordered", spaceAfter: 12, items: [
-        { text: "{ type: 'heading', level: 2, text: 'Section Title' }" },
-        { text: "{ type: 'table', columns: [...], rows: [...] }" },
-        { text: "{ type: 'hr' }  — horizontal rule" },
-        { text: "{ type: 'callout', style: 'info', content: '...' }" },
-        { text: "{ type: 'blockquote', text: '...' }" },
-        { text: "{ type: 'page-break' }" }
+        { text: "{ type: \"heading\", level: 2, text: \"Section Title\" }" },
+        { text: "{ type: \"table\", columns: [...], rows: [...] }" },
+        { text: "{ type: \"hr\" }  \u2014 horizontal rule" },
+        { text: "{ type: \"callout\", style: \"info\", content: \"...\" }" },
+        { text: "{ type: \"blockquote\", text: \"...\" }" },
+        { text: "{ type: \"page-break\" }" }
       ] },
       { type: "callout", style: "tip", title: "Tip", content: "Visit github.com/Himaan1998Y/pretext-pdf for full API documentation and examples." }
     ]
   }
-}
+};
 
-// ─── App Logic ────────────────────────────────────────────────────────────────
+// ─── App State ──────────────────────────────────────────────────────────────
 
-const editor = document.getElementById('editor')
-const status = document.getElementById('status')
-const renderBtn = document.getElementById('renderBtn')
-const pdfFrame = document.getElementById('pdfFrame')
-const placeholder = document.getElementById('placeholder')
-const previewInfo = document.getElementById('previewInfo')
-let currentTab = 'invoice'
+let currentTab = 'invoice';
+let currentBlobUrl = null;
+let lastPdfBlob = null;
 
-// Tab switching
+const editor = document.getElementById('editor');
+const statusEl = document.getElementById('status');
+const renderBtn = document.getElementById('renderBtn');
+const downloadBtn = document.getElementById('downloadBtn');
+const pdfFrame = document.getElementById('pdfFrame');
+const placeholder = document.getElementById('placeholder');
+const previewInfo = document.getElementById('previewInfo');
+
+// ─── Version Badge ──────────────────────────────────────────────────────────
+
+fetch('/version').then(r => r.json()).then(d => {
+  document.getElementById('versionBadge').textContent = 'v' + d.version;
+}).catch(() => {
+  document.getElementById('versionBadge').textContent = 'pretext-pdf';
+});
+
+// ─── Tab Switching ──────────────────────────────────────────────────────────
+
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
-    document.querySelector('.tab.active').classList.remove('active')
-    tab.classList.add('active')
-    currentTab = tab.dataset.tab
-    editor.value = JSON.stringify(PRESETS[currentTab], null, 2)
-    status.textContent = ''
-    status.className = 'status'
-  })
-})
+    document.querySelector('.tab.active').classList.remove('active');
+    tab.classList.add('active');
+    currentTab = tab.dataset.tab;
+    editor.value = JSON.stringify(PRESETS[currentTab], null, 2);
+    clearPreview();
+    renderPdf();
+  });
+});
 
-// Initialize
-editor.value = JSON.stringify(PRESETS.invoice, null, 2)
+// ─── Render ─────────────────────────────────────────────────────────────────
 
-// Render
+renderBtn.addEventListener('click', renderPdf);
+downloadBtn.addEventListener('click', downloadPdf);
+
 async function renderPdf() {
-  renderBtn.disabled = true
-  status.textContent = 'Rendering...'
-  status.className = 'status'
+  renderBtn.disabled = true;
+  downloadBtn.disabled = true;
+  statusEl.textContent = 'Rendering...';
+  statusEl.className = 'status';
+
+  // Validate JSON locally first
+  let doc;
+  try {
+    doc = JSON.parse(editor.value);
+  } catch (e) {
+    statusEl.textContent = 'Invalid JSON: ' + e.message.replace(/^JSON\.parse: /, '');
+    statusEl.className = 'status error';
+    renderBtn.disabled = false;
+    return;
+  }
 
   try {
-    const doc = JSON.parse(editor.value)
-    const t0 = performance.now()
     const res = await fetch('/render', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(doc),
-    })
+    });
 
     if (!res.ok) {
-      const err = await res.json()
-      throw new Error(`${err.error}: ${err.message}`)
+      const err = await res.json();
+      throw new Error(err.error + ': ' + err.message);
     }
 
-    const blob = await res.blob()
-    const renderTime = res.headers.get('X-Render-Time') || (performance.now() - t0).toFixed(0)
-    const size = (blob.size / 1024).toFixed(1)
+    const blob = await res.blob();
+    const renderTime = res.headers.get('X-Render-Time') || '?';
+    const size = (blob.size / 1024).toFixed(1);
 
-    const url = URL.createObjectURL(blob)
-    pdfFrame.src = url
-    pdfFrame.style.display = 'block'
-    placeholder.style.display = 'none'
-    previewInfo.textContent = `${size} KB  ·  rendered in ${renderTime}ms`
-    status.textContent = 'Done'
-    status.className = 'status ok'
+    // Revoke previous blob to prevent memory leak
+    if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+    currentBlobUrl = URL.createObjectURL(blob);
+    lastPdfBlob = blob;
+
+    pdfFrame.src = currentBlobUrl;
+    pdfFrame.style.display = 'block';
+    placeholder.style.display = 'none';
+    previewInfo.textContent = size + ' KB  \u00b7  ' + renderTime + 'ms';
+    statusEl.textContent = 'Done';
+    statusEl.className = 'status ok';
+    downloadBtn.disabled = false;
   } catch (err) {
-    status.textContent = err.message
-    status.className = 'status error'
+    statusEl.textContent = err.message;
+    statusEl.className = 'status error';
   } finally {
-    renderBtn.disabled = false
+    renderBtn.disabled = false;
   }
 }
 
-// Ctrl+Enter to render
+function downloadPdf() {
+  if (!lastPdfBlob) return;
+  const a = document.createElement('a');
+  a.href = currentBlobUrl;
+  a.download = currentTab + '.pdf';
+  a.click();
+}
+
+function clearPreview() {
+  if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+  currentBlobUrl = null;
+  lastPdfBlob = null;
+  pdfFrame.style.display = 'none';
+  placeholder.style.display = 'flex';
+  placeholder.textContent = 'Generating PDF...';
+  previewInfo.textContent = 'Rendering...';
+  downloadBtn.disabled = true;
+  statusEl.textContent = '';
+  statusEl.className = 'status';
+}
+
+// ─── Keyboard Shortcuts ─────────────────────────────────────────────────────
+
 editor.addEventListener('keydown', (e) => {
+  // Ctrl+Enter → render
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-    e.preventDefault()
-    renderPdf()
+    e.preventDefault();
+    renderPdf();
+    return;
   }
-})
+  // Tab → insert 2 spaces instead of changing focus
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
+    editor.selectionStart = editor.selectionEnd = start + 2;
+  }
+});
+
+// ─── Auto-render on load ────────────────────────────────────────────────────
+
+editor.value = JSON.stringify(PRESETS.invoice, null, 2);
+renderPdf();
 </script>
 </body>
 </html>
