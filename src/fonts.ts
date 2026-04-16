@@ -373,6 +373,20 @@ export function collectTextByFont(
       case 'callout': {
         const key = buildFontKey(el.fontFamily ?? defaultFont, el.fontWeight ?? 400, 'normal')
         addText(key, el.content)
+        if (el.title) {
+          const titleKey = buildFontKey(el.fontFamily ?? defaultFont, 700, 'normal')
+          addText(titleKey, el.title)
+        }
+        break
+      }
+      case 'form-field': {
+        const key = buildFontKey(defaultFont, 400, 'normal')
+        if (el.label) addText(key, el.label)
+        if (el.placeholder) addText(key, el.placeholder)
+        if (typeof el.defaultValue === 'string') addText(key, el.defaultValue)
+        if (el.options) {
+          for (const opt of el.options) addText(key, opt.label)
+        }
         break
       }
       case 'float-group': {

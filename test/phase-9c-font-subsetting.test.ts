@@ -157,6 +157,49 @@ test('Phase 9C — Font Subsetting', async (t) => {
     assert.equal(new TextDecoder().decode(pdf.slice(0, 4)), '%PDF')
   })
 
+  await t.test('form-field label, placeholder, defaultValue, and options are included in subsetting', async () => {
+    const pdf = await render({
+      content: [
+        { type: 'heading', level: 1, text: 'Form' },
+        {
+          type: 'form-field',
+          fieldType: 'text',
+          name: 'email',
+          label: 'Email Address',
+          placeholder: 'user@example.com',
+          defaultValue: 'john@example.com',
+        },
+        {
+          type: 'form-field',
+          fieldType: 'dropdown',
+          name: 'country',
+          label: 'Country',
+          options: [
+            { value: 'in', label: 'India' },
+            { value: 'us', label: 'United States' },
+          ],
+        },
+      ]
+    })
+    assert.ok(pdf instanceof Uint8Array)
+    assert.equal(new TextDecoder().decode(pdf.slice(0, 4)), '%PDF')
+  })
+
+  await t.test('callout title text is included in subsetting (bold variant)', async () => {
+    const pdf = await render({
+      content: [
+        {
+          type: 'callout',
+          style: 'info',
+          title: 'Important Notice',
+          content: 'This is the body text.',
+        },
+      ]
+    })
+    assert.ok(pdf instanceof Uint8Array)
+    assert.equal(new TextDecoder().decode(pdf.slice(0, 4)), '%PDF')
+  })
+
   await t.test('mixed elements across phases all get text included in subsetting', async () => {
     const TINY_PNG = new Uint8Array([
       0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00,0x00,0x00,0x0d,0x49,0x48,0x44,0x52,
