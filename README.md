@@ -14,6 +14,8 @@
 
 **[Try the Live Demo](https://stackblitz.com/github/Himaan1998Y/pretext-pdf/tree/master/demo/stackblitz?file=public%2Findex.html)** — edit JSON, generate PDFs instantly. No install required.
 
+**Coming from pdfmake?** See the [Migration Guide](docs/MIGRATION_FROM_PDFMAKE.md) — maps every pdfmake pattern to its pretext-pdf equivalent.
+
 ---
 
 ## v0.4.6 — Security & Quality Hardening
