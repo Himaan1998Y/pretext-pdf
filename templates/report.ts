@@ -1,19 +1,30 @@
 /**
  * Template: Business Report with TOC
  *
- * Multi-section report with cover page, auto-generated table of contents,
- * executive summary, chapters with tables/callouts, headers/footers.
+ * Multi-section report with:
+ * - Professional cover page with branding
+ * - Auto-generated table of contents with bookmarks for navigation
+ * - Executive summary with key findings highlighted
+ * - 3 major chapters: Market Overview, Competitive Landscape, Future Outlook
+ * - Professional headers/footers with page numbers
+ * - Watermark for confidentiality
+ * - Bookmarks for section navigation in PDF viewers
  *
  * Usage: npx tsx templates/report.ts
+ *
+ * Extended Example: To add more chapters, duplicate a chapter section and update the
+ * heading and content. TOC will auto-generate if bookmarks are enabled. For reports
+ * with many chapters (10+), consider splitting into multiple documents.
  */
 
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { colors } from './utils.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-// TODO: Customize title, author, chapters, and content below
+// TODO: Customize title, author, chapters, dates, and market data below
 const { render } = await import('../dist/index.js')
 
 const pdf = await render({
@@ -59,7 +70,7 @@ const pdf = await render({
       level: 1,
       text: 'Technology Market\nAnalysis & Trends',
       fontSize: 32,
-      color: '#1a1a2e',
+      color: colors.primary,
       align: 'center',
       spaceAfter: 8,
       bookmark: false,
@@ -74,7 +85,7 @@ const pdf = await render({
     },
     {
       type: 'hr',
-      color: '#1a1a2e',
+      color: colors.primary,
       thickness: 2,
       spaceBelow: 12,
     },
@@ -116,12 +127,13 @@ const pdf = await render({
       spaceAfter: 8,
     },
 
+    // Highlight key findings with accent color for emphasis
     {
       type: 'heading',
       level: 4,
       text: 'KEY FINDINGS',
       fontSize: 9,
-      color: '#0070f3',
+      color: colors.accent,
       spaceAfter: 4,
     },
     {
@@ -210,8 +222,8 @@ const pdf = await render({
           ],
         },
       ],
-      headerBgColor: '#1a1a2e',
-      borderColor: '#dddddd',
+      headerBgColor: colors.primary,
+      borderColor: colors.gray300,
       borderWidth: 0.5,
       cellPaddingH: 8,
       cellPaddingV: 8,
@@ -241,12 +253,13 @@ const pdf = await render({
       spaceAfter: 10,
     },
 
+    // Highlight risks/concerns with warning color
     {
       type: 'heading',
       level: 4,
       text: 'COMPETITIVE PRESSURE',
       fontSize: 9,
-      color: '#d73a49',
+      color: colors.danger,
       spaceAfter: 4,
     },
     {
@@ -305,10 +318,10 @@ const pdf = await render({
       spaceAfter: 12,
     },
 
-    // Closing
+    // Closing section with disclaimer
     {
       type: 'hr',
-      color: '#e8e8e8',
+      color: colors.gray200,
       thickness: 0.5,
       spaceAbove: 20,
       spaceBelow: 12,
@@ -318,7 +331,7 @@ const pdf = await render({
       type: 'paragraph',
       text: 'This report is based on analysis of market data through Q1 2026. Projections are subject to change based on macroeconomic conditions and technology adoption rates.',
       fontSize: 9,
-      color: '#888888',
+      color: colors.gray500,
     },
   ],
 })

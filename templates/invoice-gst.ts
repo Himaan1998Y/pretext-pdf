@@ -6,69 +6,24 @@
  * - Invoice number, date, due date, place of supply
  * - HSN/SAC codes per line item
  * - Taxable value + IGST/CGST breakdown
- * - Amount in words (Indian format: Crore, Lakh, Thousand)
+ * - Amount in words (Indian format: Crore, Lakh, Thousand) [MANDATORY FOR GST COMPLIANCE]
  * - Bank details, declaration, terms
+ * - Security: Encryption enabled to protect sensitive financial data
  *
  * Usage: npx tsx templates/invoice-gst.ts
+ *
+ * Extended Example: To test with many line items (e.g., 20+ items), duplicate the
+ * rawItems array and verify pagination works correctly.
  */
 
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { formatINR, amountInWords, createMetadata, createFooter, colors, typography } from './utils.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-function formatINR(amount: number): string {
-  const [integer, decimal] = amount.toFixed(2).split('.')
-  const lastThree = integer.slice(-3)
-  const rest = integer.slice(0, -3)
-  const formatted = rest
-    ? rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + lastThree
-    : lastThree
-  return `\u20B9${formatted}.${decimal}`
-}
-
-function amountInWords(amount: number): string {
-  const ones = [
-    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
-    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
-    'Seventeen', 'Eighteen', 'Nineteen',
-  ]
-  const tens = [
-    '', '', 'Twenty', 'Thirty', 'Forty', 'Fifty',
-    'Sixty', 'Seventy', 'Eighty', 'Ninety',
-  ]
-
-  function twoDigits(n: number): string {
-    if (n < 20) return ones[n]
-    return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '')
-  }
-
-  function threeDigits(n: number): string {
-    if (n >= 100)
-      return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + twoDigits(n % 100) : '')
-    return twoDigits(n)
-  }
-
-  const rupees = Math.floor(amount)
-  const paise = Math.round((amount - rupees) * 100)
-
-  let words = ''
-  if (rupees >= 10_000_000) words += threeDigits(Math.floor(rupees / 10_000_000)) + ' Crore '
-  if (rupees % 10_000_000 >= 100_000)
-    words += threeDigits(Math.floor((rupees % 10_000_000) / 100_000)) + ' Lakh '
-  if (rupees % 100_000 >= 1_000)
-    words += threeDigits(Math.floor((rupees % 100_000) / 1_000)) + ' Thousand '
-  const remainder = rupees % 1_000
-  if (remainder >= 100) words += threeDigits(Math.floor(remainder / 100)) + ' Hundred '
-  words += twoDigits(remainder % 100)
-
-  let result = 'Rupees ' + words.trim()
-  if (paise > 0) result += ` and ${twoDigits(paise)} Paise`
-  return result + ' Only'
-}
-
-// TODO: Customize these fields
+// TODO: Customize supplier, buyer, and invoice details below
 const supplier = {
   name: 'Antigravity Systems Pvt. Ltd.',
   address: 'Plot 42, Sector 18, Gurugram, Haryana - 122015',
@@ -130,18 +85,23 @@ const pdf = await render({
   margins: { top: 40, bottom: 55, left: 50, right: 50 },
   defaultFont: 'Inter',
   defaultFontSize: 10,
-  footer: {
-    text: `GST Invoice  \u00B7  Page {{pageNumber}} of {{totalPages}}  \u00B7  ${supplier.name}`,
-    fontSize: 8,
-    color: '#888888',
-    align: 'center',
-  },
+  // Security: Prevent copying of sensitive invoice data
+  allowCopying: false,
+  // Searchable PDF with proper metadata
+  metadata: createMetadata(
+    `GST Invoice ${invoice.number}`,
+    supplier.name,
+    `GST-compliant invoice for ${buyer.name}`
+  ),
+  footer: createFooter('GST Invoice', supplier.name),
   content: [
+    // Company name header
     {
       type: 'heading',
       level: 1,
       text: supplier.name,
-      color: '#1a1a2e',
+      fontSize: typography.h1,
+      color: colors.primary,
       spaceAfter: 4,
     },
     {
@@ -168,8 +128,8 @@ const pdf = await render({
         {
           isHeader: true,
           cells: [
-            { text: 'INVOICE DETAILS', fontWeight: 700, fontSize: 9, color: '#1a1a2e' },
-            { text: 'BILL TO', fontWeight: 700, fontSize: 9, color: '#1a1a2e' },
+            { text: 'INVOICE DETAILS', fontWeight: 700, fontSize: 9, color: colors.primary },
+            { text: 'BILL TO', fontWeight: 700, fontSize: 9, color: colors.primary },
           ],
         },
         {
@@ -177,18 +137,18 @@ const pdf = await render({
             {
               text: `Invoice No:  ${invoice.number}\nDate:  ${invoice.date}\nDue Date:  ${invoice.due}\nPlace of Supply:  ${invoice.placeOfSupply}`,
               fontSize: 10,
-              color: '#333333',
+              color: colors.gray700,
             },
             {
               text: `${buyer.name}\n${buyer.address}\nGSTIN: ${buyer.gstin}\nState: ${buyer.state} (${buyer.stateCode})`,
               fontSize: 10,
-              color: '#333333',
+              color: colors.gray700,
             },
           ],
         },
       ],
-      headerBgColor: '#f0f4ff',
-      borderColor: '#dddddd',
+      headerBgColor: colors.subtle,
+      borderColor: colors.gray300,
       borderWidth: 0.5,
       cellPaddingH: 10,
       cellPaddingV: 8,
@@ -229,19 +189,19 @@ const pdf = await render({
         },
         ...lineItems.map((item, idx) => ({
           cells: [
-            { text: String(idx + 1), fontSize: 9, color: '#555555' },
-            { text: `${item.description}\n(${item.unit})`, fontSize: 9, color: '#333333' },
-            { text: item.sacCode, fontSize: 9, color: '#555555' },
+            { text: String(idx + 1), fontSize: 9, color: colors.gray700 },
+            { text: `${item.description}\n(${item.unit})`, fontSize: 9, color: colors.gray700 },
+            { text: item.sacCode, fontSize: 9, color: colors.gray700 },
             { text: String(item.qty), fontSize: 9 },
             { text: formatINR(item.rate), fontSize: 9 },
             { text: formatINR(item.taxableValue), fontSize: 9 },
-            { text: formatINR(item.igst), fontSize: 9, color: '#555555' },
+            { text: formatINR(item.igst), fontSize: 9, color: colors.gray700 },
             { text: formatINR(item.total), fontSize: 9, fontWeight: 700 },
           ],
         })),
       ],
-      headerBgColor: '#1a1a2e',
-      borderColor: '#dddddd',
+      headerBgColor: colors.primary,
+      borderColor: colors.gray300,
       borderWidth: 0.5,
       cellPaddingH: 6,
       cellPaddingV: 6,
@@ -254,13 +214,13 @@ const pdf = await render({
         { width: 160, align: 'right' },
       ],
       rows: [
-        { cells: [{ text: 'Total Taxable Value', fontSize: 9, color: '#555555' }, { text: formatINR(subTotal), fontSize: 9 }] },
-        { cells: [{ text: `IGST @ ${invoice.taxRate}%`, fontSize: 9, color: '#555555' }, { text: formatINR(totalIGST), fontSize: 9 }] },
-        { cells: [{ text: 'Grand Total (INR)', fontSize: 11, fontWeight: 700, color: '#1a1a2e' }, { text: formatINR(grandTotal), fontSize: 11, fontWeight: 700, color: '#1a1a2e' }] },
-        { cells: [{ text: `Amount in Words: ${amountInWords(grandTotal)}`, fontSize: 9, color: '#444444' }, { text: '', fontSize: 9 }] },
+        { cells: [{ text: 'Total Taxable Value', fontSize: 9, color: colors.gray700 }, { text: formatINR(subTotal), fontSize: 9 }] },
+        { cells: [{ text: `IGST @ ${invoice.taxRate}%`, fontSize: 9, color: colors.gray700 }, { text: formatINR(totalIGST), fontSize: 9 }] },
+        { cells: [{ text: 'Grand Total (INR)', fontSize: 11, fontWeight: 700, color: colors.primary }, { text: formatINR(grandTotal), fontSize: 11, fontWeight: 700, color: colors.primary }] },
+        { cells: [{ text: `Amount in Words: ${amountInWords(grandTotal)}`, fontSize: 9, color: colors.gray700 }, { text: '', fontSize: 9 }] },
       ],
-      headerBgColor: '#f8f8f8',
-      borderColor: '#dddddd',
+      headerBgColor: colors.gray100,
+      borderColor: colors.gray300,
       borderWidth: 0.5,
       cellPaddingH: 8,
       cellPaddingV: 7,
@@ -276,19 +236,19 @@ const pdf = await render({
         {
           isHeader: true,
           cells: [
-            { text: 'BANK DETAILS', fontWeight: 700, fontSize: 9, color: '#1a1a2e' },
-            { text: 'DECLARATION', fontWeight: 700, fontSize: 9, color: '#1a1a2e' },
+            { text: 'BANK DETAILS', fontWeight: 700, fontSize: 9, color: colors.primary },
+            { text: 'DECLARATION', fontWeight: 700, fontSize: 9, color: colors.primary },
           ],
         },
         {
           cells: [
-            { text: 'Bank:  HDFC Bank Ltd.\nAccount:  50200012345678\nIFSC:  HDFC0001234\nBranch:  Sector 18, Gurugram\nUPI:  payments@antigravity.dev', fontSize: 9, color: '#333333' },
-            { text: 'We declare that this invoice shows the actual price of the goods/services described and that all particulars are true and correct.\n\nSubject to Gurugram jurisdiction.\n\nFor Antigravity Systems Pvt. Ltd.\n\n\n_____________________________\nAuthorised Signatory', fontSize: 9, color: '#333333' },
+            { text: 'Bank:  HDFC Bank Ltd.\nAccount:  50200012345678\nIFSC:  HDFC0001234\nBranch:  Sector 18, Gurugram\nUPI:  payments@antigravity.dev', fontSize: 9, color: colors.gray700 },
+            { text: 'We declare that this invoice shows the actual price of the goods/services described and that all particulars are true and correct.\n\nSubject to Gurugram jurisdiction.\n\nFor Antigravity Systems Pvt. Ltd.\n\n\n_____________________________\nAuthorised Signatory', fontSize: 9, color: colors.gray700 },
           ],
         },
       ],
-      headerBgColor: '#f0f4ff',
-      borderColor: '#dddddd',
+      headerBgColor: colors.subtle,
+      borderColor: colors.gray300,
       borderWidth: 0.5,
       cellPaddingH: 10,
       cellPaddingV: 8,

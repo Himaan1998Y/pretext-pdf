@@ -1,8 +1,10 @@
 /**
  * Template: Professional Resume / CV
  *
- * One-page resume with sections: header, summary, experience, education, skills.
- * Features: clean typography, bullet points, section separators, skill table.
+ * One-page resume with sections: header (contact), summary, experience (2 roles),
+ * education, skills (2x2 table), certifications.
+ * Features: clean typography, bullet points, section separators, two-column skill table
+ * for compact layout, LinkedIn/GitHub links with proper URLs.
  *
  * Usage: npx tsx templates/resume.ts
  */
@@ -10,10 +12,11 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { createMetadata, colors, typography } from './utils.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-// TODO: Customize all content below with your information
+// TODO: Customize all content below with your information (name, title, experience, skills)
 const { render } = await import('../dist/index.js')
 
 const pdf = await render({
@@ -21,47 +24,50 @@ const pdf = await render({
   margins: { top: 40, bottom: 40, left: 52, right: 52 },
   defaultFontSize: 10,
   hyphenation: { language: 'en-us' },
+  // Searchable PDF with proper metadata for ATS systems
+  metadata: createMetadata('Resume - Alex Morgan', 'Alex Morgan', 'Full Stack Engineer Resume'),
   content: [
-    // Name + Title
+    // Name and professional title header
     {
       type: 'heading',
       level: 1,
       text: 'Alex Morgan',
-      fontSize: 24,
-      color: '#1a1a2e',
+      fontSize: typography.h1,
+      color: colors.primary,
       spaceAfter: 2,
     },
     {
       type: 'paragraph',
       text: 'Full Stack Engineer  ·  San Francisco, CA  ·  alex.morgan@email.com',
       fontSize: 10.5,
-      color: '#555555',
+      color: colors.gray700,
       spaceAfter: 1,
     },
+    // Contact links with proper URLs for LinkedIn and GitHub profiles
     {
       type: 'rich-paragraph',
       fontSize: 9.5,
       spans: [
-        { text: '+1 (415) 555-0123', color: '#555555' },
-        { text: '  ·  linkedin.com/in/alexmorgan', color: '#0070f3', url: 'https://linkedin.com/in/alexmorgan' },
-        { text: '  ·  github.com/alexmorgan', color: '#0070f3', url: 'https://github.com/alexmorgan' },
+        { text: '+1 (415) 555-0123', color: colors.gray700 },
+        { text: '  ·  linkedin.com/in/alexmorgan', color: colors.accent, url: 'https://linkedin.com/in/alexmorgan' },
+        { text: '  ·  github.com/alexmorgan', color: colors.accent, url: 'https://github.com/alexmorgan' },
       ],
       spaceAfter: 8,
     },
     {
       type: 'hr',
-      color: '#1a1a2e',
+      color: colors.primary,
       thickness: 1,
       spaceBelow: 10,
     },
 
-    // Summary
+    // Professional summary section
     {
       type: 'heading',
       level: 3,
       text: 'PROFILE',
-      fontSize: 8.5,
-      color: '#888888',
+      fontSize: typography.h4,
+      color: colors.gray500,
       letterSpacing: 2,
       smallCaps: true,
       spaceAfter: 4,
@@ -70,28 +76,30 @@ const pdf = await render({
       type: 'paragraph',
       text: 'Full-stack engineer with 6+ years building scalable web applications. Deep expertise in React, Node.js, TypeScript, and cloud infrastructure (AWS, GCP). Strong track record of leading feature development from design through production deployment.',
       fontSize: 9.5,
+      color: colors.gray700,
       spaceAfter: 10,
     },
 
-    // Experience
+    // Work experience section with job history
     {
       type: 'heading',
       level: 3,
       text: 'EXPERIENCE',
-      fontSize: 8.5,
-      color: '#888888',
+      fontSize: typography.h4,
+      color: colors.gray500,
       letterSpacing: 2,
       smallCaps: true,
       spaceAfter: 6,
     },
 
+    // Current role with key achievements
     {
       type: 'rich-paragraph',
       fontSize: 10.5,
       spans: [
         { text: 'Senior Full Stack Engineer', fontWeight: 700 },
-        { text: '  ·  TechFlow Inc.', color: '#333333' },
-        { text: '  ·  2023 – Present', color: '#888888' },
+        { text: '  ·  TechFlow Inc.', color: colors.gray700 },
+        { text: '  ·  2023 – Present', color: colors.gray500 },
       ],
       spaceAfter: 3,
     },
@@ -107,13 +115,14 @@ const pdf = await render({
       ],
     },
 
+    // Previous role with accomplishments
     {
       type: 'rich-paragraph',
       fontSize: 10.5,
       spans: [
         { text: 'Full Stack Engineer', fontWeight: 700 },
-        { text: '  ·  StartupXYZ', color: '#333333' },
-        { text: '  ·  2020 – 2023', color: '#888888' },
+        { text: '  ·  StartupXYZ', color: colors.gray700 },
+        { text: '  ·  2020 – 2023', color: colors.gray500 },
       ],
       spaceAfter: 3,
     },
@@ -129,13 +138,13 @@ const pdf = await render({
       ],
     },
 
-    // Education
+    // Education section
     {
       type: 'heading',
       level: 3,
       text: 'EDUCATION',
-      fontSize: 8.5,
-      color: '#888888',
+      fontSize: typography.h4,
+      color: colors.gray500,
       letterSpacing: 2,
       smallCaps: true,
       spaceAfter: 6,
@@ -146,19 +155,19 @@ const pdf = await render({
       fontSize: 10.5,
       spans: [
         { text: 'B.S. Computer Science', fontWeight: 700 },
-        { text: '  ·  University of California, Berkeley', color: '#333333' },
-        { text: '  ·  2018', color: '#888888' },
+        { text: '  ·  University of California, Berkeley', color: colors.gray700 },
+        { text: '  ·  2018', color: colors.gray500 },
       ],
       spaceAfter: 8,
     },
 
-    // Skills
+    // Technical skills organized by category in compact 2-column table
     {
       type: 'heading',
       level: 3,
       text: 'SKILLS & TECHNOLOGIES',
-      fontSize: 8.5,
-      color: '#888888',
+      fontSize: typography.h4,
+      color: colors.gray500,
       letterSpacing: 2,
       smallCaps: true,
       spaceAfter: 6,
@@ -196,13 +205,13 @@ const pdf = await render({
       spaceAfter: 8,
     },
 
-    // Certifications
+    // Professional certifications
     {
       type: 'heading',
       level: 3,
       text: 'CERTIFICATIONS',
-      fontSize: 8.5,
-      color: '#888888',
+      fontSize: typography.h4,
+      color: colors.gray500,
       letterSpacing: 2,
       smallCaps: true,
       spaceAfter: 4,

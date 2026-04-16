@@ -1,22 +1,23 @@
 /**
  * Template: International Invoice
  *
- * Simple multi-currency invoice for USD/EUR/GBP transactions.
- * Features: company header, bill-to/from, line items, totals, payment terms.
+ * Multi-currency invoice for USD/EUR/GBP transactions with optional discount/tax.
+ * Features: company header, bill-to/from, line items with optional discount, tax calculation,
+ * totals, payment terms, bank details.
+ * Security: Encryption enabled to protect sensitive financial data.
  *
  * Usage: npx tsx templates/invoice-intl.ts
+ *
+ * Extended Example: To test with discount, change `const discount = 0` to `const discount = 500`
+ * to see discount row appear in totals table. Useful for validating conditional layout logic.
  */
 
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { formatCurrency, createMetadata, createFooter, colors, typography } from './utils.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-function formatCurrency(amount: number, currency: string): string {
-  const symbols: Record<string, string> = { USD: '$', EUR: '€', GBP: '£' }
-  return `${symbols[currency] || currency} ${amount.toFixed(2)}`
-}
 
 // TODO: Change currency to 'EUR' or 'GBP' as needed
 const config = { currency: 'USD' as const }
@@ -69,20 +70,24 @@ const pdf = await render({
   margins: { top: 40, bottom: 50, left: 50, right: 50 },
   defaultFont: 'Inter',
   defaultFontSize: 11,
-  footer: {
-    text: `Invoice  ·  Page {{pageNumber}} of {{totalPages}}  ·  ${company.name}`,
-    fontSize: 8,
-    color: '#888888',
-    align: 'center',
-  },
+  // Security: Prevent copying of sensitive invoice data
+  allowCopying: false,
+  // Searchable PDF with proper metadata
+  metadata: createMetadata(
+    `Invoice ${invoiceData.number}`,
+    company.name,
+    `International invoice for ${client.name} - ${config.currency}`
+  ),
+  footer: createFooter('Invoice', company.name),
   content: [
     // Header
+    // Invoice title and company header
     {
       type: 'heading',
       level: 1,
       text: 'INVOICE',
-      fontSize: 28,
-      color: '#1a1a2e',
+      fontSize: typography.h1,
+      color: colors.primary,
       spaceAfter: 2,
     },
     {
@@ -90,6 +95,7 @@ const pdf = await render({
       text: company.name,
       fontSize: 10,
       fontWeight: 700,
+      color: colors.primary,
       spaceAfter: 8,
     },
 
@@ -103,12 +109,12 @@ const pdf = await render({
             {
               text: `${company.address}\n${company.taxId}\n\n${company.email}\n${company.phone}\n${company.website}`,
               fontSize: 9,
-              color: '#555555',
+              color: colors.gray700,
             },
             {
               text: `Invoice Number:  ${invoiceData.number}\nInvoice Date:  ${invoiceData.date}\nDue Date:  ${invoiceData.dueDate}\nPO Reference:  ${invoiceData.reference}`,
               fontSize: 10,
-              color: '#333333',
+              color: colors.gray700,
             },
           ],
         },
@@ -121,12 +127,13 @@ const pdf = await render({
     },
 
     // Bill To
+    // Billing recipient details
     {
       type: 'heading',
       level: 4,
       text: 'BILL TO',
-      fontSize: 9,
-      color: '#888888',
+      fontSize: typography.h4,
+      color: colors.gray500,
       letterSpacing: 2,
       smallCaps: true,
       spaceAfter: 4,
@@ -135,7 +142,7 @@ const pdf = await render({
       type: 'paragraph',
       text: `${client.name}\n${client.address}\n\nContact: ${client.contactName}\n${client.email}`,
       fontSize: 10,
-      color: '#333333',
+      color: colors.gray700,
       spaceAfter: 14,
     },
 
@@ -160,15 +167,15 @@ const pdf = await render({
         },
         ...lineItems.map(item => ({
           cells: [
-            { text: item.description, fontSize: 10, color: '#333333' },
+            { text: item.description, fontSize: 10, color: colors.gray700 },
             { text: String(item.qty), fontSize: 10, align: 'right' },
             { text: formatCurrency(item.rate, config.currency), fontSize: 10, align: 'right' },
             { text: formatCurrency(item.total, config.currency), fontSize: 10, fontWeight: 700, align: 'right' },
           ],
         })),
       ],
-      headerBgColor: '#1a1a2e',
-      borderColor: '#dddddd',
+      headerBgColor: colors.primary,
+      borderColor: colors.gray300,
       borderWidth: 0.5,
       cellPaddingH: 8,
       cellPaddingV: 8,
@@ -180,25 +187,25 @@ const pdf = await render({
       type: 'table',
       columns: [{ width: '3*' }, { width: 270, align: 'right' }],
       rows: [
-        { cells: [{ text: 'Subtotal', fontSize: 10, color: '#555555' }, { text: formatCurrency(subtotal, config.currency), fontSize: 10 }] },
-        ...(discount > 0 ? [{ cells: [{ text: 'Discount', fontSize: 10, color: '#555555' }, { text: formatCurrency(-discount, config.currency), fontSize: 10 }] }] : []),
-        { cells: [{ text: `Tax @ ${(taxRate * 100).toFixed(0)}%`, fontSize: 10, color: '#555555' }, { text: formatCurrency(taxAmount, config.currency), fontSize: 10 }] },
-        { cells: [{ text: 'TOTAL DUE', fontSize: 12, fontWeight: 700, color: '#1a1a2e' }, { text: formatCurrency(total, config.currency), fontSize: 12, fontWeight: 700, color: '#1a1a2e' }] },
+        { cells: [{ text: 'Subtotal', fontSize: 10, color: colors.gray700 }, { text: formatCurrency(subtotal, config.currency), fontSize: 10 }] },
+        ...(discount > 0 ? [{ cells: [{ text: 'Discount', fontSize: 10, color: colors.gray700 }, { text: formatCurrency(-discount, config.currency), fontSize: 10 }] }] : []),
+        { cells: [{ text: `Tax @ ${(taxRate * 100).toFixed(0)}%`, fontSize: 10, color: colors.gray700 }, { text: formatCurrency(taxAmount, config.currency), fontSize: 10 }] },
+        { cells: [{ text: 'TOTAL DUE', fontSize: 12, fontWeight: 700, color: colors.primary }, { text: formatCurrency(total, config.currency), fontSize: 12, fontWeight: 700, color: colors.primary }] },
       ],
-      borderColor: '#dddddd',
+      borderColor: colors.gray300,
       borderWidth: 0.5,
       cellPaddingH: 10,
       cellPaddingV: 8,
       spaceAfter: 20,
     },
 
-    // Payment terms
+    // Payment terms and conditions
     {
       type: 'heading',
       level: 4,
       text: 'Payment Terms',
-      fontSize: 9,
-      color: '#888888',
+      fontSize: typography.h4,
+      color: colors.gray500,
       letterSpacing: 2,
       smallCaps: true,
       spaceAfter: 4,
@@ -207,16 +214,16 @@ const pdf = await render({
       type: 'paragraph',
       text: 'Payment is due within 30 days of invoice date. Please include the invoice number in your payment reference. Wire transfer to our bank account or ACH preferred. Late payments may incur interest charges of 1.5% per month.',
       fontSize: 9,
-      color: '#666666',
+      color: colors.gray600,
       spaceAfter: 12,
     },
 
-    // Bank details
+    // Bank details for payment
     {
       type: 'paragraph',
       text: `Bank Details: ABC Bank, San Francisco | Account: 123456789 | Routing: 021000021 | Swift: ABCDUS33`,
-      fontSize: 8.5,
-      color: '#999999',
+      fontSize: typography.small,
+      color: colors.gray500,
     },
   ],
 })

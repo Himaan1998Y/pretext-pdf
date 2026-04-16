@@ -1,34 +1,58 @@
 /**
  * Template: Meeting Minutes
  *
- * Meeting notes with attendees, agenda items, key decisions,
- * and action items tracking table with owners and deadlines.
+ * Formal meeting notes capturing:
+ * - Header with meeting title, date, time, location, organizer
+ * - Attendees table with presence status (Present/Absent)
+ * - Agenda & Discussion sections organized by topic
+ * - Key Decisions made during meeting
+ * - Action Items table with task description, owner, deadline, color-coded status
+ * - Next Meeting details and sign-off
+ * - Security: Encryption enabled to control distribution
+ * - Bookmarks for quick navigation between sections
  *
  * Usage: npx tsx templates/meeting-minutes.ts
+ *
+ * Extended Example: For recurring meetings, duplicate the Action Items table rows
+ * to track multi-meeting initiatives. Status colors: orange (In Progress), red (Not Started),
+ * green (Completed). Customize colors by changing the color property in status cells.
  */
 
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { createMetadata, createFooter, colors, typography } from './utils.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-// TODO: Customize meeting title, date, attendees, agenda, and action items below
+// TODO: Customize meeting title, date, attendees, agenda items, decisions, and action items below
 const { render } = await import('../dist/index.js')
 
 const pdf = await render({
   pageSize: 'A4',
-  margins: { top: 40, bottom: 50, left: 52, right: 52 },
+  margins: { top: 40, bottom: 60, left: 52, right: 52 },
   defaultFontSize: 10.5,
   hyphenation: { language: 'en-us' },
+  // Security: Prevent copying to maintain meeting confidentiality
+  allowCopying: false,
+  // Searchable PDF with proper metadata for knowledge management
+  metadata: createMetadata(
+    'Meeting Minutes - Q2 Product Planning',
+    'Sarah Chen',
+    'Meeting notes from Product Planning & Engineering Sync'
+  ),
+  // Multi-page document needs footer with page numbers
+  footer: createFooter('Meeting Minutes', 'Q2 Product Planning & Engineering Sync'),
+  // Bookmarks enable navigation between agenda items, decisions, and action items
+  bookmarks: { minLevel: 1, maxLevel: 2 },
   content: [
-    // Header
+    // Document header with title and meeting info
     {
       type: 'heading',
       level: 1,
       text: 'Meeting Minutes',
       fontSize: 24,
-      color: '#1a1a2e',
+      color: colors.primary,
       spaceAfter: 4,
     },
     {
@@ -36,12 +60,12 @@ const pdf = await render({
       fontSize: 10,
       spans: [
         { text: 'Q2 Product Planning & Engineering Sync', fontWeight: 700 },
-        { text: '  |  April 17, 2026', color: '#666666' },
+        { text: '  |  April 17, 2026', color: colors.gray600 },
       ],
       spaceAfter: 12,
     },
 
-    // Quick facts
+    // Meeting metadata (date, time, location, organizer)
     {
       type: 'table',
       columns: [
@@ -208,12 +232,12 @@ const pdf = await render({
             { text: 'Status', fontWeight: 700 },
           ],
         },
-        { cells: [{ text: 'Finalize API v2 specification and documentation' }, { text: 'James Rodriguez' }, { text: 'April 24' }, { text: 'In Progress', color: '#f0ad4e' }] },
-        { cells: [{ text: 'Database replication rollout complete' }, { text: 'Emma Davis' }, { text: 'May 1' }, { text: 'In Progress', color: '#f0ad4e' }] },
-        { cells: [{ text: 'Okta SSO integration (phase 1)' }, { text: 'Mike Thompson' }, { text: 'May 10' }, { text: 'Not Started', color: '#d9534f' }] },
-        { cells: [{ text: 'Design mockups for real-time dashboard' }, { text: 'Lisa Wang' }, { text: 'April 20' }, { text: 'In Progress', color: '#f0ad4e' }] },
-        { cells: [{ text: 'Performance testing report for mobile app' }, { text: 'James Rodriguez' }, { text: 'April 22' }, { text: 'In Progress', color: '#f0ad4e' }] },
-        { cells: [{ text: 'Security audit findings risk assessment' }, { text: 'Sarah Chen' }, { text: 'April 19' }, { text: 'Not Started', color: '#d9534f' }] },
+        { cells: [{ text: 'Finalize API v2 specification and documentation' }, { text: 'James Rodriguez' }, { text: 'April 24' }, { text: 'In Progress', color: colors.warning }] },
+        { cells: [{ text: 'Database replication rollout complete' }, { text: 'Emma Davis' }, { text: 'May 1' }, { text: 'In Progress', color: colors.warning }] },
+        { cells: [{ text: 'Okta SSO integration (phase 1)' }, { text: 'Mike Thompson' }, { text: 'May 10' }, { text: 'Not Started', color: colors.danger }] },
+        { cells: [{ text: 'Design mockups for real-time dashboard' }, { text: 'Lisa Wang' }, { text: 'April 20' }, { text: 'In Progress', color: colors.warning }] },
+        { cells: [{ text: 'Performance testing report for mobile app' }, { text: 'James Rodriguez' }, { text: 'April 22' }, { text: 'In Progress', color: colors.warning }] },
+        { cells: [{ text: 'Security audit findings risk assessment' }, { text: 'Sarah Chen' }, { text: 'April 19' }, { text: 'Not Started', color: colors.danger }] },
       ],
       headerBgColor: '#1a1a2e',
       borderColor: '#dddddd',
@@ -236,7 +260,7 @@ const pdf = await render({
       type: 'paragraph',
       text: 'Date: Thursday, May 1, 2026 at 10:00 AM PST\nDuration: 90 minutes\nLocation: Zoom + Conference Room B\n\nPlease come prepared to discuss Q2 progress, new feature deployment status, and preliminary Q3 planning.',
       fontSize: 10.5,
-      color: '#333333',
+      color: colors.gray700,
       spaceAfter: 20,
     },
 
@@ -245,7 +269,7 @@ const pdf = await render({
       type: 'paragraph',
       text: 'Minutes prepared by Sarah Chen\nDate: 17 April 2026',
       fontSize: 9,
-      color: '#888888',
+      color: colors.gray500,
     },
   ],
 })
