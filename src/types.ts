@@ -430,6 +430,8 @@ export interface TableElement {
   type: 'table'
   columns: ColumnDef[]
   rows: TableRow[]
+  /** Default text direction for all cells. Cells can override individually. Default: 'auto' */
+  dir?: 'ltr' | 'rtl' | 'auto'
   /** Number of rows treated as headers (repeated on continuation pages). Default: auto-detect rows with isHeader: true */
   headerRows?: number
   /** Border color (hex). Default: '#cccccc' */

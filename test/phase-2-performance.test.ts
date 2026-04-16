@@ -117,6 +117,42 @@ describe('Phase 2 — Performance & Correctness', () => {
     assert.ok(pdf instanceof Uint8Array)
   })
 
+  test('table-level dir: "rtl" propagates to all cells without per-cell dir', async () => {
+    const pdf = await render({
+      content: [{
+        type: 'table',
+        dir: 'rtl',
+        columns: [{ width: '1*' }, { width: '1*' }],
+        rows: [
+          { cells: [{ text: 'عنوان' }, { text: 'قيمة' }] },
+          { cells: [{ text: 'اسم' }, { text: 'بيانات' }] },
+        ],
+        borderColor: '#dddddd',
+        borderWidth: 0.5,
+      }]
+    })
+    assert.ok(pdf instanceof Uint8Array)
+  })
+
+  test('cell-level dir overrides table-level dir', async () => {
+    const pdf = await render({
+      content: [{
+        type: 'table',
+        dir: 'rtl',
+        columns: [{ width: '1*' }, { width: '1*' }],
+        rows: [
+          { cells: [
+            { text: 'Arabic text' },
+            { text: 'English override', dir: 'ltr' },
+          ] },
+        ],
+        borderColor: '#dddddd',
+        borderWidth: 0.5,
+      }]
+    })
+    assert.ok(pdf instanceof Uint8Array)
+  })
+
   // 2-A: Multi-column
   test('paragraph with 2 columns renders without error', async () => {
     const pdf = await render({

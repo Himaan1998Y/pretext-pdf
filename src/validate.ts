@@ -731,6 +731,9 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
         }
       }
 
+      if (el.dir !== undefined && !['ltr', 'rtl', 'auto'].includes(el.dir)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): 'dir' must be 'ltr', 'rtl', or 'auto'`)
+      }
       if (el.borderColor !== undefined && !HEX_COLOR_REGEX.test(el.borderColor)) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): 'borderColor' must be a 6-digit hex string`)
       }

@@ -1025,7 +1025,7 @@ async function measureTable(
       const cellLineHeight = doc.defaultLineHeight ?? (cellFontSize * 1.5)
       const cellFontKey = buildFontKey(fontFamily, fontWeight, 'normal')
       const textWidth = mergedWidth - 2 * cellPaddingH - borderWidth
-      const cellDir = (cell.dir ?? 'auto') as 'ltr' | 'rtl' | 'auto'
+      const cellDir = (cell.dir ?? element.dir ?? 'auto') as 'ltr' | 'rtl' | 'auto'
       allCellMeta.push({ cell, row, cs, col, mergedWidth, fontWeight, fontFamily, cellFontSize, cellLineHeight, cellFontKey, textWidth, cellDir })
       colStart += cs
     }
