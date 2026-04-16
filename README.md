@@ -9,8 +9,10 @@
 [![CI](https://github.com/Himaan1998Y/pretext-pdf/actions/workflows/ci.yml/badge.svg)](https://github.com/Himaan1998Y/pretext-pdf/actions)
 [![TypeScript](https://img.shields.io/badge/typescript-strict-blue)](https://www.typescriptlang.org/)
 [![Type Safety](https://img.shields.io/badge/type--safety-0%20any%20casts-blueviolet)](#type-safety)
-[![Tests](https://img.shields.io/badge/tests-188%2B-brightgreen)](#test-coverage)
+[![Tests](https://img.shields.io/badge/tests-223-brightgreen)](#test-coverage)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+**[Try the Live Demo](https://stackblitz.com/github/Himaan1998Y/pretext-pdf/tree/master/demo/stackblitz?file=public%2Findex.html)** — edit JSON, generate PDFs instantly. No install required.
 
 ---
 
