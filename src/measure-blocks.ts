@@ -375,6 +375,17 @@ export async function measureBlock(
       // height = lines * lineHeight + padding top + padding bottom
       const height = (lines.length || 1) * lineHeight + 2 * padding
 
+      // Syntax highlighting: tokenize if language is set
+      let codeHighlightTokens: Array<Array<{ text: string; color: string }>> | undefined
+      if (element.language) {
+        codeHighlightTokens = tokenizeCodeForHighlighting(
+          element.text,
+          element.language,
+          element.color ?? '#24292f',
+          element.highlightTheme
+        )
+      }
+
       return {
         element,
         height,
@@ -385,6 +396,7 @@ export async function measureBlock(
         spaceAfter: element.spaceAfter ?? 12,
         spaceBefore: element.spaceBefore ?? 12,
         codePadding: padding,
+        ...(codeHighlightTokens ? { codeHighlightTokens } : {}),
         isRTL: false,  // NEW (Phase 7F): Code blocks always LTR
       }
     }
@@ -1258,6 +1270,130 @@ async function measureNaturalTextWidth(
   const lines: Array<{ text: string; width: number }> = result.lines ?? []
 
   return lines.reduce((max, line) => Math.max(max, line.width), 0)
+}
+
+// ─── Syntax highlighting ──────────────────────────────────────────────────────
+
+/** Default GitHub-light-inspired highlight theme colors */
+const DEFAULT_HIGHLIGHT_THEME: Record<string, string> = {
+  keyword:  '#cf222e',
+  string:   '#0a3069',
+  comment:  '#6e7781',
+  number:   '#0550ae',
+  function: '#8250df',
+  title:    '#8250df',
+  built_in: '#0550ae',
+  literal:  '#0550ae',
+  type:     '#953800',
+  meta:     '#cf222e',
+  attr:     '#0550ae',
+  name:     '#0550ae',
+  params:   '#24292f',
+  punctuation: '#24292f',
+  operator: '#24292f',
+}
+
+/**
+ * Tokenize source code into per-line colored spans using highlight.js.
+ * Falls back to plain text (single token per line) if highlight.js is not installed.
+ */
+function tokenizeCodeForHighlighting(
+  text: string,
+  language: string,
+  defaultColor: string,
+  customTheme?: Record<string, string | undefined>
+): Array<Array<{ text: string; color: string }>> {
+  let hljs: any
+  try {
+    // highlight.js is an optional peer dependency — dynamic require
+    hljs = require('highlight.js')
+  } catch {
+    // Not installed — return undefined so renderer falls back to plain text
+    return text.split('\n').map(line => [{ text: line, color: defaultColor }])
+  }
+
+  const theme: Record<string, string> = { ...DEFAULT_HIGHLIGHT_THEME }
+  if (customTheme) {
+    for (const [k, v] of Object.entries(customTheme)) {
+      if (v !== undefined) theme[k] = v
+    }
+  }
+
+  let highlighted: string
+  try {
+    const result = language === 'auto'
+      ? hljs.highlightAuto(text)
+      : hljs.highlight(text, { language })
+    highlighted = result.value
+  } catch {
+    // Unknown language — fall back to plain text
+    return text.split('\n').map(line => [{ text: line, color: defaultColor }])
+  }
+
+  // Parse highlight.js HTML output into tokens per line
+  // Output is like: <span class="hljs-keyword">const</span> x = <span class="hljs-number">42</span>
+  return parseHighlightHtml(highlighted, defaultColor, theme)
+}
+
+/**
+ * Parse highlight.js HTML into per-line token arrays.
+ * Handles nested spans (e.g. string interpolation) by tracking a color stack.
+ */
+function parseHighlightHtml(
+  html: string,
+  defaultColor: string,
+  theme: Record<string, string>
+): Array<Array<{ text: string; color: string }>> {
+  const lines: Array<Array<{ text: string; color: string }>> = [[]]
+  const colorStack: string[] = [defaultColor]
+
+  let i = 0
+  while (i < html.length) {
+    if (html[i] === '<') {
+      const closeTag = html.indexOf('>', i)
+      if (closeTag === -1) break
+      const tag = html.slice(i, closeTag + 1)
+
+      if (tag.startsWith('<span')) {
+        // Extract class: <span class="hljs-keyword">
+        const classMatch = tag.match(/class="hljs-(\w+)"/)
+        const cls = classMatch ? classMatch[1]! : ''
+        colorStack.push(theme[cls] ?? defaultColor)
+      } else if (tag === '</span>') {
+        if (colorStack.length > 1) colorStack.pop()
+      }
+      i = closeTag + 1
+    } else if (html[i] === '&') {
+      // HTML entities: &amp; &lt; &gt; &quot;
+      const semi = html.indexOf(';', i)
+      if (semi !== -1 && semi - i < 8) {
+        const entity = html.slice(i, semi + 1)
+        let ch = entity
+        if (entity === '&amp;') ch = '&'
+        else if (entity === '&lt;') ch = '<'
+        else if (entity === '&gt;') ch = '>'
+        else if (entity === '&quot;') ch = '"'
+        else if (entity === '&#x27;' || entity === '&apos;') ch = "'"
+        lines[lines.length - 1]!.push({ text: ch, color: colorStack[colorStack.length - 1]! })
+        i = semi + 1
+      } else {
+        lines[lines.length - 1]!.push({ text: '&', color: colorStack[colorStack.length - 1]! })
+        i++
+      }
+    } else if (html[i] === '\n') {
+      lines.push([])
+      i++
+    } else {
+      // Regular text — accumulate consecutive chars with same color
+      const color = colorStack[colorStack.length - 1]!
+      let end = i + 1
+      while (end < html.length && html[end] !== '<' && html[end] !== '&' && html[end] !== '\n') end++
+      lines[lines.length - 1]!.push({ text: html.slice(i, end), color })
+      i = end
+    }
+  }
+
+  return lines
 }
 
 // ─── Text measurement (shared by all text-bearing elements) ──────────────────

@@ -675,6 +675,28 @@ export interface CodeBlockElement {
   spaceBefore?: number
   /** If true, never break this block across pages. Default: false */
   keepTogether?: boolean
+  /**
+   * Programming language for syntax highlighting. Requires `highlight.js` peer dependency.
+   * When set, tokens are colored using the highlight theme. When unset or highlight.js
+   * is not installed, renders as plain monospace text (existing behavior).
+   * Examples: 'javascript', 'typescript', 'python', 'rust', 'go', 'sql', 'json', 'bash'
+   */
+  language?: string
+  /**
+   * Custom syntax highlight colors (6-digit hex). Overrides the default GitHub-light theme.
+   * Only used when `language` is set.
+   */
+  highlightTheme?: {
+    keyword?: string
+    string?: string
+    comment?: string
+    number?: string
+    function?: string
+    punctuation?: string
+    type?: string
+    built_in?: string
+    literal?: string
+  }
 }
 
 // ─── Rich Paragraph ───────────────────────────────────────────────────────────
@@ -964,6 +986,8 @@ export interface MeasuredBlock {
   // ─── Phase 3: optional payload fields ────────────────────────────────────
   /** Only set when element.type === 'code'. Resolved padding in pt. */
   codePadding?: number
+  /** Only set when element.type === 'code' and language is set. Per-line colored tokens. */
+  codeHighlightTokens?: Array<Array<{ text: string; color: string }>>
   /** Only set when element.type === 'rich-paragraph'. Mixed-font composed lines. */
   richLines?: RichLine[]
   // ─── Phase 5: optional payload fields ────────────────────────────────────

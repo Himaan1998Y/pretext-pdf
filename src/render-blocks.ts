@@ -660,18 +660,46 @@ export function renderCodeBlock(
   const [r, g, b] = hexToRgb(textColorHex)
   const textX = geo.margins.left + padding
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!
-    const lineYFromPageTop = boxAbsY + paddingTop + i * lineHeight
-    const pdfY = toPdfY(lineYFromPageTop, fontHeight, geo.pageHeight)
+  // Syntax highlighting: tokenize if language is set and highlight.js is available
+  const highlightTokens = measuredBlock.codeHighlightTokens
+  if (highlightTokens && highlightTokens.length > 0) {
+    // Render with per-token colors
+    const charWidth = pdfFont.widthOfTextAtSize('M', fontSize) // monospace — all chars same width
+    let tokenLineIdx = 0
+    for (let i = 0; i < lines.length; i++) {
+      const lineYFromPageTop = boxAbsY + paddingTop + i * lineHeight
+      const pdfY = toPdfY(lineYFromPageTop, fontHeight, geo.pageHeight)
+      const lineTokens = highlightTokens[startLine + i]
+      if (!lineTokens) continue
+      let curX = textX
+      for (const token of lineTokens) {
+        if (!token.text) continue
+        const [tr, tg, tb] = hexToRgb(token.color)
+        pdfPage.drawText(token.text, {
+          x: curX,
+          y: pdfY,
+          size: fontSize,
+          font: pdfFont,
+          color: rgb(tr, tg, tb),
+        })
+        curX += pdfFont.widthOfTextAtSize(token.text, fontSize)
+      }
+    }
+  } else {
+    // Plain text rendering (no highlighting)
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!
+      const lineYFromPageTop = boxAbsY + paddingTop + i * lineHeight
+      const pdfY = toPdfY(lineYFromPageTop, fontHeight, geo.pageHeight)
 
-    pdfPage.drawText(line.text.trimEnd(), {
-      x: textX,
-      y: pdfY,
-      size: fontSize,
-      font: pdfFont,
-      color: rgb(r, g, b),
-    })
+      pdfPage.drawText(line.text.trimEnd(), {
+        x: textX,
+        y: pdfY,
+        size: fontSize,
+        font: pdfFont,
+        color: rgb(r, g, b),
+      })
+    }
   }
 }
 

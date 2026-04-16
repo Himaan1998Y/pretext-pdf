@@ -1020,6 +1020,19 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
       if (el.spaceBefore !== undefined && (typeof el.spaceBefore !== 'number' || el.spaceBefore < 0 || !isFinite(el.spaceBefore))) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (code): 'spaceBefore' must be a non-negative finite number`)
       }
+      if (el.language !== undefined && typeof el.language !== 'string') {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (code): 'language' must be a string`)
+      }
+      if (el.highlightTheme !== undefined) {
+        if (typeof el.highlightTheme !== 'object' || el.highlightTheme === null) {
+          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (code): 'highlightTheme' must be an object`)
+        }
+        for (const [k, v] of Object.entries(el.highlightTheme)) {
+          if (v !== undefined && !HEX_COLOR_REGEX.test(v)) {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (code): highlightTheme.${k} must be a 6-digit hex string`)
+          }
+        }
+      }
       break
     }
 

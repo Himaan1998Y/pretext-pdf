@@ -285,6 +285,61 @@ describe('Phase 2 — Performance & Correctness', () => {
     assert.ok(pdf instanceof Uint8Array)
   })
 
+  // 2-D: Syntax highlighting
+  test('code block with language: "javascript" renders with syntax highlighting', async () => {
+    const pdf = await render({
+      content: [{
+        type: 'code',
+        fontFamily: 'Inter',
+        language: 'javascript',
+        text: 'const x = 42;\nconsole.log(x);',
+      }]
+    })
+    assert.ok(pdf instanceof Uint8Array)
+    assert.ok(pdf.byteLength > 3000)
+  })
+
+  test('code block without language renders as plain text (no highlighting)', async () => {
+    const pdf = await render({
+      content: [{
+        type: 'code',
+        fontFamily: 'Inter',
+        text: 'const x = 42;\nconsole.log(x);',
+      }]
+    })
+    assert.ok(pdf instanceof Uint8Array)
+  })
+
+  test('code block with unknown language falls back to plain text', async () => {
+    const pdf = await render({
+      content: [{
+        type: 'code',
+        fontFamily: 'Inter',
+        language: 'nonexistent_language_xyz',
+        text: 'some code here',
+      }]
+    })
+    assert.ok(pdf instanceof Uint8Array)
+  })
+
+  test('code block with custom highlightTheme renders without error', async () => {
+    const pdf = await render({
+      content: [{
+        type: 'code',
+        fontFamily: 'Inter',
+        language: 'typescript',
+        highlightTheme: {
+          keyword: '#d73a49',
+          string: '#032f62',
+          comment: '#6a737d',
+        },
+        text: 'const greeting: string = "hello";\n// comment\nfunction add(a: number, b: number) {\n  return a + b;\n}',
+      }]
+    })
+    assert.ok(pdf instanceof Uint8Array)
+    assert.ok(pdf.byteLength > 3000)
+  })
+
   test('columns out of range (>6) throws VALIDATION_ERROR', async () => {
     await assert.rejects(
       () => render({

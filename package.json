@@ -100,13 +100,17 @@
   },
   "peerDependencies": {
     "@napi-rs/canvas": "^0.1.57",
-    "@signpdf/signpdf": "^3.3.0"
+    "@signpdf/signpdf": "^3.3.0",
+    "highlight.js": "^11.0.0"
   },
   "peerDependenciesMeta": {
     "@napi-rs/canvas": {
       "optional": true
     },
     "@signpdf/signpdf": {
+      "optional": true
+    },
+    "highlight.js": {
       "optional": true
     }
   },
@@ -116,6 +120,7 @@
     "@types/pixelmatch": "^5.2.6",
     "@types/pngjs": "^6.0.5",
     "cross-env": "^10.1.0",
+    "highlight.js": "^11.11.1",
     "pdfjs-dist": "^5.6.205",
     "ts-node": "^10.9.2",
     "tsx": "^4.7.0",
