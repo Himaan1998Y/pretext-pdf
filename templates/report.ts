@@ -20,7 +20,7 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { colors } from './utils.ts'
+import { colors, createMetadata, createFooter } from './utils.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -34,24 +34,21 @@ const pdf = await render({
   bookmarks: { minLevel: 1, maxLevel: 2 },
   hyphenation: { language: 'en-us' },
   watermark: { text: 'CONFIDENTIAL', opacity: 0.04, rotation: -45, fontSize: 72 },
+  // Professional header with report title and version
   header: {
     text: 'Market Analysis Report Q2 2026',
     fontSize: 8,
-    color: '#999999',
+    color: colors.gray400,
     align: 'right',
   },
-  footer: {
-    text: 'Page {{pageNumber}} of {{totalPages}}  ·  © 2026 Market Research Inc.  ·  Confidential',
-    fontSize: 8,
-    color: '#999999',
-    align: 'center',
-  },
-  metadata: {
-    title: 'Market Analysis Report Q2 2026',
-    author: 'Market Research Inc. — Research Team',
-    subject: 'Technology Market Trends and Forecasts',
-    creationDate: new Date(),
-  },
+  // Footer with page numbers and copyright
+  ...{ footer: { ...createFooter('Report', 'Market Research Inc.'), text: 'Page {{pageNumber}} of {{totalPages}}  ·  © 2026 Market Research Inc.  ·  Confidential' } },
+  // Searchable metadata for document management
+  metadata: createMetadata(
+    'Market Analysis Report Q2 2026',
+    'Market Research Inc. — Research Team',
+    'Technology Market Trends and Forecasts'
+  ),
   content: [
     // Cover
     { type: 'spacer', height: 50 },
@@ -59,7 +56,7 @@ const pdf = await render({
       type: 'paragraph',
       text: 'MARKET RESEARCH',
       fontSize: 9,
-      color: '#888888',
+      color: colors.gray500,
       letterSpacing: 3,
       smallCaps: true,
       align: 'center',
@@ -79,7 +76,7 @@ const pdf = await render({
       type: 'paragraph',
       text: 'Q2 2026  ·  Enterprise & Cloud  ·  Global Perspective',
       fontSize: 12,
-      color: '#555555',
+      color: colors.gray700,
       align: 'center',
       spaceAfter: 6,
     },
@@ -93,7 +90,7 @@ const pdf = await render({
       type: 'paragraph',
       text: 'Published April 2026  ·  Not for public distribution',
       fontSize: 9,
-      color: '#999999',
+      color: colors.gray400,
       align: 'center',
       spaceAfter: 60,
       bookmark: false,
