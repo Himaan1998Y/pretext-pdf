@@ -13,6 +13,7 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// TODO: Customize meeting title, date, attendees, agenda, and action items below
 const { render } = await import('../dist/index.js')
 
 const pdf = await render({
@@ -207,12 +208,12 @@ const pdf = await render({
             { text: 'Status', fontWeight: 700 },
           ],
         },
-        { cells: [{ text: 'Finalize API v2 specification and documentation' }, { text: 'James Rodriguez' }, { text: 'April 24' }, { text: 'In Progress' }] },
-        { cells: [{ text: 'Database replication rollout complete' }, { text: 'Emma Davis' }, { text: 'May 1' }, { text: 'In Progress' }] },
-        { cells: [{ text: 'Okta SSO integration (phase 1)' }, { text: 'Mike Thompson' }, { text: 'May 10' }, { text: 'Not Started' }] },
-        { cells: [{ text: 'Design mockups for real-time dashboard' }, { text: 'Lisa Wang' }, { text: 'April 20' }, { text: 'In Progress' }] },
-        { cells: [{ text: 'Performance testing report for mobile app' }, { text: 'James Rodriguez' }, { text: 'April 22' }, { text: 'In Progress' }] },
-        { cells: [{ text: 'Security audit findings risk assessment' }, { text: 'Sarah Chen' }, { text: 'April 19' }, { text: 'Not Started' }] },
+        { cells: [{ text: 'Finalize API v2 specification and documentation' }, { text: 'James Rodriguez' }, { text: 'April 24' }, { text: 'In Progress', color: '#f0ad4e' }] },
+        { cells: [{ text: 'Database replication rollout complete' }, { text: 'Emma Davis' }, { text: 'May 1' }, { text: 'In Progress', color: '#f0ad4e' }] },
+        { cells: [{ text: 'Okta SSO integration (phase 1)' }, { text: 'Mike Thompson' }, { text: 'May 10' }, { text: 'Not Started', color: '#d9534f' }] },
+        { cells: [{ text: 'Design mockups for real-time dashboard' }, { text: 'Lisa Wang' }, { text: 'April 20' }, { text: 'In Progress', color: '#f0ad4e' }] },
+        { cells: [{ text: 'Performance testing report for mobile app' }, { text: 'James Rodriguez' }, { text: 'April 22' }, { text: 'In Progress', color: '#f0ad4e' }] },
+        { cells: [{ text: 'Security audit findings risk assessment' }, { text: 'Sarah Chen' }, { text: 'April 19' }, { text: 'Not Started', color: '#d9534f' }] },
       ],
       headerBgColor: '#1a1a2e',
       borderColor: '#dddddd',

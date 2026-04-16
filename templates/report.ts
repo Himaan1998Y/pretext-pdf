@@ -13,6 +13,7 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// TODO: Customize title, author, chapters, and content below
 const { render } = await import('../dist/index.js')
 
 const pdf = await render({
@@ -29,15 +30,16 @@ const pdf = await render({
     align: 'right',
   },
   footer: {
-    text: 'Page {{pageNumber}} of {{totalPages}}  ·  Research Team  ·  Confidential',
+    text: 'Page {{pageNumber}} of {{totalPages}}  ·  © 2026 Market Research Inc.  ·  Confidential',
     fontSize: 8,
     color: '#999999',
     align: 'center',
   },
   metadata: {
     title: 'Market Analysis Report Q2 2026',
-    author: 'Research Team',
+    author: 'Market Research Inc. — Research Team',
     subject: 'Technology Market Trends and Forecasts',
+    creationDate: new Date(),
   },
   content: [
     // Cover

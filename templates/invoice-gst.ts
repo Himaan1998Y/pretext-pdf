@@ -68,6 +68,7 @@ function amountInWords(amount: number): string {
   return result + ' Only'
 }
 
+// TODO: Customize these fields
 const supplier = {
   name: 'Antigravity Systems Pvt. Ltd.',
   address: 'Plot 42, Sector 18, Gurugram, Haryana - 122015',

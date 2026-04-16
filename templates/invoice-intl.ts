@@ -18,8 +18,10 @@ function formatCurrency(amount: number, currency: string): string {
   return `${symbols[currency] || currency} ${amount.toFixed(2)}`
 }
 
+// TODO: Change currency to 'EUR' or 'GBP' as needed
 const config = { currency: 'USD' as const }
 
+// TODO: Replace with your company details
 const company = {
   name: 'Digital Agency Inc.',
   address: '123 Tech Street, San Francisco, CA 94102',
@@ -99,7 +101,7 @@ const pdf = await render({
         {
           cells: [
             {
-              text: `${company.address}\n\n${company.email}\n${company.phone}\n${company.website}`,
+              text: `${company.address}\n${company.taxId}\n\n${company.email}\n${company.phone}\n${company.website}`,
               fontSize: 9,
               color: '#555555',
             },

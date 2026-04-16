@@ -13,6 +13,7 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// TODO: Customize all content below with your information
 const { render } = await import('../dist/index.js')
 
 const pdf = await render({
@@ -42,8 +43,8 @@ const pdf = await render({
       fontSize: 9.5,
       spans: [
         { text: '+1 (415) 555-0123', color: '#555555' },
-        { text: '  ·  linkedin.com/in/alexmorgan', color: '#0070f3', url: 'https://linkedin.com' },
-        { text: '  ·  github.com/alexmorgan', color: '#0070f3', url: 'https://github.com' },
+        { text: '  ·  linkedin.com/in/alexmorgan', color: '#0070f3', url: 'https://linkedin.com/in/alexmorgan' },
+        { text: '  ·  github.com/alexmorgan', color: '#0070f3', url: 'https://github.com/alexmorgan' },
       ],
       spaceAfter: 8,
     },

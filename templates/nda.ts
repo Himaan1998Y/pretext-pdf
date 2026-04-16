@@ -206,7 +206,7 @@ const pdf = await render({
       level: 2,
       text: 'SIGNATURES',
       fontSize: 11,
-      spaceAfter: 16,
+      spaceAfter: 12,
     },
 
     {
@@ -230,6 +230,23 @@ const pdf = await render({
       ],
       borderWidth: 0,
       cellPaddingV: 8,
+      spaceAfter: 16,
+    },
+
+    // Witness/Notary (optional)
+    {
+      type: 'heading',
+      level: 4,
+      text: 'Witness / Notary Public (Optional)',
+      fontSize: 9,
+      color: '#888888',
+      spaceAfter: 8,
+    },
+    {
+      type: 'paragraph',
+      text: '_______________________\nWitness/Notary Signature\n\n_______________________\nName (Print) & Seal\n\n_______________________\nDate',
+      fontSize: 9,
+      color: '#555555',
     },
   ],
 })
