@@ -80,7 +80,6 @@ const pdf = await render({
   ),
   footer: createFooter('Invoice', company.name),
   content: [
-    // Header
     // Invoice title and company header
     {
       type: 'heading',
@@ -119,14 +118,13 @@ const pdf = await render({
           ],
         },
       ],
-      borderColor: '#dddddd',
+      borderColor: colors.gray300,
       borderWidth: 0,
       cellPaddingH: 8,
       cellPaddingV: 8,
       spaceAfter: 16,
     },
 
-    // Bill To
     // Billing recipient details
     {
       type: 'heading',

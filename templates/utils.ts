@@ -10,8 +10,7 @@ export const colors = {
   success: '#5cb85c',      // Green for completed/approved
   warning: '#f0ad4e',      // Orange for in-progress/caution
   danger: '#d9534f',       // Red for errors/not started
-  subtle: '#f0f4ff',       // Light blue for backgrounds
-  gray900: '#1a1a2e',
+  subtle: '#f0f4ff',       // Light blue for table header backgrounds
   gray700: '#555555',
   gray600: '#666666',
   gray500: '#888888',
@@ -29,18 +28,6 @@ export const typography = {
   h4: 9,
   body: 10.5,
   small: 8.5,
-}
-
-// Spacing scale
-export const spacing = {
-  xs: 2,
-  sm: 4,
-  md: 6,
-  lg: 8,
-  xl: 10,
-  xxl: 12,
-  xxxl: 16,
-  xxxxl: 20,
 }
 
 /**

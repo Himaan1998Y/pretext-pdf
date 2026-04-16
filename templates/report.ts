@@ -41,8 +41,11 @@ const pdf = await render({
     color: colors.gray400,
     align: 'right',
   },
-  // Footer with page numbers and copyright
-  ...{ footer: { ...createFooter('Report', 'Market Research Inc.'), text: 'Page {{pageNumber}} of {{totalPages}}  ·  © 2026 Market Research Inc.  ·  Confidential' } },
+  // Footer with page numbers and copyright notice (overrides createFooter text for custom copyright)
+  footer: {
+    ...createFooter('Report', 'Market Research Inc.'),
+    text: 'Page {{pageNumber}} of {{totalPages}}  ·  © 2026 Market Research Inc.  ·  Confidential',
+  },
   // Searchable metadata for document management
   metadata: createMetadata(
     'Market Analysis Report Q2 2026',

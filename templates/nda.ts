@@ -25,8 +25,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const { render } = await import('../dist/index.js')
 
-const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-
 // TODO: Customize party names, effective date, governing law, contact details below
 
 const pdf = await render({
@@ -118,7 +116,7 @@ const pdf = await render({
       type: 'heading',
       level: 2,
       text: '1. DEFINITIONS',
-      fontSize: 11,
+      fontSize: typography.h3,
       spaceAfter: 6,
     },
     {
@@ -133,7 +131,7 @@ const pdf = await render({
       type: 'heading',
       level: 2,
       text: '2. CONFIDENTIAL INFORMATION',
-      fontSize: 11,
+      fontSize: typography.h3,
       spaceAfter: 6,
     },
     {
@@ -148,7 +146,7 @@ const pdf = await render({
       type: 'heading',
       level: 2,
       text: '3. OBLIGATIONS OF THE RECEIVING PARTY',
-      fontSize: 11,
+      fontSize: typography.h3,
       spaceAfter: 6,
     },
     {
@@ -163,7 +161,7 @@ const pdf = await render({
       type: 'heading',
       level: 2,
       text: '4. EXCLUSIONS',
-      fontSize: 11,
+      fontSize: typography.h3,
       spaceAfter: 6,
     },
     {
@@ -178,7 +176,7 @@ const pdf = await render({
       type: 'heading',
       level: 2,
       text: '5. TERM AND TERMINATION',
-      fontSize: 11,
+      fontSize: typography.h3,
       spaceAfter: 6,
     },
     {
@@ -193,7 +191,7 @@ const pdf = await render({
       type: 'heading',
       level: 2,
       text: '6. REMEDIES',
-      fontSize: 11,
+      fontSize: typography.h3,
       spaceAfter: 6,
     },
     {
@@ -208,7 +206,7 @@ const pdf = await render({
       type: 'heading',
       level: 2,
       text: '7. GOVERNING LAW',
-      fontSize: 11,
+      fontSize: typography.h3,
       spaceAfter: 6,
     },
     {
@@ -224,7 +222,7 @@ const pdf = await render({
       type: 'heading',
       level: 2,
       text: 'SIGNATURES',
-      fontSize: 11,
+      fontSize: typography.h3,
       spaceAfter: 12,
     },
 
