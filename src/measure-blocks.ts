@@ -378,10 +378,11 @@ export async function measureBlock(
       // Syntax highlighting: tokenize if language is set
       let codeHighlightTokens: Array<Array<{ text: string; color: string }>> | undefined
       if (element.language) {
-        codeHighlightTokens = tokenizeCodeForHighlighting(
+        codeHighlightTokens = await tokenizeCodeForHighlighting(
           element.text,
           element.language,
           element.color ?? '#24292f',
+          lines.length,
           element.highlightTheme
         )
       }
@@ -1295,21 +1296,21 @@ const DEFAULT_HIGHLIGHT_THEME: Record<string, string> = {
 
 /**
  * Tokenize source code into per-line colored spans using highlight.js.
- * Falls back to plain text (single token per line) if highlight.js is not installed.
+ * Returns undefined if highlight.js is not installed (renderer falls back to plain text).
  */
-function tokenizeCodeForHighlighting(
+async function tokenizeCodeForHighlighting(
   text: string,
   language: string,
   defaultColor: string,
+  measuredLineCount: number,
   customTheme?: Record<string, string | undefined>
-): Array<Array<{ text: string; color: string }>> {
+): Promise<Array<Array<{ text: string; color: string }>> | undefined> {
   let hljs: any
   try {
-    // highlight.js is an optional peer dependency — dynamic require
-    hljs = require('highlight.js')
+    hljs = await import('highlight.js' as string)
+    hljs = hljs.default ?? hljs
   } catch {
-    // Not installed — return undefined so renderer falls back to plain text
-    return text.split('\n').map(line => [{ text: line, color: defaultColor }])
+    return undefined
   }
 
   const theme: Record<string, string> = { ...DEFAULT_HIGHLIGHT_THEME }
@@ -1326,13 +1327,16 @@ function tokenizeCodeForHighlighting(
       : hljs.highlight(text, { language })
     highlighted = result.value
   } catch {
-    // Unknown language — fall back to plain text
-    return text.split('\n').map(line => [{ text: line, color: defaultColor }])
+    return undefined
   }
 
-  // Parse highlight.js HTML output into tokens per line
-  // Output is like: <span class="hljs-keyword">const</span> x = <span class="hljs-number">42</span>
-  return parseHighlightHtml(highlighted, defaultColor, theme)
+  const tokens = parseHighlightHtml(highlighted, defaultColor, theme)
+
+  // Safety check: tokenizer splits on \n but the layout engine may wrap long lines.
+  // If line counts don't match, the colors would be applied to the wrong lines.
+  if (tokens.length !== measuredLineCount) return undefined
+
+  return tokens
 }
 
 /**
@@ -1390,6 +1394,16 @@ function parseHighlightHtml(
       while (end < html.length && html[end] !== '<' && html[end] !== '&' && html[end] !== '\n') end++
       lines[lines.length - 1]!.push({ text: html.slice(i, end), color })
       i = end
+    }
+  }
+
+  // Merge adjacent tokens with the same color on each line (fewer drawText calls)
+  for (const line of lines) {
+    for (let j = line.length - 1; j > 0; j--) {
+      if (line[j]!.color === line[j - 1]!.color) {
+        line[j - 1]!.text += line[j]!.text
+        line.splice(j, 1)
+      }
     }
   }
 

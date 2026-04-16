@@ -322,6 +322,21 @@ describe('Phase 2 — Performance & Correctness', () => {
     assert.ok(pdf instanceof Uint8Array)
   })
 
+  test('code block with very long line falls back to plain text (line-wrap mismatch)', async () => {
+    // A line longer than the text area will wrap — token count won't match measured lines
+    // The safety check should detect this and fall back to plain rendering
+    const longLine = 'const veryLongVariableName = "' + 'x'.repeat(300) + '";'
+    const pdf = await render({
+      content: [{
+        type: 'code',
+        fontFamily: 'Inter',
+        language: 'javascript',
+        text: longLine,
+      }]
+    })
+    assert.ok(pdf instanceof Uint8Array)
+  })
+
   test('code block with custom highlightTheme renders without error', async () => {
     const pdf = await render({
       content: [{

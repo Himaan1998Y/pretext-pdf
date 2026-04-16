@@ -664,8 +664,6 @@ export function renderCodeBlock(
   const highlightTokens = measuredBlock.codeHighlightTokens
   if (highlightTokens && highlightTokens.length > 0) {
     // Render with per-token colors
-    const charWidth = pdfFont.widthOfTextAtSize('M', fontSize) // monospace — all chars same width
-    let tokenLineIdx = 0
     for (let i = 0; i < lines.length; i++) {
       const lineYFromPageTop = boxAbsY + paddingTop + i * lineHeight
       const pdfY = toPdfY(lineYFromPageTop, fontHeight, geo.pageHeight)
