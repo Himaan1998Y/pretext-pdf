@@ -18,9 +18,20 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync } from 'node:child_process'
-import { existsSync, statSync } from 'node:fs'
+import { existsSync, statSync, openSync, readSync, closeSync } from 'node:fs'
 import path from 'node:path'
 import { render } from '../src/index.js'
+
+// Helper: Verify output is a valid PDF with magic bytes %PDF and reasonable size
+function assertValidPdf(pdf: Uint8Array, minBytes = 1_000, maxBytes = 50_000_000): void {
+  assert.ok(pdf instanceof Uint8Array, 'Output must be Uint8Array')
+  assert.equal(pdf[0], 0x25, 'PDF magic byte 0 (%) mismatch')
+  assert.equal(pdf[1], 0x50, 'PDF magic byte 1 (P) mismatch')
+  assert.equal(pdf[2], 0x44, 'PDF magic byte 2 (D) mismatch')
+  assert.equal(pdf[3], 0x46, 'PDF magic byte 3 (F) mismatch')
+  assert.ok(pdf.byteLength >= minBytes, `PDF size ${pdf.byteLength} bytes < minimum ${minBytes} bytes`)
+  assert.ok(pdf.byteLength <= maxBytes, `PDF size ${pdf.byteLength} bytes > maximum ${maxBytes} bytes`)
+}
 
 // ─── Block A: Large Document Stress ──────────────────────────────────────────
 
@@ -46,8 +57,7 @@ describe('Block A — Large Document Stress', () => {
       content: paragraphs,
     })
 
-    assert.ok(pdf instanceof Uint8Array)
-    assert.ok(pdf.byteLength > 50_000, `Expected > 50KB for large doc, got ${pdf.byteLength}`)
+    assertValidPdf(pdf, 50_000, 10_000_000)
   })
 
   test('table with 200 data rows renders without error', async () => {
@@ -75,10 +85,10 @@ describe('Block A — Large Document Stress', () => {
       content: [{
         type: 'table',
         columns: [
-          { width: 60, align: 'right' },
-          { width: '2*', align: 'left' },
-          { width: 120, align: 'right' },
-          { width: 80, align: 'right' },
+          { width: 60, align: 'right' as const },
+          { width: '2*', align: 'left' as const },
+          { width: 120, align: 'right' as const },
+          { width: 80, align: 'right' as const },
         ],
         rows,
         headerBgColor: '#1a1a2e',
@@ -89,8 +99,7 @@ describe('Block A — Large Document Stress', () => {
       }],
     })
 
-    assert.ok(pdf instanceof Uint8Array)
-    assert.ok(pdf.byteLength > 20_000, `Expected > 20KB for large table, got ${pdf.byteLength}`)
+    assertValidPdf(pdf, 20_000, 5_000_000)
   })
 
   test('document using every element type renders without error', async () => {
@@ -149,8 +158,7 @@ describe('Block A — Large Document Stress', () => {
       ],
     })
 
-    assert.ok(pdf instanceof Uint8Array)
-    assert.ok(pdf.byteLength > 10_000)
+    assertValidPdf(pdf, 10_000, 2_000_000)
   })
 
   test('document with long unordered and ordered lists (50 items each) renders without error', async () => {
@@ -166,8 +174,49 @@ describe('Block A — Large Document Stress', () => {
       ],
     })
 
-    assert.ok(pdf instanceof Uint8Array)
-    assert.ok(pdf.byteLength > 10_000)
+    assertValidPdf(pdf, 10_000, 2_000_000)
+  })
+
+  test('list with 0 items throws VALIDATION_ERROR (empty array validation)', async () => {
+    await assert.rejects(
+      () => render({
+        content: [{ type: 'list', style: 'unordered', items: [] }],
+      }),
+      { code: 'VALIDATION_ERROR' },
+    )
+  })
+
+  test('rich-paragraph with empty spans throws VALIDATION_ERROR (empty array validation)', async () => {
+    await assert.rejects(
+      () => render({
+        content: [{ type: 'rich-paragraph', spans: [] }],
+      }),
+      { code: 'VALIDATION_ERROR' },
+    )
+  })
+
+  test('extremely small page size throws PAGE_TOO_SMALL error (margin constraint)', async () => {
+    await assert.rejects(
+      () => render({
+        pageSize: [100, 200],
+        content: [
+          { type: 'heading', level: 1, text: 'Narrow Page' },
+          { type: 'paragraph', text: 'This page is too narrow.' },
+        ],
+      }),
+      { code: 'PAGE_TOO_SMALL' },
+    )
+  })
+
+  test('document with all named page sizes renders without error', async () => {
+    const sizes = ['Letter', 'Legal', 'A3', 'A4', 'A5'] as const
+    for (const size of sizes) {
+      const pdf = await render({
+        pageSize: size,
+        content: [{ type: 'paragraph', text: `Page size: ${size}` }],
+      })
+      assertValidPdf(pdf, 500)
+    }
   })
 })
 
@@ -183,18 +232,18 @@ describe('Block B — Edge Case Stress', () => {
 
   test('single zero-height spacer renders without error', async () => {
     const pdf = await render({ content: [{ type: 'spacer', height: 0 }] })
-    assert.ok(pdf instanceof Uint8Array)
+    assertValidPdf(pdf)
   })
 
   test('paragraph with empty string renders without error', async () => {
     const pdf = await render({ content: [{ type: 'paragraph', text: '' }] })
-    assert.ok(pdf instanceof Uint8Array)
+    assertValidPdf(pdf)
   })
 
   test('paragraph with a single very long word (no whitespace) renders without error', async () => {
     const longWord = 'a'.repeat(500)
     const pdf = await render({ content: [{ type: 'paragraph', text: longWord }] })
-    assert.ok(pdf instanceof Uint8Array)
+    assertValidPdf(pdf)
   })
 
   test('paragraph with CJK characters renders without error', async () => {
@@ -204,7 +253,7 @@ describe('Block B — Edge Case Stress', () => {
         text: '日本語テスト。中文测试。한국어 테스트。これはテストです。Unicode CJK characters.',
       }],
     })
-    assert.ok(pdf instanceof Uint8Array)
+    assertValidPdf(pdf)
   })
 
   test('paragraph with Arabic and Hebrew renders without error', async () => {
@@ -214,21 +263,21 @@ describe('Block B — Edge Case Stress', () => {
         { type: 'paragraph', text: 'שלום עולם — Hebrew text in a paragraph', dir: 'rtl' },
       ],
     })
-    assert.ok(pdf instanceof Uint8Array)
+    assertValidPdf(pdf)
   })
 
   test('heading with extreme font size (72pt) renders without error', async () => {
     const pdf = await render({
       content: [{ type: 'heading', level: 1, text: 'Giant Heading', fontSize: 72 }],
     })
-    assert.ok(pdf instanceof Uint8Array)
+    assertValidPdf(pdf)
   })
 
   test('paragraph with very small font size (6pt) renders without error', async () => {
     const pdf = await render({
       content: [{ type: 'paragraph', text: 'Tiny text', fontSize: 6 }],
     })
-    assert.ok(pdf instanceof Uint8Array)
+    assertValidPdf(pdf)
   })
 
   test('table with 1 column and 1 cell renders without error', async () => {
@@ -239,7 +288,7 @@ describe('Block B — Edge Case Stress', () => {
         rows: [{ cells: [{ text: 'Single cell' }] }],
       }],
     })
-    assert.ok(pdf instanceof Uint8Array)
+    assertValidPdf(pdf)
   })
 
   test('table with star-width columns renders without error', async () => {
@@ -255,7 +304,7 @@ describe('Block B — Edge Case Stress', () => {
         borderColor: '#dddddd',
       }],
     })
-    assert.ok(pdf instanceof Uint8Array)
+    assertValidPdf(pdf)
   })
 
   test('HR with zero thickness renders without error', async () => {
@@ -266,14 +315,14 @@ describe('Block B — Edge Case Stress', () => {
         { type: 'paragraph', text: 'Below' },
       ],
     })
-    assert.ok(pdf instanceof Uint8Array)
+    assertValidPdf(pdf)
   })
 
   test('document with letter spacing near zero renders without error', async () => {
     const pdf = await render({
       content: [{ type: 'paragraph', text: 'Letter spacing test', letterSpacing: 0.1 }],
     })
-    assert.ok(pdf instanceof Uint8Array)
+    assertValidPdf(pdf)
   })
 
   test('document with encryption (allowCopying: false) produces valid PDF', async () => {
@@ -281,9 +330,7 @@ describe('Block B — Edge Case Stress', () => {
       allowCopying: false,
       content: [{ type: 'paragraph', text: 'Protected document content.' }],
     })
-    assert.ok(pdf instanceof Uint8Array)
-    assert.equal(pdf[0], 0x25)
-    assert.equal(pdf[1], 0x50)
+    assertValidPdf(pdf)
   })
 
   test('multiple consecutive page-breaks render without error', async () => {
@@ -296,14 +343,24 @@ describe('Block B — Edge Case Stress', () => {
         { type: 'paragraph', text: 'Page 4 (after 3 consecutive page-breaks)' },
       ],
     })
-    assert.ok(pdf instanceof Uint8Array)
+    assertValidPdf(pdf)
+  })
+
+  test('paragraph with whitespace-only text renders without error (edge case)', async () => {
+    const pdf = await render({
+      content: [{ type: 'paragraph', text: '   \n\t  ' }],
+    })
+    assertValidPdf(pdf)
   })
 })
 
 // ─── Block C: Timing Benchmarks ───────────────────────────────────────────────
 
 describe('Block C — Timing Benchmarks', () => {
-  test('1-page document renders in < 500ms', async () => {
+  test('1-page document renders in < 500ms (includes JIT warm-up)', async () => {
+    // Warm-up render to avoid cold JIT overhead affecting benchmark
+    await render({ content: [{ type: 'paragraph', text: 'Warm-up' }] })
+
     const start = performance.now()
     await render({
       pageSize: 'A4',
@@ -366,16 +423,15 @@ describe('Block D — Template Smoke Tests', () => {
   const templatesDir = path.resolve(process.cwd(), 'templates')
   const outputDir = path.resolve(templatesDir, 'output')
   const distIndex = path.resolve(process.cwd(), 'dist', 'index.js')
-
-  // Templates import from dist/index.js — skip if not built rather than failing opaquely
   const distBuilt = existsSync(distIndex)
 
-  function runTemplate(name: string): void {
-    if (!distBuilt) {
-      console.warn(`  [SKIP] dist/ not built — run \`npm run build\` to enable Block D`)
-      return
-    }
+  // Skip all tests in this block if dist is not built
+  if (!distBuilt) {
+    test.skip('(Block D requires `npm run build` — all tests skipped)', () => {})
+    return
+  }
 
+  function runTemplate(name: string): void {
     const templatePath = path.join(templatesDir, `${name}.ts`)
     assert.ok(existsSync(templatePath), `Template file not found: ${templatePath}`)
 
@@ -389,7 +445,20 @@ describe('Block D — Template Smoke Tests', () => {
     assert.ok(existsSync(outPath), `Expected output not found: ${outPath}`)
 
     const size = statSync(outPath).size
+    const pdfBytes = Buffer.alloc(4)
+    const fd = openSync(outPath, 'r')
+    readSync(fd, pdfBytes, 0, 4, 0)
+    closeSync(fd)
+
+    // Verify PDF magic bytes
+    assert.equal(pdfBytes[0], 0x25, `${name}.pdf: missing PDF magic byte %`)
+    assert.equal(pdfBytes[1], 0x50, `${name}.pdf: missing PDF magic byte P`)
+    assert.equal(pdfBytes[2], 0x44, `${name}.pdf: missing PDF magic byte D`)
+    assert.equal(pdfBytes[3], 0x46, `${name}.pdf: missing PDF magic byte F`)
+
+    // Reasonable size range: > 5KB (not empty), < 50MB (not corrupted/bloated)
     assert.ok(size > 5_000, `${name}.pdf is suspiciously small: ${size} bytes`)
+    assert.ok(size < 50_000_000, `${name}.pdf is suspiciously large: ${size} bytes (> 50MB)`)
   }
 
   test('invoice-gst template renders successfully', () => {
