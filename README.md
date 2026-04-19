@@ -11,7 +11,7 @@
 [![Tests](https://img.shields.io/badge/tests-598-brightgreen)](#test-coverage)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**[Live demo](https://himaan1998y.github.io/pretext-pdf/)** — edit JSON, render PDFs instantly. No install.
+**[Live demo](https://himaan1998y.github.io/pretext-pdf/demo/)** — edit JSON, render PDFs instantly. No install.
 **[`pretext-pdf-mcp`](https://www.npmjs.com/package/pretext-pdf-mcp)** — drop-in MCP server for Claude / Cursor / Windsurf.
 **[Migrating from pdfmake?](docs/MIGRATION_FROM_PDFMAKE.md)** — every pattern mapped.
 
