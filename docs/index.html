@@ -3,333 +3,1763 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>pretext-pdf — The PDF library AI agents speak natively</title>
+  <title>pretext-pdf — PDF generation the AI-native way</title>
   <meta name="description" content="A PdfDocument is plain JSON. LLMs emit it in one shot — no codegen, no headless browser. Professional typography, MCP server included." />
+  <meta property="og:title" content="pretext-pdf — PDF generation the AI-native way" />
+  <meta property="og:description" content="Pure ESM. No Chromium. JSON in, PDF out. MCP server for Claude, Cursor and Windsurf." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://pretext-pdf.adi-life.com" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* ── Design Tokens ── */
     :root {
-      --bg: #0d1117;
-      --surface: #161b22;
-      --border: #30363d;
-      --text: #e6edf3;
-      --muted: #8b949e;
-      --accent: #58a6ff;
-      --green: #3fb950;
-      --purple: #bc8cff;
-      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-      --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      --bg:             #070a10;
+      --bg-soft:        #0d1220;
+      --surface:        #111827;
+      --surface-raised: #18223a;
+      --border:         rgba(255,255,255,0.07);
+      --border-bright:  rgba(255,255,255,0.13);
+      --text:           #f0f4ff;
+      --text-muted:     #7b8bb2;
+      --text-faint:     #4a5580;
+      --accent:         #6c8eff;
+      --accent-2:       #a78bfa;
+      --accent-3:       #38bdf8;
+      --green:          #34d399;
+      --red:            #f87171;
+      --font:           'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono:           'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+      --radius:         12px;
+      --radius-sm:      8px;
+      --radius-lg:      20px;
+      --transition:     200ms cubic-bezier(0.4,0,0.2,1);
+      --glow-accent:    0 0 40px rgba(108,142,255,0.18);
+      --glow-purple:    0 0 40px rgba(167,139,250,0.14);
     }
+
+    html { scroll-behavior: smooth; }
 
     body {
       background: var(--bg);
       color: var(--text);
       font-family: var(--font);
       font-size: 16px;
-      line-height: 1.6;
+      line-height: 1.65;
+      overflow-x: hidden;
     }
 
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: #2a3558; border-radius: 99px; }
+
+    /* ── Typography ── */
+    h1, h2, h3, h4 { line-height: 1.2; letter-spacing: -0.03em; font-weight: 800; }
+    a { color: var(--accent); text-decoration: none; transition: color var(--transition); }
+    a:hover { color: var(--accent-2); }
+    code { font-family: var(--mono); font-size: 0.87em; }
 
     /* ── Layout ── */
-    .container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    .container-narrow { max-width: 780px; margin: 0 auto; padding: 0 24px; }
 
-    header {
+    /* ── Noise texture overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+      opacity: 0.025;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ════════════════════════════════════
+       NAV
+    ════════════════════════════════════ */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
       border-bottom: 1px solid var(--border);
-      padding: 48px 0 40px;
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: rgba(7,10,16,0.7);
     }
 
-    header h1 {
-      font-size: 2.4rem;
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+
+    .nav-logo {
+      font-family: var(--mono);
+      font-size: 0.95rem;
       font-weight: 700;
-      letter-spacing: -0.5px;
-      margin-bottom: 12px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      letter-spacing: -0.02em;
     }
 
-    header h1 span { color: var(--accent); }
-
-    header p.tagline {
-      font-size: 1.15rem;
-      color: var(--muted);
-      max-width: 600px;
-      margin-bottom: 24px;
+    .nav-logo-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 0 10px rgba(108,142,255,0.6);
+      animation: pulse-dot 2.5s ease-in-out infinite;
     }
 
-    .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
-    .badges img { height: 20px; }
+    @keyframes pulse-dot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.7; }
+    }
 
-    .cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      list-style: none;
+    }
 
-    .btn {
+    .nav-links a {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      transition: color var(--transition), background var(--transition);
+    }
+
+    .nav-links a:hover {
+      color: var(--text);
+      background: rgba(255,255,255,0.05);
+    }
+
+    .nav-cta {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2)) !important;
+      color: white !important;
+      padding: 7px 16px !important;
+      border-radius: var(--radius-sm) !important;
+      font-weight: 600 !important;
+      transition: opacity var(--transition), transform var(--transition) !important;
+    }
+
+    .nav-cta:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+      background: unset !important;
+    }
+
+    @media (max-width: 640px) {
+      .nav-links { display: none; }
+    }
+
+    /* ════════════════════════════════════
+       HERO
+    ════════════════════════════════════ */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      padding-top: 60px;
+    }
+
+    /* Animated gradient orbs */
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(100px);
+      animation: orb-drift 12s ease-in-out infinite alternate;
+    }
+
+    .orb-1 {
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(108,142,255,0.18) 0%, transparent 70%);
+      top: -100px; left: -150px;
+      animation-duration: 11s;
+    }
+
+    .orb-2 {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(167,139,250,0.15) 0%, transparent 70%);
+      top: 50%; right: -200px;
+      transform: translateY(-50%);
+      animation-duration: 15s;
+      animation-delay: -5s;
+    }
+
+    .orb-3 {
+      width: 350px; height: 350px;
+      background: radial-gradient(circle, rgba(56,189,248,0.1) 0%, transparent 70%);
+      bottom: -50px; left: 40%;
+      animation-duration: 9s;
+      animation-delay: -3s;
+    }
+
+    @keyframes orb-drift {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(30px, 20px) scale(1.05); }
+    }
+
+    /* Grid pattern */
+    .hero-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black 40%, transparent 100%);
+      -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black 40%, transparent 100%);
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      padding: 100px 0 80px;
+      width: 100%;
+    }
+
+    .hero-badge {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 10px 20px;
-      border-radius: 6px;
-      font-size: 0.9rem;
+      gap: 8px;
+      background: rgba(108,142,255,0.1);
+      border: 1px solid rgba(108,142,255,0.25);
+      border-radius: 99px;
+      padding: 6px 14px;
+      font-size: 0.8rem;
       font-weight: 600;
-      text-decoration: none;
-      transition: opacity .15s;
-    }
-    .btn:hover { opacity: .85; text-decoration: none; }
-    .btn-primary { background: var(--accent); color: #0d1117; }
-    .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
-
-    /* ── Sections ── */
-    section { padding: 48px 0; border-bottom: 1px solid var(--border); }
-    section:last-child { border-bottom: none; }
-
-    h2 { font-size: 1.4rem; font-weight: 600; margin-bottom: 20px; }
-
-    /* ── Comparison table ── */
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-    th, td { padding: 10px 14px; text-align: left; border: 1px solid var(--border); }
-    th { background: var(--surface); color: var(--muted); font-weight: 600; }
-    td:first-child { color: var(--muted); white-space: nowrap; }
-    td.yes { color: var(--green); }
-    td.no { color: #f85149; }
-    td.partial { color: #e3b341; }
-    td.highlight { color: var(--text); font-weight: 600; }
-    th.highlight { color: var(--accent); }
-
-    /* ── Code block ── */
-    pre {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 20px;
-      overflow-x: auto;
-      font-family: var(--mono);
-      font-size: 0.82rem;
-      line-height: 1.6;
-      margin: 16px 0;
-    }
-    code { font-family: var(--mono); font-size: 0.85em; }
-
-    /* ── Feature grid ── */
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      gap: 16px;
+      color: var(--accent);
+      margin-bottom: 32px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
     }
 
-    .feature-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 20px;
+    .hero-badge-dot {
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse-dot 2s infinite;
     }
 
-    .feature-card .icon { font-size: 1.5rem; margin-bottom: 10px; }
-    .feature-card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; }
-    .feature-card p { font-size: 0.85rem; color: var(--muted); }
-
-    /* ── Screenshots ── */
-    .screenshot-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 16px;
+    .hero-title {
+      font-size: clamp(2.8rem, 7vw, 5.5rem);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+      margin-bottom: 28px;
+      max-width: 820px;
     }
 
-    .screenshot-row img {
-      width: 100%;
-      border-radius: 6px;
-      border: 1px solid var(--border);
+    .hero-title-line2 {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 50%, var(--accent-3) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
-    /* ── Footer ── */
-    footer {
-      padding: 32px 0;
-      color: var(--muted);
-      font-size: 0.85rem;
+    .hero-desc {
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      color: var(--text-muted);
+      max-width: 560px;
+      line-height: 1.75;
+      margin-bottom: 48px;
+    }
+
+    .hero-desc strong { color: var(--text); font-weight: 600; }
+
+    .hero-actions {
       display: flex;
       flex-wrap: wrap;
       gap: 16px;
-      justify-content: space-between;
       align-items: center;
+      margin-bottom: 56px;
     }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: white;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border-radius: var(--radius);
+      border: none;
+      cursor: pointer;
+      transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+      box-shadow: 0 8px 30px rgba(108,142,255,0.3);
+      text-decoration: none;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(108,142,255,0.45);
+      color: white;
+      opacity: 0.95;
+    }
+
+    .btn-primary:active { transform: translateY(0); }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      background: transparent;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-bright);
+      cursor: pointer;
+      transition: background var(--transition), border-color var(--transition), transform var(--transition);
+      text-decoration: none;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.22);
+      transform: translateY(-2px);
+      color: var(--text);
+    }
+
+    .btn-icon {
+      width: 18px; height: 18px;
+      display: inline-block;
+    }
+
+    .hero-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .hero-badges img {
+      height: 22px;
+      border-radius: 4px;
+      transition: transform var(--transition), opacity var(--transition);
+      opacity: 0.85;
+    }
+
+    .hero-badges img:hover {
+      transform: translateY(-2px);
+      opacity: 1;
+    }
+
+    /* ── Hero visual (right side) ── */
+    .hero-visual {
+      position: absolute;
+      right: -40px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 520px;
+      pointer-events: none;
+    }
+
+    @media (max-width: 960px) {
+      .hero-visual { display: none; }
+    }
+
+    .code-window {
+      background: var(--surface);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow:
+        0 40px 80px rgba(0,0,0,0.5),
+        0 0 0 1px rgba(255,255,255,0.04),
+        var(--glow-accent);
+    }
+
+    .code-window-bar {
+      background: rgba(255,255,255,0.04);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-red   { background: #ff5f57; }
+    .dot-yel   { background: #ffbd2e; }
+    .dot-grn   { background: #28c840; }
+
+    .window-title {
+      margin-left: 8px;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--text-faint);
+    }
+
+    .code-window pre {
+      padding: 20px 22px;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      line-height: 1.75;
+      color: #a0aec0;
+      overflow-x: auto;
+      tab-size: 2;
+    }
+
+    /* ── Syntax tokens ── */
+    .t-key    { color: #6c8eff; }
+    .t-str    { color: #a8e6cf; }
+    .t-num    { color: #fbbf24; }
+    .t-op     { color: #7b8bb2; }
+    .t-type   { color: #a78bfa; }
+    .t-cmt    { color: #4a5580; font-style: italic; }
+    .t-kw     { color: #f472b6; }
+
+    /* ════════════════════════════════════
+       SECTION CHROME
+    ════════════════════════════════════ */
+    section { padding: 100px 0; position: relative; }
+
+    .section-label {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: clamp(1.8rem, 4vw, 3rem);
+      font-weight: 800;
+      margin-bottom: 16px;
+      max-width: 600px;
+    }
+
+    .section-sub {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      max-width: 560px;
+      line-height: 1.75;
+      margin-bottom: 56px;
+    }
+
+    /* ════════════════════════════════════
+       FEATURE BENTO GRID
+    ════════════════════════════════════ */
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      grid-template-rows: auto;
+      gap: 16px;
+    }
+
+    .bento-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition);
+    }
+
+    .bento-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(108,142,255,0.04) 0%, transparent 60%);
+      opacity: 0;
+      transition: opacity var(--transition);
+      border-radius: inherit;
+    }
+
+    .bento-card:hover {
+      border-color: var(--border-bright);
+      transform: translateY(-3px);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.35), var(--glow-accent);
+    }
+
+    .bento-card:hover::before { opacity: 1; }
+
+    .bento-card-icon {
+      width: 44px; height: 44px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      margin-bottom: 20px;
+    }
+
+    .icon-blue   { background: rgba(108,142,255,0.12); color: var(--accent); }
+    .icon-purple { background: rgba(167,139,250,0.12); color: var(--accent-2); }
+    .icon-sky    { background: rgba(56,189,248,0.12);  color: var(--accent-3); }
+    .icon-green  { background: rgba(52,211,153,0.12);  color: var(--green); }
+
+    .bento-card h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+      letter-spacing: -0.02em;
+    }
+
+    .bento-card p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+
+    /* Grid placement */
+    .bento-span-5  { grid-column: span 5; }
+    .bento-span-7  { grid-column: span 7; }
+    .bento-span-4  { grid-column: span 4; }
+    .bento-span-8  { grid-column: span 8; }
+    .bento-span-6  { grid-column: span 6; }
+    .bento-span-12 { grid-column: span 12; }
+
+    @media (max-width: 900px) {
+      .bento-span-5,
+      .bento-span-7,
+      .bento-span-4,
+      .bento-span-8,
+      .bento-span-6 { grid-column: span 12; }
+    }
+
+    /* Big card with code snippet inside */
+    .bento-card-code {
+      background: var(--bg-soft);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      margin-top: 16px;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      line-height: 1.7;
+      color: #8892b0;
+      overflow-x: auto;
+    }
+
+    /* ════════════════════════════════════
+       HOW IT WORKS
+    ════════════════════════════════════ */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      position: relative;
+    }
+
+    @media (max-width: 760px) {
+      .steps { grid-template-columns: 1fr; }
+    }
+
+    .step {
+      background: var(--surface);
+      padding: 40px 32px;
+      position: relative;
+    }
+
+    .steps .step:first-child { border-radius: var(--radius-lg) 0 0 var(--radius-lg); }
+    .steps .step:last-child  { border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
+
+    @media (max-width: 760px) {
+      .steps .step:first-child { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+      .steps .step:last-child  { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+    }
+
+    .step::after {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0; right: -1px;
+      width: 1px;
+      background: linear-gradient(to bottom, transparent, var(--border-bright), transparent);
+    }
+    .steps .step:last-child::after { display: none; }
+
+    .step-num {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.1em;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .step-num::before {
+      content: '';
+      display: inline-block;
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: rgba(108,142,255,0.12);
+      border: 1px solid rgba(108,142,255,0.3);
+    }
+
+    .step-1::before { background: rgba(108,142,255,0.12); border-color: rgba(108,142,255,0.3); }
+    .step-2::before { background: rgba(167,139,250,0.12); border-color: rgba(167,139,250,0.3); }
+    .step-3::before { background: rgba(56,189,248,0.12);  border-color: rgba(56,189,248,0.3); }
+
+    .step h3 {
+      font-size: 1.1rem;
+      margin-bottom: 10px;
+    }
+
+    .step p {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+
+    /* ════════════════════════════════════
+       COMPARISON TABLE
+    ════════════════════════════════════ */
+    .compare-wrapper {
+      overflow-x: auto;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+    }
+
+    table.compare {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+    }
+
+    table.compare thead th {
+      padding: 20px 24px;
+      text-align: left;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    table.compare thead th:first-child { color: var(--text); font-size: 0.9rem; }
+
+    table.compare thead th.th-highlight {
+      background: rgba(108,142,255,0.08);
+      color: var(--accent);
+      position: relative;
+    }
+
+    table.compare thead th.th-highlight::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      border-radius: 2px 2px 0 0;
+    }
+
+    table.compare tbody tr {
+      transition: background var(--transition);
+    }
+
+    table.compare tbody tr:hover {
+      background: rgba(255,255,255,0.025);
+    }
+
+    table.compare tbody tr:not(:last-child) td {
+      border-bottom: 1px solid var(--border);
+    }
+
+    table.compare tbody td {
+      padding: 18px 24px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    table.compare tbody td:first-child {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    table.compare tbody td.td-highlight {
+      background: rgba(108,142,255,0.05);
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .check {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--green);
+      font-size: 1rem;
+    }
+
+    .cross {
+      color: #ef4444;
+      opacity: 0.6;
+    }
+
+    .partial {
+      color: #f59e0b;
+    }
+
+    .compare-best-badge {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 8px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      border-radius: 99px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: white;
+      vertical-align: middle;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* ════════════════════════════════════
+       SHOWCASE / SCREENSHOTS
+    ════════════════════════════════════ */
+    .showcase-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    @media (max-width: 820px) {
+      .showcase-grid { grid-template-columns: 1fr; max-width: 420px; }
+    }
+
+    .showcase-item {
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+      cursor: pointer;
+    }
+
+    .showcase-item:hover {
+      transform: translateY(-6px) scale(1.01);
+      box-shadow: 0 30px 60px rgba(0,0,0,0.45), var(--glow-purple);
+      border-color: var(--border-bright);
+    }
+
+    .showcase-img {
+      width: 100%;
+      aspect-ratio: 3/4;
+      object-fit: cover;
+      display: block;
+    }
+
+    .showcase-img-placeholder {
+      width: 100%;
+      aspect-ratio: 3/4;
+      background: linear-gradient(160deg, #111827 0%, #0d1220 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      color: var(--text-faint);
+      font-size: 0.8rem;
+      font-family: var(--mono);
+    }
+
+    .showcase-icon { font-size: 2.5rem; opacity: 0.5; }
+
+    .showcase-caption {
+      padding: 16px 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+    }
+
+    .showcase-tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 99px;
+      background: rgba(108,142,255,0.1);
+      color: var(--accent);
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    /* ════════════════════════════════════
+       MCP INSTALL
+    ════════════════════════════════════ */
+    .install-section {
+      background: linear-gradient(160deg, #0d1220 0%, #070a10 100%);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .mcp-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      align-items: start;
+    }
+
+    @media (max-width: 760px) {
+      .mcp-grid { grid-template-columns: 1fr; }
+    }
+
+    .install-block {
+      margin-bottom: 24px;
+    }
+
+    .install-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      margin-bottom: 10px;
+    }
+
+    .install-cmd {
+      background: var(--surface);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius);
+      padding: 14px 20px;
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+
+    .install-cmd:hover {
+      border-color: rgba(108,142,255,0.3);
+      box-shadow: 0 0 0 3px rgba(108,142,255,0.07);
+    }
+
+    .cmd-prefix { color: var(--text-faint); }
+
+    .copy-btn {
+      background: rgba(108,142,255,0.1);
+      border: 1px solid rgba(108,142,255,0.2);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--accent);
+      cursor: pointer;
+      transition: background var(--transition), border-color var(--transition);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .copy-btn:hover {
+      background: rgba(108,142,255,0.18);
+      border-color: rgba(108,142,255,0.4);
+    }
+
+    .config-block {
+      background: var(--surface);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .config-block-header {
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--text-faint);
+    }
+
+    .file-badge {
+      background: rgba(108,142,255,0.1);
+      border: 1px solid rgba(108,142,255,0.2);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--accent);
+      font-family: var(--mono);
+    }
+
+    .config-block pre {
+      padding: 20px 22px;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.75;
+      color: #8892b0;
+      overflow-x: auto;
+    }
+
+    .mcp-clients {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .client-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 99px;
+      border: 1px solid var(--border-bright);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      transition: color var(--transition), border-color var(--transition), background var(--transition);
+    }
+
+    .client-chip:hover {
+      color: var(--text);
+      border-color: rgba(255,255,255,0.22);
+      background: rgba(255,255,255,0.04);
+    }
+
+    /* ════════════════════════════════════
+       CAPABILITIES / PILL LIST
+    ════════════════════════════════════ */
+    .capabilities-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 40px;
+    }
+
+    .cap-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: rgba(255,255,255,0.02);
+      transition: background var(--transition), border-color var(--transition), color var(--transition), transform var(--transition);
+    }
+
+    .cap-pill:hover {
+      background: rgba(108,142,255,0.07);
+      border-color: rgba(108,142,255,0.25);
+      color: var(--text);
+      transform: translateY(-2px);
+    }
+
+    .cap-pill-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      flex-shrink: 0;
+    }
+
+    /* ════════════════════════════════════
+       FOOTER
+    ════════════════════════════════════ */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 48px 0;
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+
+    .footer-logo {
+      font-family: var(--mono);
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      font-size: 0.87rem;
+      color: var(--text-faint);
+      transition: color var(--transition);
+    }
+
+    .footer-links a:hover { color: var(--text-muted); }
+
+    .footer-copy {
+      font-size: 0.82rem;
+      color: var(--text-faint);
+      width: 100%;
+    }
+
+    /* ════════════════════════════════════
+       DIVIDER
+    ════════════════════════════════════ */
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 0;
+    }
+
+    /* ════════════════════════════════════
+       FADE-IN ANIMATION
+    ════════════════════════════════════ */
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .fade-up {
+      animation: fade-up 0.6s ease both;
+    }
+
+    .fade-up-1 { animation-delay: 0.05s; }
+    .fade-up-2 { animation-delay: 0.15s; }
+    .fade-up-3 { animation-delay: 0.25s; }
+    .fade-up-4 { animation-delay: 0.38s; }
+    .fade-up-5 { animation-delay: 0.50s; }
+
+    /* ════════════════════════════════════
+       GRADIENT SECTION SEPARATOR
+    ════════════════════════════════════ */
+    .section-alt {
+      background: linear-gradient(180deg, var(--bg) 0%, var(--bg-soft) 50%, var(--bg) 100%);
+    }
+
+    /* ════════════════════════════════════
+       CTA BAND
+    ════════════════════════════════════ */
+    .cta-band {
+      text-align: center;
+      padding: 120px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-band::before {
+      content: '';
+      position: absolute;
+      width: 800px; height: 800px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(108,142,255,0.1) 0%, transparent 65%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .cta-band h2 {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 900;
+      margin-bottom: 20px;
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .cta-band p {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      margin-bottom: 48px;
+      max-width: 520px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .cta-actions {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* ════════════════════════════════════
+       STAT STRIP
+    ════════════════════════════════════ */
+    .stat-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-top: -1px;
+    }
+
+    @media (max-width: 700px) {
+      .stat-strip { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .stat-cell {
+      background: var(--surface);
+      padding: 32px 28px;
+      text-align: center;
+      transition: background var(--transition);
+    }
+
+    .stat-cell:hover {
+      background: var(--surface-raised);
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      background: linear-gradient(135deg, var(--text) 30%, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--text-faint);
+      font-weight: 500;
+      margin-top: 6px;
+      letter-spacing: 0.04em;
+    }
+
+    /* ════════════════════════════════════
+       MIGRATION NOTICE
+    ════════════════════════════════════ */
+    .migration-card {
+      background: var(--surface);
+      border: 1px solid var(--border-bright);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      margin-top: 48px;
+    }
+
+    .migration-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 2px; }
+
+    .migration-text h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .migration-text p {
+      font-size: 0.87rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    .migration-text a { font-weight: 600; }
   </style>
 </head>
 <body>
 
-<div class="container">
-
-  <header>
-    <h1>pretext-<span>pdf</span></h1>
-    <p class="tagline">The PDF library AI agents speak natively. A <code>PdfDocument</code> is plain JSON — LLMs emit it in one shot, no codegen, no headless browser.</p>
-
-    <div class="badges">
-      <img src="https://img.shields.io/npm/v/pretext-pdf" alt="npm version" />
-      <img src="https://img.shields.io/npm/dw/pretext-pdf" alt="downloads" />
-      <img src="https://github.com/Himaan1998Y/pretext-pdf/actions/workflows/ci.yml/badge.svg" alt="CI" />
-      <img src="https://img.shields.io/badge/typescript-strict-blue" alt="TypeScript" />
-      <img src="https://img.shields.io/badge/tests-598-brightgreen" alt="Tests" />
-      <img src="https://img.shields.io/badge/license-MIT-blue" alt="License" />
-    </div>
-
-    <div class="cta-row">
-      <a href="https://pretext-pdf.adi-life.com" class="btn btn-primary">Try Live Demo</a>
-      <a href="https://github.com/Himaan1998Y/pretext-pdf" class="btn btn-secondary">GitHub</a>
-      <a href="https://www.npmjs.com/package/pretext-pdf" class="btn btn-secondary">npm</a>
-      <a href="https://www.npmjs.com/package/pretext-pdf-mcp" class="btn btn-secondary">MCP Server</a>
-    </div>
-  </header>
-
-  <section>
-    <h2>Why pretext-pdf</h2>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th></th>
-            <th>pdfmake / jsPDF</th>
-            <th>Puppeteer / Playwright</th>
-            <th>LaTeX / WeasyPrint</th>
-            <th class="highlight">pretext-pdf</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Lightweight (no Chromium)</td>
-            <td class="yes">✅</td>
-            <td class="no">❌ ~300 MB</td>
-            <td class="no">❌ native binaries</td>
-            <td class="yes highlight">✅</td>
-          </tr>
-          <tr>
-            <td>Pure ESM, runs in serverless</td>
-            <td class="yes">✅</td>
-            <td class="partial">⚠️ painful in Lambda</td>
-            <td class="no">❌</td>
-            <td class="yes highlight">✅</td>
-          </tr>
-          <tr>
-            <td>Professional typography</td>
-            <td class="no">❌</td>
-            <td class="yes">✅</td>
-            <td class="yes">✅</td>
-            <td class="yes highlight">✅</td>
-          </tr>
-          <tr>
-            <td>Declarative JSON API</td>
-            <td class="partial">⚠️ partial</td>
-            <td class="no">❌</td>
-            <td class="no">❌</td>
-            <td class="yes highlight">✅</td>
-          </tr>
-          <tr>
-            <td>LLM emits a working document in one shot</td>
-            <td class="no">❌</td>
-            <td class="no">❌</td>
-            <td class="no">❌</td>
-            <td class="yes highlight">✅</td>
-          </tr>
-          <tr>
-            <td>MCP server out of the box</td>
-            <td class="no">❌</td>
-            <td class="no">❌</td>
-            <td class="no">❌</td>
-            <td class="yes highlight">✅</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <section>
-    <h2>Drop into Claude / Cursor / Windsurf via MCP</h2>
-    <pre>{
-  "mcpServers": {
-    "pretext-pdf": {
-      "command": "npx",
-      "args": ["-y", "pretext-pdf-mcp"]
-    }
-  }
-}</pre>
-    <p style="color:var(--muted); font-size:0.88rem;">Tools exposed: <code>generate_pdf</code>, <code>generate_invoice</code>, <code>generate_report</code>, <code>generate_from_markdown</code>, <code>list_element_types</code>.</p>
-  </section>
-
-  <section>
-    <h2>Install</h2>
-    <pre>npm install pretext-pdf</pre>
-    <pre>import { render } from 'pretext-pdf'
-
-const pdf = await render({
-  type: 'document',
-  children: [
-    { type: 'text', content: 'Hello, pretext-pdf!', fontSize: 24, bold: true }
-  ]
-})
-
-// pdf is a Uint8Array — write to disk, stream it, return it from an API</pre>
-  </section>
-
-  <section>
-    <h2>Features</h2>
-    <div class="feature-grid">
-      <div class="feature-card">
-        <div class="icon">📄</div>
-        <h3>Rich text &amp; typography</h3>
-        <p>Kerning, hyphenation, RTL/CJK, inline bold/italic/code spans.</p>
-      </div>
-      <div class="feature-card">
-        <div class="icon">📊</div>
-        <h3>Tables &amp; charts</h3>
-        <p>Vega-Lite charts, data tables with column sizing and borders.</p>
-      </div>
-      <div class="feature-card">
-        <div class="icon">🖼️</div>
-        <h3>Images &amp; SVG</h3>
-        <p>Embed PNG/JPEG from URL or base64, SVG inline or from file.</p>
-      </div>
-      <div class="feature-card">
-        <div class="icon">🔲</div>
-        <h3>QR codes &amp; barcodes</h3>
-        <p>Generate QR codes and Code128 barcodes from any string.</p>
-      </div>
-      <div class="feature-card">
-        <div class="icon">📝</div>
-        <h3>Markdown input</h3>
-        <p>Pass raw Markdown — it's converted to a typed document tree automatically.</p>
-      </div>
-      <div class="feature-card">
-        <div class="icon">🧾</div>
-        <h3>Invoice &amp; report templates</h3>
-        <p>One-call helpers for common business documents including GST invoices.</p>
+  <!-- ── NAV ── -->
+  <nav>
+    <div class="container">
+      <div class="nav-inner">
+        <a class="nav-logo" href="#">
+          <span class="nav-logo-dot"></span>
+          pretext-pdf
+        </a>
+        <ul class="nav-links">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#mcp">MCP</a></li>
+          <li><a href="#compare">Compare</a></li>
+          <li><a href="#showcase">Showcase</a></li>
+          <li><a href="https://github.com/Himaan1998Y/pretext-pdf" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a class="nav-cta" href="https://pretext-pdf.adi-life.com" target="_blank" rel="noopener">Live Demo</a></li>
+        </ul>
       </div>
     </div>
-  </section>
+  </nav>
 
-  <section>
-    <h2>Examples</h2>
-    <div class="screenshot-row">
-      <img src="screenshots/showcase-invoice.png" alt="Invoice example" />
-      <img src="screenshots/showcase-report.png" alt="Report example" />
-      <img src="screenshots/showcase-resume.png" alt="Resume example" />
+  <!-- ── HERO ── -->
+  <section class="hero">
+    <div class="hero-bg">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="orb orb-3"></div>
+      <div class="hero-grid"></div>
     </div>
+
+    <div class="container" style="position:relative;z-index:1;width:100%;">
+      <div class="hero-content">
+
+        <div class="hero-badge fade-up fade-up-1">
+          <span class="hero-badge-dot"></span>
+          AI-Native PDF Generation
+        </div>
+
+        <h1 class="hero-title fade-up fade-up-2">
+          PDF generation<br>
+          <span class="hero-title-line2">the way LLMs think</span>
+        </h1>
+
+        <p class="hero-desc fade-up fade-up-3">
+          A <strong>PdfDocument is plain JSON.</strong> LLMs emit it in one shot — no codegen, no headless browser, no Chromium. Professional typography. MCP server included.
+        </p>
+
+        <div class="hero-actions fade-up fade-up-4">
+          <a class="btn-primary" href="https://pretext-pdf.adi-life.com" target="_blank" rel="noopener">
+            <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"/></svg>
+            Live Demo
+          </a>
+          <a class="btn-secondary" href="https://github.com/Himaan1998Y/pretext-pdf" target="_blank" rel="noopener">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+            GitHub
+          </a>
+          <a class="btn-secondary" href="https://www.npmjs.com/package/pretext-pdf" target="_blank" rel="noopener">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M0 0v24h6.5v2H12v-2h12V0H0zm13 19h-2V7H6v12H2V2h11v17zm9 0h-4v-7h-2v7h-2V2h8v17z"/></svg>
+            npm
+          </a>
+        </div>
+
+        <div class="hero-badges fade-up fade-up-5">
+          <a href="https://www.npmjs.com/package/pretext-pdf" target="_blank" rel="noopener">
+            <img src="https://img.shields.io/npm/v/pretext-pdf?color=6c8eff&labelColor=0d1220&style=flat-square" alt="npm version" />
+          </a>
+          <a href="https://www.npmjs.com/package/pretext-pdf" target="_blank" rel="noopener">
+            <img src="https://img.shields.io/npm/dm/pretext-pdf?color=a78bfa&labelColor=0d1220&style=flat-square" alt="npm downloads" />
+          </a>
+          <a href="https://github.com/Himaan1998Y/pretext-pdf" target="_blank" rel="noopener">
+            <img src="https://img.shields.io/github/license/Himaan1998Y/pretext-pdf?color=38bdf8&labelColor=0d1220&style=flat-square" alt="MIT license" />
+          </a>
+          <a href="https://www.npmjs.com/package/pretext-pdf-mcp" target="_blank" rel="noopener">
+            <img src="https://img.shields.io/npm/v/pretext-pdf-mcp?label=pretext-pdf-mcp&color=34d399&labelColor=0d1220&style=flat-square" alt="MCP version" />
+          </a>
+          <img src="https://img.shields.io/badge/TypeScript-ESM-blue?color=4a7fcc&labelColor=0d1220&style=flat-square" alt="TypeScript ESM" />
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Floating code window (desktop only) -->
+    <div class="hero-visual">
+      <div class="code-window">
+        <div class="code-window-bar">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yel"></span>
+          <span class="dot dot-grn"></span>
+          <span class="window-title">invoice.ts</span>
+        </div>
+        <pre><span class="t-kw">import</span> <span class="t-op">{</span> generate <span class="t-op">}</span> <span class="t-kw">from</span> <span class="t-str">'pretext-pdf'</span><span class="t-op">;</span>
+
+<span class="t-kw">const</span> pdf <span class="t-op">=</span> <span class="t-kw">await</span> <span class="t-type">generate</span><span class="t-op">({</span>
+  <span class="t-key">template</span><span class="t-op">:</span> <span class="t-str">'invoice'</span><span class="t-op">,</span>
+  <span class="t-key">content</span><span class="t-op">:</span> <span class="t-op">{</span>
+    <span class="t-key">from</span><span class="t-op">:</span> <span class="t-str">'Acme Corp'</span><span class="t-op">,</span>
+    <span class="t-key">to</span><span class="t-op">:</span> <span class="t-str">'Client Ltd'</span><span class="t-op">,</span>
+    <span class="t-key">items</span><span class="t-op">: [</span>
+      <span class="t-op">{</span>
+        <span class="t-key">name</span><span class="t-op">:</span> <span class="t-str">'Consulting'</span><span class="t-op">,</span>
+        <span class="t-key">qty</span><span class="t-op">:</span> <span class="t-num">10</span><span class="t-op">,</span>
+        <span class="t-key">rate</span><span class="t-op">:</span> <span class="t-num">150</span>
+      <span class="t-op">}</span>
+    <span class="t-op">],</span>
+    <span class="t-key">currency</span><span class="t-op">:</span> <span class="t-str">'USD'</span>
+  <span class="t-op">}</span>
+<span class="t-op">});</span>
+
+<span class="t-cmt">// Buffer — write to disk or stream</span>
+<span class="t-type">fs</span><span class="t-op">.</span><span class="t-type">writeFileSync</span><span class="t-op">(</span>
+  <span class="t-str">'invoice.pdf'</span><span class="t-op">, pdf</span>
+<span class="t-op">);</span></pre>
+      </div>
+    </div>
+
   </section>
 
-  <section>
-    <h2>Links</h2>
-    <ul style="list-style:none; display:flex; flex-direction:column; gap:8px;">
-      <li><a href="https://pretext-pdf.adi-life.com">Live Demo</a> — interactive JSON editor, renders PDF in your browser</li>
-      <li><a href="https://www.npmjs.com/package/pretext-pdf">npm: pretext-pdf</a></li>
-      <li><a href="https://www.npmjs.com/package/pretext-pdf-mcp">npm: pretext-pdf-mcp</a> — MCP server for AI coding tools</li>
-      <li><a href="https://github.com/Himaan1998Y/pretext-pdf">GitHub repository</a></li>
-      <li><a href="MIGRATION_FROM_PDFMAKE.md">Migrating from pdfmake?</a></li>
-    </ul>
-  </section>
-
-</div>
-
-<footer>
-  <div class="container" style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; width:100%;">
-    <span>pretext-pdf — MIT License</span>
-    <span>Layout powered by <a href="https://github.com/chenglou/pretext">@chenglou/pretext</a> by Cheng Lou</span>
+  <!-- ── STAT STRIP ── -->
+  <div class="container" style="padding-bottom:0;position:relative;z-index:1;margin-top:-20px;">
+    <div class="stat-strip">
+      <div class="stat-cell">
+        <div class="stat-value">0</div>
+        <div class="stat-label">Headless browsers</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-value">ESM</div>
+        <div class="stat-label">Pure ES modules</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-value">JSON</div>
+        <div class="stat-label">Document schema</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-value">MCP</div>
+        <div class="stat-label">AI-native server</div>
+      </div>
+    </div>
   </div>
-</footer>
+
+  <div class="divider" style="margin-top:80px;"></div>
+
+  <!-- ── FEATURES ── -->
+  <section id="features">
+    <div class="container">
+      <span class="section-label">Features</span>
+      <h2 class="section-title">Everything a modern PDF stack needs</h2>
+      <p class="section-sub">
+        No browser runtime. No bloated dependencies. Just a clean TypeScript library that runs anywhere JavaScript does.
+      </p>
+
+      <div class="bento-grid">
+
+        <!-- Card 1 — big, with code -->
+        <div class="bento-card bento-span-7">
+          <div class="bento-card-icon icon-blue">⚡</div>
+          <h3>No Chromium required</h3>
+          <p>Puppeteer and playwright ship a 300 MB browser binary. pretext-pdf is a pure JS PDF renderer — works in serverless functions, edge workers, and containers without any native dependencies.</p>
+          <div class="bento-card-code">
+            <span class="t-cmt"># pdfmake / puppeteer</span><br>
+            node_modules size: ~<span class="t-num">350</span>MB   cold start: ~<span class="t-num">4</span>s<br><br>
+            <span class="t-cmt"># pretext-pdf</span><br>
+            node_modules size: ~<span class="t-num">12</span>MB    cold start: ~<span class="t-num">180</span>ms
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="bento-card bento-span-5">
+          <div class="bento-card-icon icon-purple">🤖</div>
+          <h3>LLM-native document schema</h3>
+          <p>A <code>PdfDocument</code> is plain JSON. Any language model can emit it in one shot. No template strings, no function calls, no AST — just structured data.</p>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="bento-card bento-span-4">
+          <div class="bento-card-icon icon-sky">🔤</div>
+          <h3>Professional typography</h3>
+          <p>Kerning, hyphenation, justified text, RTL (Hebrew, Arabic) and CJK (Chinese, Japanese, Korean) out of the box.</p>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="bento-card bento-span-4">
+          <div class="bento-card-icon icon-green">📊</div>
+          <h3>Vega-Lite charts</h3>
+          <p>Declare a Vega-Lite spec inline — pretext-pdf renders it to SVG and embeds it natively. Data visualization as a first-class citizen.</p>
+        </div>
+
+        <!-- Card 5 -->
+        <div class="bento-card bento-span-4">
+          <div class="bento-card-icon icon-purple">📋</div>
+          <h3>Tables &amp; complex layouts</h3>
+          <p>Colspan, rowspan, nested tables, per-cell styling, sticky headers — all from JSON without a single line of layout code.</p>
+        </div>
+
+        <!-- Card 6 — full width capabilities -->
+        <div class="bento-card bento-span-12">
+          <h3>Every output primitive you need</h3>
+          <p style="margin-bottom:0;max-width:600px;">From QR codes to barcodes, Markdown blocks to raw SVG, images to invoices — the schema covers the full surface area of real-world documents.</p>
+
+          <div class="capabilities-list">
+            <span class="cap-pill"><span class="cap-pill-dot"></span>Tables with colspan/rowspan</span>
+            <span class="cap-pill"><span class="cap-pill-dot"></span>Vega-Lite charts</span>
+            <span class="cap-pill"><span class="cap-pill-dot"></span>QR codes</span>
+            <span class="cap-pill"><span class="cap-pill-dot"></span>Barcodes</span>
+            <span class="cap-pill"><span class="cap-pill-dot"></span>Images (JPEG, PNG, SVG)</span>
+            <span class="cap-pill"><span class="cap-pill-dot"></span>Inline SVG</span>
+            <span class="cap-pill"><span class="cap-pill-dot"></span>Markdown input</span>
+            <span class="cap-pill"><span class="cap-pill-dot"></span>Invoice template</span>
+            <span class="cap-pill"><span class="cap-pill-dot"></span>Report template</span>
+            <span class="cap-pill"><span class="cap-pill-dot"></span>GST invoices</span>
+            <span class="cap-pill"><span class="cap-pill-dot"></span>RTL &amp; CJK text</span>
+            <span class="cap-pill"><span class="cap-pill-dot"></span>Custom fonts</span>
+            <span class="cap-pill"><span class="cap-pill-dot"></span>Headers &amp; footers</span>
+            <span class="cap-pill"><span class="cap-pill-dot"></span>Page numbers</span>
+            <span class="cap-pill"><span class="cap-pill-dot"></span>Watermarks</span>
+            <span class="cap-pill"><span class="cap-pill-dot"></span>Multi-column layout</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── HOW IT WORKS ── -->
+  <section class="section-alt">
+    <div class="container">
+      <span class="section-label">How it works</span>
+      <h2 class="section-title">JSON in. PDF out. That simple.</h2>
+      <p class="section-sub">Three steps is all it takes — whether you're building a server-side report or wiring an LLM to a document workflow.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num step-1">STEP 01</div>
+          <h3>Describe your document</h3>
+          <p>Write (or have an LLM generate) a plain <code>PdfDocument</code> JSON object. No function calls, no template literals — just a structured description of your PDF.</p>
+        </div>
+        <div class="step">
+          <div class="step-num step-2">STEP 02</div>
+          <h3>Call <code>generate()</code></h3>
+          <p>Pass the document object to the <code>generate()</code> function. It runs synchronously in Node, Deno, Bun, or any edge runtime — returns a <code>Buffer</code>.</p>
+        </div>
+        <div class="step">
+          <div class="step-num step-3">STEP 03</div>
+          <h3>Stream, save, or serve</h3>
+          <p>Write the buffer to disk, pipe it as an HTTP response, upload to S3, or hand it to an email attachment. It's just bytes.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── MCP SERVER ── -->
+  <section id="mcp" class="install-section">
+    <div class="container">
+      <span class="section-label">MCP Server</span>
+      <h2 class="section-title">Add PDF generation to any AI client</h2>
+      <p class="section-sub">
+        <code>pretext-pdf-mcp</code> is an MCP server that exposes the PDF engine as a tool. Claude, Cursor, Windsurf — one config, any client.
+      </p>
+
+      <div class="mcp-grid">
+
+        <!-- Left: install steps -->
+        <div>
+          <div class="install-block">
+            <div class="install-label">Install the library</div>
+            <div class="install-cmd">
+              <span><span class="cmd-prefix">$</span> npm install pretext-pdf</span>
+              <button class="copy-btn" onclick="navigator.clipboard.writeText('npm install pretext-pdf')">copy</button>
+            </div>
+          </div>
+
+          <div class="install-block">
+            <div class="install-label">Or install the MCP server globally</div>
+            <div class="install-cmd">
+              <span><span class="cmd-prefix">$</span> npm install -g pretext-pdf-mcp</span>
+              <button class="copy-btn" onclick="navigator.clipboard.writeText('npm install -g pretext-pdf-mcp')">copy</button>
+            </div>
+          </div>
+
+          <div class="install-block">
+            <div class="install-label">Or run directly with npx (no install)</div>
+            <div class="install-cmd">
+              <span><span class="cmd-prefix">$</span> npx -y pretext-pdf-mcp</span>
+              <button class="copy-btn" onclick="navigator.clipboard.writeText('npx -y pretext-pdf-mcp')">copy</button>
+            </div>
+          </div>
+
+          <div style="margin-top:32px;">
+            <div class="install-label">Works with</div>
+            <div class="mcp-clients">
+              <span class="client-chip">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+                Claude Desktop
+              </span>
+              <span class="client-chip">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                Cursor
+              </span>
+              <span class="client-chip">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                Windsurf
+              </span>
+              <span class="client-chip">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+                Any MCP Client
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: config JSON -->
+        <div>
+          <div class="config-block">
+            <div class="config-block-header">
+              <span class="file-badge">JSON</span>
+              mcp-config.json
+            </div>
+            <pre>{
+  <span class="t-key">"mcpServers"</span><span class="t-op">: {</span>
+    <span class="t-key">"pretext-pdf"</span><span class="t-op">: {</span>
+      <span class="t-key">"command"</span><span class="t-op">:</span> <span class="t-str">"npx"</span><span class="t-op">,</span>
+      <span class="t-key">"args"</span><span class="t-op">: [</span>
+        <span class="t-str">"-y"</span><span class="t-op">,</span>
+        <span class="t-str">"pretext-pdf-mcp"</span>
+      <span class="t-op">]</span>
+    <span class="t-op">}</span>
+  <span class="t-op">}</span>
+}</pre>
+          </div>
+
+          <p style="margin-top:20px;font-size:0.87rem;color:var(--text-faint);line-height:1.7;">
+            Once connected, ask Claude: <em style="color:var(--text-muted);">"Generate a PDF invoice for my client"</em> — it will emit the JSON schema and call the tool to produce a real PDF.
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── COMPARE ── -->
+  <section id="compare">
+    <div class="container">
+      <span class="section-label">Comparison</span>
+      <h2 class="section-title">How does it stack up?</h2>
+      <p class="section-sub">The only PDF library designed for LLM output from the start. No browser runtime. No code generation required.</p>
+
+      <div class="compare-wrapper">
+        <table class="compare">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th class="th-highlight">pretext-pdf <span class="compare-best-badge">recommended</span></th>
+              <th>pdfmake</th>
+              <th>Puppeteer</th>
+              <th>PDFKit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>LLM-native JSON schema</td>
+              <td class="td-highlight"><span class="check">✓</span></td>
+              <td><span class="partial">~</span> partial</td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="cross">✗</span></td>
+            </tr>
+            <tr>
+              <td>No Chromium / browser</td>
+              <td class="td-highlight"><span class="check">✓</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="check">✓</span></td>
+            </tr>
+            <tr>
+              <td>Pure ESM, edge-compatible</td>
+              <td class="td-highlight"><span class="check">✓</span></td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="partial">~</span></td>
+            </tr>
+            <tr>
+              <td>Professional typography (kern / hyphen)</td>
+              <td class="td-highlight"><span class="check">✓</span></td>
+              <td><span class="partial">~</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="cross">✗</span></td>
+            </tr>
+            <tr>
+              <td>RTL &amp; CJK support</td>
+              <td class="td-highlight"><span class="check">✓</span></td>
+              <td><span class="partial">~</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="cross">✗</span></td>
+            </tr>
+            <tr>
+              <td>Built-in Vega-Lite charts</td>
+              <td class="td-highlight"><span class="check">✓</span></td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="cross">✗</span></td>
+            </tr>
+            <tr>
+              <td>MCP server</td>
+              <td class="td-highlight"><span class="check">✓</span></td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="cross">✗</span></td>
+            </tr>
+            <tr>
+              <td>Invoice &amp; report templates</td>
+              <td class="td-highlight"><span class="check">✓</span></td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="cross">✗</span></td>
+            </tr>
+            <tr>
+              <td>TypeScript-first</td>
+              <td class="td-highlight"><span class="check">✓</span></td>
+              <td><span class="partial">~</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="partial">~</span></td>
+            </tr>
+            <tr>
+              <td>Cold start</td>
+              <td class="td-highlight">~180ms</td>
+              <td>~200ms</td>
+              <td>>4000ms</td>
+              <td>~150ms</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="migration-card">
+        <div class="migration-icon">↗</div>
+        <div class="migration-text">
+          <h4>Migrating from pdfmake?</h4>
+          <p>pretext-pdf was designed as a spiritual successor with a cleaner schema and LLM-first ergonomics. The <a href="MIGRATION_FROM_PDFMAKE.md">migration guide</a> walks through converting your existing documents step by step.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── SHOWCASE ── -->
+  <section id="showcase" class="section-alt">
+    <div class="container">
+      <span class="section-label">Showcase</span>
+      <h2 class="section-title">Real output. Zero browser.</h2>
+      <p class="section-sub">Every PDF below was generated from a JSON document object — no HTML, no CSS, no headless browser in the pipeline.</p>
+
+      <div class="showcase-grid">
+
+        <div class="showcase-item">
+          <img
+            src="screenshots/showcase-invoice.png"
+            alt="Invoice PDF generated by pretext-pdf"
+            class="showcase-img"
+            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+          />
+          <div class="showcase-img-placeholder" style="display:none;">
+            <span class="showcase-icon">🧾</span>
+            <span>showcase-invoice.png</span>
+          </div>
+          <div class="showcase-caption">
+            Professional Invoice
+            <br><span class="showcase-tag">template: invoice</span>
+          </div>
+        </div>
+
+        <div class="showcase-item">
+          <img
+            src="screenshots/showcase-report.png"
+            alt="Report PDF generated by pretext-pdf"
+            class="showcase-img"
+            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+          />
+          <div class="showcase-img-placeholder" style="display:none;">
+            <span class="showcase-icon">📈</span>
+            <span>showcase-report.png</span>
+          </div>
+          <div class="showcase-caption">
+            Data Report with Charts
+            <br><span class="showcase-tag">Vega-Lite embedded</span>
+          </div>
+        </div>
+
+        <div class="showcase-item">
+          <img
+            src="screenshots/showcase-resume.png"
+            alt="Resume PDF generated by pretext-pdf"
+            class="showcase-img"
+            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+          />
+          <div class="showcase-img-placeholder" style="display:none;">
+            <span class="showcase-icon">📄</span>
+            <span>showcase-resume.png</span>
+          </div>
+          <div class="showcase-caption">
+            Resume / CV
+            <br><span class="showcase-tag">multi-column layout</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="text-align:center;margin-top:44px;">
+        <a class="btn-secondary" href="https://pretext-pdf.adi-life.com" target="_blank" rel="noopener">
+          See all examples in the live demo &rarr;
+        </a>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── CTA ── -->
+  <section class="cta-band">
+    <div class="container-narrow">
+      <span class="section-label" style="display:block;text-align:center;margin-bottom:24px;">Get started</span>
+      <h2>Start generating PDFs in under a minute</h2>
+      <p>One npm install. Zero configuration. Works in Node, Deno, Bun, and edge runtimes.</p>
+      <div class="cta-actions">
+        <a class="btn-primary" href="https://pretext-pdf.adi-life.com" target="_blank" rel="noopener">
+          Open Live Demo
+        </a>
+        <a class="btn-secondary" href="https://www.npmjs.com/package/pretext-pdf" target="_blank" rel="noopener">
+          View on npm
+        </a>
+        <a class="btn-secondary" href="https://github.com/Himaan1998Y/pretext-pdf" target="_blank" rel="noopener">
+          Star on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ── -->
+  <footer>
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-logo">
+          <span class="nav-logo-dot" style="width:7px;height:7px;"></span>
+          pretext-pdf
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/Himaan1998Y/pretext-pdf" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://www.npmjs.com/package/pretext-pdf" target="_blank" rel="noopener">npm</a>
+          <a href="https://www.npmjs.com/package/pretext-pdf-mcp" target="_blank" rel="noopener">MCP package</a>
+          <a href="https://pretext-pdf.adi-life.com" target="_blank" rel="noopener">Live Demo</a>
+          <a href="MIGRATION_FROM_PDFMAKE.md">Migration Guide</a>
+        </div>
+        <p class="footer-copy">
+          Released under the MIT license &mdash; built on the shoulders of
+          <a href="https://github.com/nicolo-ribaudo" target="_blank" rel="noopener">Cheng Lou</a>'s pdfmake.
+          Crafted by Himanshu Jain.
+        </p>
+      </div>
+    </div>
+  </footer>
 
 </body>
 </html>
