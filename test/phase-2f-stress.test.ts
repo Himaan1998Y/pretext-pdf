@@ -65,10 +65,10 @@ describe('Block A — Large Document Stress', () => {
       {
         isHeader: true,
         cells: [
-          { text: 'ID', fontWeight: 700 },
-          { text: 'Product', fontWeight: 700 },
-          { text: 'Revenue ($)', fontWeight: 700 },
-          { text: 'Growth', fontWeight: 700 },
+          { text: 'ID', fontWeight: 700 as 700 },
+          { text: 'Product', fontWeight: 700 as 700 },
+          { text: 'Revenue ($)', fontWeight: 700 as 700 },
+          { text: 'Growth', fontWeight: 700 as 700 },
         ],
       },
       ...Array.from({ length: 200 }, (_, i) => ({
@@ -109,7 +109,7 @@ describe('Block A — Large Document Stress', () => {
       bookmarks: { minLevel: 1, maxLevel: 3 },
       header: { text: 'Every Element Type Test', fontSize: 8, align: 'right' },
       footer: { text: 'Page {{pageNumber}} of {{totalPages}}', fontSize: 8, align: 'center' },
-      metadata: { title: 'All Elements', author: 'Test', subject: 'Coverage', creationDate: new Date() },
+      metadata: { title: 'All Elements', author: 'Test', subject: 'Coverage' },
       content: [
         { type: 'heading', level: 1, text: 'Heading Level 1', anchor: 'h1' },
         { type: 'heading', level: 2, text: 'Heading Level 2', anchor: 'h2' },
@@ -325,9 +325,9 @@ describe('Block B — Edge Case Stress', () => {
     assertValidPdf(pdf)
   })
 
-  test('document with encryption (allowCopying: false) produces valid PDF', async () => {
+  test('document with encryption (copying: false) produces valid PDF', async () => {
     const pdf = await render({
-      allowCopying: false,
+      encryption: { permissions: { copying: false } },
       content: [{ type: 'paragraph', text: 'Protected document content.' }],
     })
     assertValidPdf(pdf)
@@ -357,7 +357,7 @@ describe('Block B — Edge Case Stress', () => {
 // ─── Block C: Timing Benchmarks ───────────────────────────────────────────────
 
 describe('Block C — Timing Benchmarks', () => {
-  test('1-page document renders in < 500ms (includes JIT warm-up)', async () => {
+  test('1-page document renders in < 500ms (excluding JIT warm-up)', async () => {
     // Warm-up render to avoid cold JIT overhead affecting benchmark
     await render({ content: [{ type: 'paragraph', text: 'Warm-up' }] })
 
@@ -398,7 +398,7 @@ describe('Block C — Timing Benchmarks', () => {
         { type: 'list', style: 'unordered', items: Array.from({ length: 10 }, (_, i) => ({ text: `List item ${i + 1}` })) },
         {
           type: 'table',
-          columns: [{ width: '2*' }, { width: 100, align: 'right' }, { width: 100, align: 'right' }],
+          columns: [{ width: '2*' }, { width: 100, align: 'right' as const }, { width: 100, align: 'right' as const }],
           rows: [
             { isHeader: true, cells: [{ text: 'Item', fontWeight: 700 }, { text: 'Qty', fontWeight: 700 }, { text: 'Total', fontWeight: 700 }] },
             ...Array.from({ length: 20 }, (_, i) => ({

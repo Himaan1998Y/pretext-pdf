@@ -6,7 +6,7 @@
 import { PDFDocument, PDFFont, PDFName, rgb, degrees } from '@cantoo/pdf-lib'
 import type {
   PagedBlock, FontMap, ImageMap, PageGeometry,
-  FootnoteDefElement, HeaderFooterSpec, PdfDocument
+  FootnoteDefElement, HeaderFooterSpec, PdfDocument, RichParagraphElement
 } from './types.js'
 import { PretextPdfError } from './errors.js'
 import {
@@ -19,6 +19,8 @@ import {
   resolveTokens,
   hexToRgb,
   drawTabularText,
+  LINE_HEIGHT_BODY,
+  LINE_HEIGHT_COMPACT,
 } from './render-utils.js'
 import { renderTocEntry, renderFormField } from './render-extras.js'
 import { buildFontKey } from './measure.js'
@@ -336,14 +338,15 @@ export function renderTable(
   // ── Pass 1: Cell backgrounds ──────────────────────────────────────────────
   let rowAbsY = chunkStartAbsY
   for (const row of chunkRows) {
-    const rowPdfY = toPdfY(rowAbsY, row.height, geo.pageHeight)
     let cellX = geo.margins.left
     for (const cell of row.cells) {
-      const bgColorHex = cell.bgColor ?? (row.isHeader ? headerBgColor : undefined)
-      if (bgColorHex) {
-        const [r, g, b] = hexToRgb(bgColorHex)
-        // Use mergedWidth for colspan support
-        pdfPage.drawRectangle({ x: cellX, y: rowPdfY, width: cell.mergedWidth, height: row.height, color: rgb(r, g, b), borderWidth: 0 })
+      if (!cell.isSpanPlaceholder) {
+        const cellRenderHeight = cell.spanHeight ?? row.height
+        const bgColorHex = cell.bgColor ?? (row.isHeader ? headerBgColor : undefined)
+        if (bgColorHex) {
+          const [r, g, b] = hexToRgb(bgColorHex)
+          pdfPage.drawRectangle({ x: cellX, y: toPdfY(rowAbsY, cellRenderHeight, geo.pageHeight), width: cell.mergedWidth, height: cellRenderHeight, color: rgb(r, g, b), borderWidth: 0 })
+        }
       }
       cellX += cell.mergedWidth
     }
@@ -368,43 +371,50 @@ export function renderTable(
     })
 
     // Internal horizontal lines (row separators, between rows, not at edges)
+    // Suppressed after rows that have a spanning cell crossing into the next row
     let lineAbsY = chunkStartAbsY
     for (let ri = 0; ri < chunkRows.length - 1; ri++) {
       lineAbsY += chunkRows[ri]!.height
-      const linePdfY = geo.pageHeight - lineAbsY
-      pdfPage.drawLine({
-        start: { x: geo.margins.left, y: linePdfY },
-        end:   { x: geo.margins.left + totalTableWidth, y: linePdfY },
-        thickness: borderWidth,
-        color: borderRgb,
-      })
-    }
-
-    // Internal vertical lines (column separators, between columns, not at edges)
-    // With colspan support: only draw lines at boundaries that are NOT spanned by merged cells
-    // Each row may have different active boundaries due to different colspan patterns
-    let colBoundaryX = geo.margins.left
-    for (let ci = 0; ci < columnWidths.length; ci++) {
-      colBoundaryX += columnWidths[ci]!
-      // Check if this boundary (between column ci and ci+1) is active in ANY row
-      const boundaryIndex = ci  // boundary at index ci is between columns ci and ci+1
-      let isActive = false
-      for (const row of chunkRows) {
-        if (row.activeBoundaries.includes(boundaryIndex)) {
-          isActive = true
-          break
-        }
-      }
-      if (isActive && ci < columnWidths.length - 1) {
-        const chunkTopPdfY = geo.pageHeight - chunkStartAbsY
-        const chunkBottomPdfY = geo.pageHeight - (chunkStartAbsY + totalChunkHeight)
+      if (!chunkRows[ri]!.hasRowspan) {
+        const linePdfY = geo.pageHeight - lineAbsY
         pdfPage.drawLine({
-          start: { x: colBoundaryX, y: chunkTopPdfY },
-          end:   { x: colBoundaryX, y: chunkBottomPdfY },
+          start: { x: geo.margins.left, y: linePdfY },
+          end:   { x: geo.margins.left + totalTableWidth, y: linePdfY },
           thickness: borderWidth,
           color: borderRgb,
         })
       }
+    }
+
+    // Internal vertical lines (column separators, between columns, not at edges)
+    // Draw per-row segments: a boundary absent from a row's activeBoundaries means a merged cell
+    // spans it — a full-chunk line would cut through it. Per-row drawing preserves colspan correctness.
+    // Pre-compute X positions once; convert each row's activeBoundaries to a Set for O(1) lookup.
+    const colBoundaryXPositions: number[] = []
+    let bx = geo.margins.left
+    for (let ci = 0; ci < columnWidths.length - 1; ci++) {
+      bx += columnWidths[ci]!
+      colBoundaryXPositions.push(bx)
+    }
+    const rowBoundarySets = chunkRows.map(row => new Set(row.activeBoundaries))
+
+    let vertRowAbsY = chunkStartAbsY
+    for (let ri = 0; ri < chunkRows.length; ri++) {
+      const row = chunkRows[ri]!
+      const rowBoundarySet = rowBoundarySets[ri]!
+      const rowTopPdfY    = geo.pageHeight - vertRowAbsY
+      const rowBottomPdfY = geo.pageHeight - (vertRowAbsY + row.height)
+      for (let ci = 0; ci < colBoundaryXPositions.length; ci++) {
+        if (rowBoundarySet.has(ci)) {
+          pdfPage.drawLine({
+            start: { x: colBoundaryXPositions[ci]!, y: rowTopPdfY },
+            end:   { x: colBoundaryXPositions[ci]!, y: rowBottomPdfY },
+            thickness: borderWidth,
+            color: borderRgb,
+          })
+        }
+      }
+      vertRowAbsY += row.height
     }
   }
 
@@ -413,7 +423,7 @@ export function renderTable(
   for (const row of chunkRows) {
     let cellX = geo.margins.left
     for (const cell of row.cells) {
-      if (cell.lines.length > 0) {
+      if (!cell.isSpanPlaceholder && cell.lines.length > 0) {
         const pdfFont = fontMap.get(cell.fontKey)
         if (!pdfFont) {
           throw new PretextPdfError('FONT_NOT_LOADED', `Table cell font "${cell.fontKey}" not found in fontMap. This is a bug — font validation should have caught this.`)
@@ -422,14 +432,18 @@ export function renderTable(
         const fontHeight = pdfFont.heightAtSize(cell.fontSize)
         const [r, g, b] = hexToRgb(cell.color)
         const textAreaX = cellX + cellPaddingH
-        // Use mergedWidth for colspan support
         const textAreaWidth = cell.mergedWidth - 2 * cellPaddingH
+
+        // For rowspan cells, vertically center within the full spanHeight
+        const cellRenderHeight = cell.spanHeight ?? row.height
+        const totalTextHeight = cell.lines.length * cell.lineHeight
+        const verticalOffset = Math.max(0, (cellRenderHeight - totalTextHeight - 2 * cellPaddingV) / 2)
 
         for (let li = 0; li < cell.lines.length; li++) {
           const line = cell.lines[li]!
           if (line.text === '') continue
 
-          const lineYFromPageTop = rowAbsY + cellPaddingV + li * cell.lineHeight
+          const lineYFromPageTop = rowAbsY + cellPaddingV + verticalOffset + li * cell.lineHeight
           const pdfY = toPdfY(lineYFromPageTop, fontHeight, geo.pageHeight)
 
           const trimmedText = line.text.trimEnd()
@@ -506,26 +520,49 @@ export function renderFloatBlock(
     height: fd.imageRenderHeight,
   })
 
-  // Draw text lines
-  const pdfFont = fontMap.get(fd.textFontKey)
-  if (!pdfFont) throw new PretextPdfError('FONT_NOT_LOADED', `Float text font key "${fd.textFontKey}" not found in fontMap. This is a bug — font loading should have caught this.`)
-
-  const fontHeight = pdfFont.heightAtSize(fd.textFontSize)
-  const [r, g, b] = hexToRgb(fd.textColor)
+  // Draw text lines (rich or plain)
   const textBaseX = geo.margins.left + fd.textColX
 
-  for (let i = 0; i < fd.textLines.length; i++) {
-    const line = fd.textLines[i]!
-    if (!line.text || line.text === '') continue
-    const lineAbsY = baseAbsY + (i * fd.textLineHeight)
-    const pdfY = toPdfY(lineAbsY, fontHeight, geo.pageHeight)
-    pdfPage.drawText(line.text.trimEnd(), {
-      x: textBaseX,
-      y: pdfY,
-      size: fd.textFontSize,
-      font: pdfFont,
-      color: rgb(r, g, b),
-    })
+  if (fd.richFloatLines && fd.richFloatLines.length > 0) {
+    let cumY = 0
+    for (const richLine of fd.richFloatLines) {
+      const lineAbsY = baseAbsY + cumY
+      for (const fragment of richLine.fragments) {
+        if (!fragment.text || fragment.text.trim() === '') continue
+        const pdfFont = fontMap.get(fragment.fontKey)
+        if (!pdfFont) throw new PretextPdfError('FONT_NOT_LOADED', `Float rich text font "${fragment.fontKey}" not found in fontMap.`)
+        const fontHeight = pdfFont.heightAtSize(fragment.fontSize)
+        const [r, g, b] = hexToRgb(fragment.color)
+        const drawX = textBaseX + fragment.x
+        const pdfY = toPdfY(lineAbsY, fontHeight, geo.pageHeight) + (fragment.yOffset ?? 0)
+        const drawText = fragment.text.trimEnd()
+        if (fragment.letterSpacing && fragment.letterSpacing > 0) {
+          let cx = drawX
+          for (const ch of drawText) {
+            pdfPage.drawText(ch, { x: cx, y: pdfY, size: fragment.fontSize, font: pdfFont, color: rgb(r, g, b) })
+            cx += pdfFont.widthOfTextAtSize(ch, fragment.fontSize) + fragment.letterSpacing
+          }
+        } else {
+          pdfPage.drawText(drawText, { x: drawX, y: pdfY, size: fragment.fontSize, font: pdfFont, color: rgb(r, g, b) })
+        }
+        const fragWidth = pdfFont.widthOfTextAtSize(drawText, fragment.fontSize)
+        drawTextDecoration(pdfPage, drawX, fragWidth, pdfY, fragment.fontSize, pdfFont, [r, g, b], { underline: fragment.underline ?? false, strikethrough: fragment.strikethrough ?? false })
+        if (fragment.url) addLinkAnnotation(pdfDoc, pdfPage, drawX, pdfY, fragWidth, fragment.fontSize, fragment.url)
+      }
+      cumY += richLine.lineHeight
+    }
+  } else {
+    const pdfFont = fontMap.get(fd.textFontKey)
+    if (!pdfFont) throw new PretextPdfError('FONT_NOT_LOADED', `Float text font key "${fd.textFontKey}" not found in fontMap. This is a bug — font loading should have caught this.`)
+    const fontHeight = pdfFont.heightAtSize(fd.textFontSize)
+    const [r, g, b] = hexToRgb(fd.textColor)
+    for (let i = 0; i < fd.textLines.length; i++) {
+      const line = fd.textLines[i]!
+      if (line.text === '') continue
+      const lineAbsY = baseAbsY + (i * fd.textLineHeight)
+      const pdfY = toPdfY(lineAbsY, fontHeight, geo.pageHeight)
+      pdfPage.drawText(line.text.trimEnd(), { x: textBaseX, y: pdfY, size: fd.textFontSize, font: pdfFont, color: rgb(r, g, b) })
+    }
   }
 }
 
@@ -568,7 +605,7 @@ export function renderFloatGroup(
     // Draw plain lines (plain-text fallback for rich-paragraphs)
     for (let i = 0; i < textItem.lines.length; i++) {
       const line = textItem.lines[i]!
-      if (!line.text || line.text === '') continue
+      if (line.text === '') continue
 
       const lineAbsY = baseAbsY + textItem.yOffsetFromTop + (i * textItem.lineHeight)
       const pdfY = toPdfY(lineAbsY, fontHeight, geo.pageHeight)
@@ -859,7 +896,7 @@ export function renderCallout(
     const boldFontKey = measuredBlock.fontKey.replace(/-400-/, '-700-')
     const titleFont = fontMap.get(boldFontKey) ?? font
     const [tR, tG, tB] = hexToRgb(titleColor)
-    const titlePdfY = geo.pageHeight - currentAbsY - fontHeight - (fs * 1.4 - fs) / 2
+    const titlePdfY = toPdfY(currentAbsY + (fs * LINE_HEIGHT_COMPACT - fs) / 2, fontHeight, geo.pageHeight)
     pdfPage.drawText(titleText, {
       x: geo.margins.left + paddingH,
       y: titlePdfY,
@@ -878,7 +915,7 @@ export function renderCallout(
       currentAbsY += lh
       continue
     }
-    const linePdfY = geo.pageHeight - currentAbsY - fontHeight - (lh - fs) / 2
+    const linePdfY = toPdfY(currentAbsY + (lh - fs) / 2, fontHeight, geo.pageHeight)
     pdfPage.drawText(line.text.trimEnd(), {
       x: geo.margins.left + paddingH,
       y: linePdfY,
@@ -902,6 +939,7 @@ export function renderRichParagraph(
 ): void {
   const { measuredBlock, startLine, endLine, yFromTop } = pagedBlock
   const { element, richLines, lineHeight, fontSize } = measuredBlock
+  const tabularNumbers = element.type === 'rich-paragraph' && (element as RichParagraphElement).tabularNumbers === true
 
   if (!richLines || richLines.length === 0) return
 
@@ -971,14 +1009,21 @@ export function renderRichParagraph(
 
         const fragmentPdfY = basePdfY + (fragment.yOffset ?? 0)
         const drawText = fragment.text.trimEnd()
-        pdfPage.drawText(drawText, {
-          x: drawX,
-          y: fragmentPdfY,
-          size: fragment.fontSize,
-          font: pdfFont,
-          color: rgb(r, g, b),
-        })
-        const fragWidth = pdfFont.widthOfTextAtSize(drawText, fragment.fontSize)
+        let fragWidth: number
+        if (fragment.letterSpacing && fragment.letterSpacing > 0) {
+          let cx = drawX
+          for (const ch of drawText) {
+            pdfPage.drawText(ch, { x: cx, y: fragmentPdfY, size: fragment.fontSize, font: pdfFont, color: rgb(r, g, b) })
+            cx += pdfFont.widthOfTextAtSize(ch, fragment.fontSize) + fragment.letterSpacing
+          }
+          fragWidth = pdfFont.widthOfTextAtSize(drawText, fragment.fontSize) + fragment.letterSpacing * (drawText.length - 1)
+        } else if (tabularNumbers) {
+          drawTabularText(pdfPage, drawText, drawX, fragmentPdfY, fragment.fontSize, pdfFont, rgb(r, g, b))
+          fragWidth = pdfFont.widthOfTextAtSize(drawText, fragment.fontSize)
+        } else {
+          pdfPage.drawText(drawText, { x: drawX, y: fragmentPdfY, size: fragment.fontSize, font: pdfFont, color: rgb(r, g, b) })
+          fragWidth = pdfFont.widthOfTextAtSize(drawText, fragment.fontSize)
+        }
         drawTextDecoration(pdfPage, drawX, fragWidth, fragmentPdfY, fragment.fontSize, pdfFont, [r, g, b], { underline: fragment.underline ?? false, strikethrough: fragment.strikethrough ?? false })
         if (fragment.url) {
           addLinkAnnotation(pdfDoc, pdfPage, drawX, fragmentPdfY, fragWidth, fragment.fontSize, fragment.url)
@@ -1028,14 +1073,21 @@ export function renderRichParagraph(
 
       const fragmentPdfY = basePdfY + (fragment.yOffset ?? 0)
       const drawText = fragment.text.trimEnd()
-      pdfPage.drawText(drawText, {
-        x: drawX,
-        y: fragmentPdfY,
-        size: fragment.fontSize,
-        font: pdfFont,
-        color: rgb(r, g, b),
-      })
-      const fragWidth = pdfFont.widthOfTextAtSize(drawText, fragment.fontSize)
+      let fragWidth: number
+      if (fragment.letterSpacing && fragment.letterSpacing > 0) {
+        let cx = drawX
+        for (const ch of drawText) {
+          pdfPage.drawText(ch, { x: cx, y: fragmentPdfY, size: fragment.fontSize, font: pdfFont, color: rgb(r, g, b) })
+          cx += pdfFont.widthOfTextAtSize(ch, fragment.fontSize) + fragment.letterSpacing
+        }
+        fragWidth = pdfFont.widthOfTextAtSize(drawText, fragment.fontSize) + fragment.letterSpacing * (drawText.length - 1)
+      } else if (tabularNumbers) {
+        drawTabularText(pdfPage, drawText, drawX, fragmentPdfY, fragment.fontSize, pdfFont, rgb(r, g, b))
+        fragWidth = pdfFont.widthOfTextAtSize(drawText, fragment.fontSize)
+      } else {
+        pdfPage.drawText(drawText, { x: drawX, y: fragmentPdfY, size: fragment.fontSize, font: pdfFont, color: rgb(r, g, b) })
+        fragWidth = pdfFont.widthOfTextAtSize(drawText, fragment.fontSize)
+      }
       drawTextDecoration(pdfPage, drawX, fragWidth, fragmentPdfY, fragment.fontSize, pdfFont, [r, g, b], { underline: fragment.underline ?? false, strikethrough: fragment.strikethrough ?? false })
       if (fragment.url) {
         addLinkAnnotation(pdfDoc, pdfPage, drawX, fragmentPdfY, fragWidth, fragment.fontSize, fragment.url)
@@ -1077,7 +1129,7 @@ export function renderFootnoteZone(
 
   for (const { def, number } of footnoteItems) {
     const fontSize = def.fontSize ?? Math.max(8, defaultFontSize - 2)
-    const lineHeight = fontSize * 1.5
+    const lineHeight = fontSize * LINE_HEIGHT_BODY
     const fontFamily = def.fontFamily ?? doc.defaultFont ?? 'Inter'
     const fontKey = buildFontKey(fontFamily, 400, 'normal')
     const pdfFont = fontMap.get(fontKey)
@@ -1108,9 +1160,10 @@ export function renderHeaderFooter(
   totalPages: number,
   geo: PageGeometry,
   fontMap: FontMap,
-  position: 'header' | 'footer'
+  position: 'header' | 'footer',
+  extra?: { date?: string; author?: string }
 ): void {
-  const text = resolveTokens(spec.text, pageNumber, totalPages)
+  const text = resolveTokens(spec.text, pageNumber, totalPages, extra)
   const fontSize = spec.fontSize ?? 10
   const align = spec.align ?? 'center'
   const fontKey = `${spec.fontFamily ?? 'Inter'}-${spec.fontWeight ?? 400}-normal`

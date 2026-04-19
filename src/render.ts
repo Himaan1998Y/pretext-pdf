@@ -46,6 +46,12 @@ export async function renderDocument(
 ): Promise<Uint8Array> {
   const { pageWidth, pageHeight, margins, contentWidth } = geo
 
+  // Pre-compute token values that don't change per page
+  const rawDate = doc.renderDate ? (doc.renderDate instanceof Date ? doc.renderDate : new Date(doc.renderDate)) : new Date()
+  const dateStr = `${rawDate.getFullYear()}-${String(rawDate.getMonth() + 1).padStart(2, '0')}-${String(rawDate.getDate()).padStart(2, '0')}`
+  const tokenExtra: { date?: string; author?: string } = { date: dateStr }
+  if (doc.metadata?.author) tokenExtra.author = doc.metadata.author
+
   for (const renderedPage of paginatedDoc.pages) {
     const pdfPage = pdfDoc.addPage([pageWidth, pageHeight])
     const pageNumber = renderedPage.pageIndex + 1
@@ -56,7 +62,19 @@ export async function renderDocument(
 
     // Render content blocks
     for (const pagedBlock of renderedPage.blocks) {
-      renderBlock(pdfPage, pagedBlock, geo, fontMap, imageMap, pdfDoc, paginatedDoc.footnoteNumbering)
+      const blockEl = pagedBlock.measuredBlock.element
+      if (blockEl.type === 'form-field') {
+        try {
+          renderBlock(pdfPage, pagedBlock, geo, fontMap, imageMap, pdfDoc, paginatedDoc.footnoteNumbering)
+        } catch (e) {
+          const ffEl = blockEl as import('./types.js').FormFieldElement
+          const action = doc.onFormFieldError ? doc.onFormFieldError(ffEl.name, e as Error) : 'skip'
+          if (action === 'throw') throw e
+          console.warn(`[pretext-pdf] Form field "${ffEl.name}" failed to render: ${(e as Error).message}`)
+        }
+      } else {
+        renderBlock(pdfPage, pagedBlock, geo, fontMap, imageMap, pdfDoc, paginatedDoc.footnoteNumbering)
+      }
     }
 
     // Render footnote zone (above footer, if this page has footnotes)
@@ -78,12 +96,12 @@ export async function renderDocument(
 
     // Render header
     if (doc.header) {
-      renderHeaderFooter(pdfPage, doc.header, pageNumber, totalPages, geo, fontMap, 'header')
+      renderHeaderFooter(pdfPage, doc.header, pageNumber, totalPages, geo, fontMap, 'header', tokenExtra)
     }
 
     // Render footer
     if (doc.footer) {
-      renderHeaderFooter(pdfPage, doc.footer, pageNumber, totalPages, geo, fontMap, 'footer')
+      renderHeaderFooter(pdfPage, doc.footer, pageNumber, totalPages, geo, fontMap, 'footer', tokenExtra)
     }
   }
 
@@ -155,6 +173,9 @@ function renderBlock(
       return
 
     case 'svg':
+    case 'qr-code':
+    case 'barcode':
+    case 'chart':
     case 'image':
       if (measuredBlock.floatData) {
         renderFloatBlock(pdfPage, pagedBlock, geo, fontMap, imageMap, pdfDoc)

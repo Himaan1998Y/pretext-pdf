@@ -34,6 +34,16 @@ export type ErrorCode =
   | 'FOOTNOTE_DEF_DUPLICATE'
   | 'PAGINATION_FAILED'
   | 'RENDER_FAILED'
+  | 'PATH_TRAVERSAL'
+  | 'QR_DEP_MISSING'
+  | 'QR_GENERATE_FAILED'
+  | 'BARCODE_DEP_MISSING'
+  | 'BARCODE_GENERATE_FAILED'
+  | 'BARCODE_SYMBOLOGY_INVALID'
+  | 'CHART_DEP_MISSING'
+  | 'CHART_SPEC_INVALID'
+  | 'CHART_RENDER_FAILED'
+  | 'MARKDOWN_DEP_MISSING'
 
 export class PretextPdfError extends Error {
   readonly code: ErrorCode

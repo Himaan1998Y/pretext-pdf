@@ -1,13 +1,110 @@
 import { PDFDocument } from '@cantoo/pdf-lib'
-import type { PdfDocument, ImageElement, SvgElement, ImageMap } from './types.js'
+import type { PdfDocument, ImageElement, SvgElement, QrCodeElement, BarcodeElement, ChartElement, ImageMap } from './types.js'
 import { PretextPdfError } from './errors.js'
+
+// ─── Security helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Enforce allowedFileDirs: resolved absolute path must start with an allowed dir.
+ * No-op when allowedFileDirs is unset (backwards-compatible default).
+ */
+export function assertPathAllowed(resolvedPath: string, allowedDirs: string[] | undefined, label: string): void {
+  if (!allowedDirs || allowedDirs.length === 0) return
+  const norm = resolvedPath.replace(/\\/g, '/')
+  const allowed = allowedDirs.some(dir => {
+    const d = dir.replace(/\\/g, '/').replace(/\/$/, '')
+    return norm === d || norm.startsWith(d + '/')
+  })
+  if (!allowed) {
+    throw new PretextPdfError(
+      'PATH_TRAVERSAL',
+      `${label} src is outside allowedFileDirs. Configure doc.allowedFileDirs to include the file's directory.`
+    )
+  }
+}
+
+/**
+ * Validate a remote URL before fetching:
+ * - Rejects http:// (plaintext only)
+ * - Rejects private/internal IP ranges (SSRF prevention)
+ * Throws IMAGE_LOAD_FAILED or SVG_LOAD_FAILED on violations.
+ */
+function assertSafeUrl(url: string, errorCode: 'IMAGE_LOAD_FAILED' | 'SVG_LOAD_FAILED', label: string): void {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new PretextPdfError(errorCode, `${label}: invalid URL`)
+  }
+
+  if (parsed.protocol === 'http:') {
+    throw new PretextPdfError(errorCode, `${label}: HTTP URLs are not allowed — use HTTPS`)
+  }
+
+  const h = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '') // strip IPv6 brackets
+
+  const isPrivate =
+    h === 'localhost' ||
+    h === '0.0.0.0' ||
+    h === '::1' ||
+    /^127\./.test(h) ||
+    /^10\./.test(h) ||
+    /^192\.168\./.test(h) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
+    /^169\.254\./.test(h) ||      // link-local / AWS IMDS
+    /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(h) || // CGNAT RFC 6598
+    h.startsWith('fc') || h.startsWith('fd') ||            // IPv6 ULA fc00::/7
+    /^fe[89ab]/i.test(h)                                   // IPv6 link-local fe80::/10
+
+  if (isPrivate) {
+    throw new PretextPdfError(errorCode, `${label}: connections to private or internal addresses are not allowed`)
+  }
+}
+
+/** Fetch with a hard 10-second timeout */
+async function fetchWithTimeout(url: string): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 10_000)
+  try {
+    return await fetch(url, { signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * Strip dangerous content from SVG before rasterization:
+ * - <script> blocks
+ * - on* event handler attributes
+ * - <image>/<use> with file://, data:, or javascript: hrefs (local-file and injection vectors)
+ */
+function sanitizeSvg(svg: string): string {
+  // Skip regex passes on oversized strings — canvas will reject them anyway
+  if (svg.length > SVG_MAX_BYTES) return svg
+  // Remove self-closing <script/> then paired <script>...</script> blocks
+  let s = svg.replace(/<script\b[^>]*\/>/gi, '')
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, '')
+  // Remove event handler attributes (onload, onclick, onerror, etc.)
+  s = s.replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
+  // Remove <image> and <use> hrefs pointing to unsafe schemes
+  s = s.replace(
+    /(<(?:image|use)\b[^>]*?)\s+(?:xlink:)?href\s*=\s*["'](?:file|data|javascript):[^"']*["']/gi,
+    '$1'
+  )
+  return s
+}
+
+/** Return just the filename from a path — used in error messages to avoid leaking directory structure */
+function redactPath(src: string): string {
+  return src.replace(/\\/g, '/').split('/').pop() ?? '(file)'
+}
 
 // ─── SVG helpers ──────────────────────────────────────────────────────────────
 
 const SVG_MAX_BYTES = 5 * 1024 * 1024  // 5 MB — prevent ReDoS on giant SVG strings
 
 function parseSvgViewBox(svg: string): { width: number; height: number } | null {
-  if (svg.length > SVG_MAX_BYTES) return null  // too large to scan safely
+  if (svg.length > SVG_MAX_BYTES) return null
   const match = svg.match(/viewBox=["']([^"']+)["']/)
   if (!match) return null
   const parts = match[1]!.split(/[\s,]+/).map(Number)
@@ -17,7 +114,7 @@ function parseSvgViewBox(svg: string): { width: number; height: number } | null 
 }
 
 function parseSvgAttributes(svg: string): { width: number; height: number } | null {
-  if (svg.length > SVG_MAX_BYTES) return null  // too large to scan safely
+  if (svg.length > SVG_MAX_BYTES) return null
   const wMatch = svg.match(/<svg[^>]*\swidth=["'](\d+(?:\.\d+)?)["']/)
   const hMatch = svg.match(/<svg[^>]*\sheight=["'](\d+(?:\.\d+)?)["']/)
   if (!wMatch || !hMatch) return null
@@ -40,8 +137,7 @@ function resolveSvgDimensions(el: SvgElement, contentWidth: number): { widthPt: 
   if (el.height !== undefined) {
     return { widthPt: aspectRatio !== null ? el.height / aspectRatio : el.height, heightPt: el.height }
   }
-  // No dimensions specified: use full contentWidth, clamped to available space
-  const widthPt = Math.min(contentWidth, contentWidth)  // Already at contentWidth, but explicit for clarity
+  const widthPt = contentWidth
   const heightPt = aspectRatio !== null ? widthPt * aspectRatio : 200
   return { widthPt, heightPt }
 }
@@ -50,35 +146,141 @@ function resolveSvgDimensions(el: SvgElement, contentWidth: number): { widthPt: 
  * Resolve SVG content string from either an inline `svg` field or a `src` file/URL.
  * Throws PretextPdfError if neither is provided or the source cannot be loaded.
  */
-async function resolveSvgContent(el: SvgElement): Promise<string> {
-  if (el.svg) return el.svg
+async function resolveSvgContent(el: SvgElement, allowedFileDirs?: string[]): Promise<string> {
+  if (el.svg) return sanitizeSvg(el.svg)
 
   if (!el.src) {
     throw new PretextPdfError('SVG_LOAD_FAILED', "SvgElement requires either 'svg' (inline string) or 'src' (file path or https:// URL)")
   }
 
-  // HTTPS URL
   if (el.src.startsWith('https://') || el.src.startsWith('http://')) {
+    assertSafeUrl(el.src, 'SVG_LOAD_FAILED', 'SVG')
     let resp: Response
     try {
-      resp = await fetch(el.src)
+      resp = await fetchWithTimeout(el.src)
     } catch (err) {
-      throw new PretextPdfError('SVG_LOAD_FAILED', `SVG URL fetch failed for "${el.src}": ${err instanceof Error ? err.message : String(err)}`)
+      throw new PretextPdfError('SVG_LOAD_FAILED', `SVG URL fetch failed: ${err instanceof Error ? err.message : String(err)}`)
     }
     if (!resp.ok) {
-      throw new PretextPdfError('SVG_LOAD_FAILED', `SVG URL returned HTTP ${resp.status}: "${el.src}"`)
+      throw new PretextPdfError('SVG_LOAD_FAILED', `SVG URL returned HTTP ${resp.status}`)
     }
-    return resp.text()
+    return sanitizeSvg(await resp.text())
   }
 
-  // File path
   const [fs, pathMod] = await Promise.all([import('fs'), import('path')])
-  const filePath = pathMod.normalize(el.src)
+  const filePath = pathMod.resolve(el.src)
+  assertPathAllowed(filePath, allowedFileDirs, 'SVG')
   if (!fs.existsSync(filePath)) {
-    throw new PretextPdfError('SVG_LOAD_FAILED', `SVG file not found: "${filePath}"`)
+    throw new PretextPdfError('SVG_LOAD_FAILED', `SVG file not found: "${redactPath(el.src)}"`)
   }
-  return fs.readFileSync(filePath, 'utf-8')
+  return sanitizeSvg(fs.readFileSync(filePath, 'utf-8'))
 }
+
+// ─── QR Code generator ────────────────────────────────────────────────────────
+
+async function generateQrSvg(el: QrCodeElement): Promise<string> {
+  type QRCodeModule = { toString: (data: string, opts: Record<string, unknown>) => Promise<string> }
+  let qrLib: QRCodeModule
+  try {
+    qrLib = await import('qrcode' as string) as QRCodeModule
+  } catch {
+    throw new PretextPdfError(
+      'QR_DEP_MISSING',
+      'qr-code elements require the qrcode package. Install it: npm install qrcode'
+    )
+  }
+  try {
+    return await qrLib.toString(el.data, {
+      type: 'svg',
+      errorCorrectionLevel: el.errorCorrectionLevel ?? 'M',
+      margin: el.margin ?? 4,
+      color: {
+        dark: el.foreground ?? '#000000',
+        light: el.background ?? '#ffffff',
+      },
+    })
+  } catch (err) {
+    throw new PretextPdfError(
+      'QR_GENERATE_FAILED',
+      `QR code generation failed: ${err instanceof Error ? err.message : String(err)}`
+    )
+  }
+}
+
+// ─── Barcode generator ────────────────────────────────────────────────────────
+
+async function generateBarcodeSvg(el: BarcodeElement): Promise<string> {
+  type BwipModule = { toSVG: (opts: Record<string, unknown>) => string }
+  let bwip: BwipModule
+  try {
+    bwip = await import('bwip-js' as string) as BwipModule
+  } catch {
+    throw new PretextPdfError(
+      'BARCODE_DEP_MISSING',
+      'barcode elements require the bwip-js package. Install it: npm install bwip-js'
+    )
+  }
+  try {
+    return bwip.toSVG({
+      bcid: el.symbology,
+      text: el.data,
+      scale: 3,
+      includetext: el.includeText !== false,
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    const isSymbology = msg.toLowerCase().includes('unknown') || msg.toLowerCase().includes('bcid')
+    throw new PretextPdfError(
+      isSymbology ? 'BARCODE_SYMBOLOGY_INVALID' : 'BARCODE_GENERATE_FAILED',
+      `Barcode generation failed (symbology: '${el.symbology}'): ${msg}`
+    )
+  }
+}
+
+// ─── Chart generator (vega-lite, optional) ────────────────────────────────────
+
+async function generateChartSvg(el: ChartElement, contentWidth: number): Promise<string> {
+  type VegaLiteModule = { compile: (spec: Record<string, unknown>) => { spec: Record<string, unknown> } }
+  type VegaLoader = { load: (uri: string, opt?: unknown) => Promise<string> }
+  type VegaModule = { View: new (spec: unknown, opts: Record<string, unknown>) => { toSVG: () => Promise<string> }; parse: (spec: unknown) => unknown; loader: () => VegaLoader }
+  let vegaLite: VegaLiteModule
+  let vega: VegaModule
+  try {
+    vegaLite = await import('vega-lite' as string) as VegaLiteModule
+    vega     = await import('vega' as string) as VegaModule
+  } catch {
+    throw new PretextPdfError(
+      'CHART_DEP_MISSING',
+      'chart elements require vega and vega-lite packages. Install them: npm install vega vega-lite'
+    )
+  }
+  let vegaSpec: Record<string, unknown>
+  try {
+    const specWithSize = { ...el.spec, width: el.width ?? contentWidth, height: el.height ?? 300 }
+    vegaSpec = vegaLite.compile(specWithSize).spec
+  } catch (err) {
+    throw new PretextPdfError(
+      'CHART_SPEC_INVALID',
+      `vega-lite spec compilation failed: ${err instanceof Error ? err.message : String(err)}`
+    )
+  }
+  try {
+    // Block all remote data loading to prevent SSRF — vega's default loader
+    // follows any data.url in the spec, which could reach internal services
+    const blockedLoader = vega.loader()
+    blockedLoader.load = (_uri: string): Promise<string> =>
+      Promise.reject(new Error('Remote data loading is disabled in pretext-pdf'))
+    const view = new vega.View(vega.parse(vegaSpec), { renderer: 'none', loader: blockedLoader })
+    return await view.toSVG()
+  } catch (err) {
+    throw new PretextPdfError(
+      'CHART_RENDER_FAILED',
+      `Chart SVG rendering failed: ${err instanceof Error ? err.message : String(err)}`
+    )
+  }
+}
+
+// ─── SVG → PDF image ──────────────────────────────────────────────────────────
 
 async function loadSvgAsImage(
   svg: string,
@@ -96,7 +298,7 @@ async function loadSvgAsImage(
     )
   }
 
-  const scale = 2  // 2x for retina quality
+  const scale = 2
   const widthPx = Math.round(widthPt * scale)
   const heightPx = Math.round(heightPt * scale)
 
@@ -131,6 +333,7 @@ async function loadSvgAsImage(
  */
 export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentWidth: number): Promise<ImageMap> {
   const imageMap: ImageMap = new Map()
+  const allowedDirs = doc.allowedFileDirs
 
   // Collect all ImageElement entries with their content index for stable keys
   const imageEntries: Array<{ el: ImageElement; key: string }> = []
@@ -139,7 +342,6 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
     if (el.type === 'image') {
       imageEntries.push({ el, key: `img-${i}` })
     } else if (el.type === 'float-group') {
-      // Convert float-group image to ImageElement for loading
       const fgImage: ImageElement = {
         type: 'image',
         src: el.image.src,
@@ -157,7 +359,7 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
   const loadResults = imageEntries.length > 0
     ? await Promise.allSettled(
         imageEntries.map(async ({ el, key }) => {
-          const bytes = await loadImageBytes(el, key)
+          const bytes = await loadImageBytes(el, key, allowedDirs)
           return { el, key, bytes }
         })
       )
@@ -187,7 +389,7 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
       const error = err instanceof Error ? err : new Error(String(err))
       const action = doc.onImageLoadError ? doc.onImageLoadError(entry.el.src, error) : 'skip'
       if (action === 'throw') throw error
-      console.warn(`[pretext-pdf] Image embed failed: Image key "${key}" (format: '${resolvedFormat}'): ${error.message}`)
+      console.warn(`[pretext-pdf] Image embed failed: key "${key}" (format: '${resolvedFormat}')`)
       // Continue without this image rather than crashing
     }
   }
@@ -197,10 +399,45 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
     const el = doc.content[i]!
     if (el.type === 'svg') {
       const key = `svg-${i}`
-      const svgContent = await resolveSvgContent(el)
+      const svgContent = await resolveSvgContent(el, allowedDirs)
       const { widthPt, heightPt } = resolveSvgDimensions({ ...el, svg: svgContent }, contentWidth)
       const pdfImage = await loadSvgAsImage(svgContent, widthPt, heightPt, pdfDoc)
       imageMap.set(key, pdfImage)
+    } else if (el.type === 'qr-code') {
+      const key = `qr-${i}`
+      try {
+        const svgString = await generateQrSvg(el)
+        const sizePt = el.size ?? 80
+        const pdfImage = await loadSvgAsImage(svgString, sizePt, sizePt, pdfDoc)
+        imageMap.set(key, pdfImage)
+      } catch (err) {
+        if (err instanceof PretextPdfError) throw err
+        console.warn(`[pretext-pdf] QR code skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    } else if (el.type === 'barcode') {
+      const key = `barcode-${i}`
+      try {
+        const svgString = await generateBarcodeSvg(el)
+        const widthPt = el.width ?? 200
+        const heightPt = el.height ?? 60
+        const pdfImage = await loadSvgAsImage(svgString, widthPt, heightPt, pdfDoc)
+        imageMap.set(key, pdfImage)
+      } catch (err) {
+        if (err instanceof PretextPdfError) throw err
+        console.warn(`[pretext-pdf] Barcode skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    } else if (el.type === 'chart') {
+      const key = `chart-${i}`
+      try {
+        const svgString = await generateChartSvg(el, contentWidth)
+        const widthPt = el.width ?? contentWidth
+        const heightPt = el.height ?? 300
+        const pdfImage = await loadSvgAsImage(svgString, widthPt, heightPt, pdfDoc)
+        imageMap.set(key, pdfImage)
+      } catch (err) {
+        if (err instanceof PretextPdfError) throw err
+        console.warn(`[pretext-pdf] Chart skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`)
+      }
     }
   }
 
@@ -213,8 +450,9 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
         bytes = src
       } else {
         const [fs, pathMod] = await Promise.all([import('fs'), import('path')])
-        const filePath = pathMod.normalize(src as string)
-        if (!fs.existsSync(filePath)) throw new Error(`Watermark image not found: "${filePath}"`)
+        const filePath = pathMod.resolve(src as string)
+        assertPathAllowed(filePath, allowedDirs, 'watermark image')
+        if (!fs.existsSync(filePath)) throw new Error(`Watermark image not found`)
         bytes = new Uint8Array(fs.readFileSync(filePath))
       }
       const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47
@@ -222,8 +460,9 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
         ? await pdfDoc.embedPng(bytes)
         : await pdfDoc.embedJpg(bytes)
       imageMap.set('watermark', pdfImage)
-    } catch {
-      // Watermark image load failure is non-fatal — watermark simply won't be rendered
+    } catch (err) {
+      if (err instanceof PretextPdfError && err.code === 'PATH_TRAVERSAL') throw err
+      console.warn(`[pretext-pdf] Watermark image skipped: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -235,15 +474,12 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
  * Priority: explicit 'png'/'jpg' → magic bytes → file extension → error.
  */
 function resolveImageFormat(el: ImageElement, bytes: Uint8Array, key: string): 'png' | 'jpg' {
-  // Explicit format — trust the user
   if (el.format === 'png') return 'png'
   if (el.format === 'jpg') return 'jpg'
 
-  // Auto-detect from magic bytes (most reliable)
   if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'png'
   if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'jpg'
 
-  // Fallback: file extension
   if (typeof el.src === 'string') {
     const ext = el.src.toLowerCase().split('.').pop()
     if (ext === 'png') return 'png'
@@ -252,13 +488,12 @@ function resolveImageFormat(el: ImageElement, bytes: Uint8Array, key: string): '
 
   throw new PretextPdfError(
     'IMAGE_FORMAT_MISMATCH',
-    `Image "${key}": format could not be auto-detected. Bytes start with [0x${bytes[0]?.toString(16) ?? '?'}, 0x${bytes[1]?.toString(16) ?? '?'}]. Specify format: 'png' or 'jpg' explicitly.`
+    `Image "${key}": format could not be auto-detected. Specify format: 'png' or 'jpg' explicitly.`
   )
 }
 
 /** Load image bytes from a URL, file path, or Uint8Array */
-async function loadImageBytes(el: ImageElement, key: string): Promise<Uint8Array> {
-  // Already have bytes — use directly
+async function loadImageBytes(el: ImageElement, key: string, allowedDirs?: string[]): Promise<Uint8Array> {
   if (el.src instanceof Uint8Array) {
     return el.src
   }
@@ -269,51 +504,48 @@ async function loadImageBytes(el: ImageElement, key: string): Promise<Uint8Array
     throw new PretextPdfError('IMAGE_LOAD_FAILED', `Image "${key}": 'src' must be a non-empty string path, URL, or Uint8Array`)
   }
 
-  // HTTPS/HTTP URL — fetch it
   if (src.startsWith('https://') || src.startsWith('http://')) {
+    assertSafeUrl(src, 'IMAGE_LOAD_FAILED', `Image "${key}"`)
     let resp: Response
     try {
-      resp = await fetch(src)
+      resp = await fetchWithTimeout(src)
     } catch (err) {
       throw new PretextPdfError(
         'IMAGE_LOAD_FAILED',
-        `Image "${key}": failed to fetch URL "${src}": ${err instanceof Error ? err.message : String(err)}`
+        `Image "${key}": failed to fetch URL: ${err instanceof Error ? err.message : String(err)}`
       )
     }
     if (!resp.ok) {
-      throw new PretextPdfError(
-        'IMAGE_LOAD_FAILED',
-        `Image "${key}": URL returned HTTP ${resp.status}: "${src}"`
-      )
+      throw new PretextPdfError('IMAGE_LOAD_FAILED', `Image "${key}": URL returned HTTP ${resp.status}`)
     }
     try {
-      const buf = await resp.arrayBuffer()
-      return new Uint8Array(buf)
+      return new Uint8Array(await resp.arrayBuffer())
     } catch (err) {
       throw new PretextPdfError(
         'IMAGE_LOAD_FAILED',
-        `Image "${key}": failed to read response body from "${src}": ${err instanceof Error ? err.message : String(err)}`
+        `Image "${key}": failed to read response body: ${err instanceof Error ? err.message : String(err)}`
       )
     }
   }
 
-  // File path — load from filesystem
   const fs = await import('fs')
+  const pathMod = await import('path')
+  const filePath = pathMod.resolve(src)
+  assertPathAllowed(filePath, allowedDirs, `Image "${key}"`)
 
-  if (!fs.existsSync(src)) {
+  if (!fs.existsSync(filePath)) {
     throw new PretextPdfError(
       'IMAGE_LOAD_FAILED',
-      `Image "${key}": file not found at "${src}". Check the path in the image element's 'src' field.`
+      `Image "${key}": file not found — "${redactPath(src)}". Check the path in the image element's 'src' field.`
     )
   }
 
   try {
-    const buffer = fs.readFileSync(src)
-    return new Uint8Array(buffer)
+    return new Uint8Array(fs.readFileSync(filePath))
   } catch (err) {
     throw new PretextPdfError(
       'IMAGE_LOAD_FAILED',
-      `Image "${key}": failed to read file "${src}": ${err instanceof Error ? err.message : String(err)}`
+      `Image "${key}": failed to read file "${redactPath(src)}": ${err instanceof Error ? err.message : String(err)}`
     )
   }
 }

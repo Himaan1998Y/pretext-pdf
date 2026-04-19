@@ -1,6 +1,6 @@
 {
   "name": "pretext-pdf",
-  "version": "0.5.3",
+  "version": "0.8.0",
   "description": "Declarative JSON → PDF generation with professional typography. Built on pretext's precision text layout engine.",
   "keywords": [
     "pdf",
@@ -25,7 +25,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Himaan1998Y/pretext-pdf.git"
+    "url": "git+https://github.com/Himaan1998Y/pretext-pdf.git"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -44,9 +44,18 @@
   ],
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./markdown": {
+      "types": "./dist/markdown.d.ts",
+      "import": "./dist/markdown.js"
+    },
+    "./templates": {
+      "types": "./dist/templates.d.ts",
+      "import": "./dist/templates.js"
+    },
+    "./package.json": "./package.json"
   },
   "scripts": {
     "build": "tsc",
@@ -54,9 +63,13 @@
     "test:validate": "cross-env NODE_OPTIONS=--max-old-space-size=4096 tsx --test test/validate.test.ts test/builder.test.ts",
     "test:e2e": "tsx --test test/e2e.test.ts",
     "test:phase-3": "tsx --test test/phase-3-signatures.test.ts",
+    "test:10a": "tsx --test test/phase-10a-qr-barcode.test.ts",
+    "test:10b": "tsx --test test/phase-10b-charts.test.ts",
+    "test:10c": "tsx --test test/phase-10c-markdown.test.ts",
+    "test:10d": "tsx --test test/phase-10d-templates.test.ts",
     "test:phase-4": "tsx --test test/phase-4-footnotes.test.ts",
     "test:phase-5": "tsx --test test/phase-5-image-float.test.ts",
-    "test:phases": "tsx --test test/phase-4-footnotes.test.ts test/phase-5-image-float.test.ts test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts test/phase-8g-hyperlinks.test.ts test/phase-8h-inline-formatting.test.ts test/phase-8a-annotations.test.ts test/phase-8c-assembly.test.ts test/phase-8f-metadata.test.ts test/phase-8e-signatures.test.ts test/phase-8b-forms.test.ts test/phase-8d-callout.test.ts test/phase-9a-crypto-signatures.test.ts test/phase-9b-float-groups.test.ts test/phase-9c-font-subsetting.test.ts test/phase-2-performance.test.ts test/phase-3-signatures.test.ts",
+    "test:phases": "tsx --test test/phase-4-footnotes.test.ts test/phase-5-image-float.test.ts test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts test/phase-8g-hyperlinks.test.ts test/phase-8h-inline-formatting.test.ts test/phase-8a-annotations.test.ts test/phase-8c-assembly.test.ts test/phase-8f-metadata.test.ts test/phase-8e-signatures.test.ts test/phase-8b-forms.test.ts test/phase-8d-callout.test.ts test/phase-9a-crypto-signatures.test.ts test/phase-9b-float-groups.test.ts test/phase-9c-font-subsetting.test.ts test/phase-2-performance.test.ts test/phase-3-signatures.test.ts test/phase-11-enhancements.test.ts test/phase-10a-qr-barcode.test.ts test/phase-10b-charts.test.ts test/phase-10c-markdown.test.ts test/phase-10d-templates.test.ts",
     "test:phase-7": "tsx --test test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts",
     "test:phase-8": "tsx --test test/phase-8g-hyperlinks.test.ts test/phase-8h-inline-formatting.test.ts test/phase-8a-annotations.test.ts test/phase-8c-assembly.test.ts test/phase-8b-forms.test.ts test/phase-8d-callout.test.ts test/phase-8e-signatures.test.ts test/phase-8f-metadata.test.ts",
     "test:8d": "tsx --test test/phase-8d-callout.test.ts",
@@ -91,7 +104,7 @@
   },
   "dependencies": {
     "@cantoo/pdf-lib": "^2.6.5",
-    "@chenglou/pretext": "0.0.5",
+    "@chenglou/pretext": "^0.0.5",
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource/inter": "^5.0.0",
     "@pdf-lib/fontkit": "^1.1.1",
@@ -102,7 +115,12 @@
   "peerDependencies": {
     "@napi-rs/canvas": "^0.1.57",
     "@signpdf/signpdf": "^3.3.0",
-    "highlight.js": "^11.0.0"
+    "bwip-js": "^4.0.0",
+    "highlight.js": "^11.0.0",
+    "qrcode": "^1.5.0",
+    "marked": "^9.0.0 || ^10.0.0 || ^11.0.0 || ^12.0.0 || ^13.0.0 || ^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0",
+    "vega": "^5.0.0 || ^6.0.0",
+    "vega-lite": "^5.0.0 || ^6.0.0"
   },
   "peerDependenciesMeta": {
     "@napi-rs/canvas": {
@@ -113,19 +131,41 @@
     },
     "highlight.js": {
       "optional": true
+    },
+    "qrcode": {
+      "optional": true
+    },
+    "bwip-js": {
+      "optional": true
+    },
+    "marked": {
+      "optional": true
+    },
+    "vega": {
+      "optional": true
+    },
+    "vega-lite": {
+      "optional": true
     }
   },
   "devDependencies": {
     "@signpdf/signpdf": "^3.3.0",
+    "@types/bwip-js": "^3.2.3",
     "@types/node": "^22.0.0",
     "@types/pixelmatch": "^5.2.6",
     "@types/pngjs": "^6.0.5",
+    "@types/qrcode": "^1.5.6",
+    "bwip-js": "^4.9.2",
     "cross-env": "^10.1.0",
     "highlight.js": "^11.11.1",
+    "marked": "^18.0.2",
     "pdfjs-dist": "^5.6.205",
+    "qrcode": "^1.5.4",
     "ts-node": "^10.9.2",
     "tsx": "^4.7.0",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "vega": "^6.2.0",
+    "vega-lite": "^6.4.2"
   },
   "optionalDependencies": {
     "@napi-rs/canvas": "^0.1.57",

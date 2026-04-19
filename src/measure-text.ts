@@ -5,14 +5,6 @@
 
 import { PretextPdfError } from './errors.js'
 
-/** Heading level size multipliers and defaults */
-const HEADING_DEFAULTS = {
-  1: { sizeMultiplier: 2.0,  fontWeight: 700 as const, spaceAfter: 16, spaceBefore: 28 },
-  2: { sizeMultiplier: 1.5,  fontWeight: 700 as const, spaceAfter: 12, spaceBefore: 24 },
-  3: { sizeMultiplier: 1.25, fontWeight: 700 as const, spaceAfter: 8,  spaceBefore: 20 },
-  4: { sizeMultiplier: 1.1,  fontWeight: 700 as const, spaceAfter: 6,  spaceBefore: 16 },
-}
-
 export type HyphenatorOpts = { instance: HypherInstance; minWordLength: number; leftMin: number; rightMin: number }
 
 type HypherInstance = { hyphenate(word: string): string[] }
@@ -33,7 +25,7 @@ export async function getHyphenator(language: string): Promise<HypherInstance> {
   let dict: object
   try {
     const mod = await import(`hyphenation.${language}`)
-    dict = (mod as any).default ?? mod
+    dict = (mod as any).default ?? mod // dynamic import: ESM default or CJS module object
   } catch {
     throw new PretextPdfError(
       'UNSUPPORTED_LANGUAGE',

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert'
-import { render } from '../dist/index.js'
-import type { PdfDocument } from '../dist/types.js'
+import { render } from '../src/index.js'
+import type { PdfDocument } from '../src/types.js'
 
 const CIRCLE_SVG = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40" fill="blue"/></svg>'
 const RECT_SVG_ATTRS = '<svg width="200" height="100" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="10" width="180" height="80" fill="red"/></svg>'
@@ -202,5 +202,17 @@ test('Phase 7E — SVG Support', async (t) => {
     assert(pdf.length > 0)
     const header = Buffer.from(pdf.slice(0, 4)).toString('ascii')
     assert.strictEqual(header, '%PDF')
+  })
+
+  // 2G: error code coverage — SVG_LOAD_FAILED
+  await t.test('svg with non-existent file path throws SVG_LOAD_FAILED', async () => {
+    let caught: any
+    try {
+      await render({
+        content: [{ type: 'svg', src: '/nonexistent/does-not-exist.svg' }],
+      })
+    } catch (e) { caught = e }
+    assert.ok(caught, 'expected an error to be thrown')
+    assert.strictEqual(caught.code, 'SVG_LOAD_FAILED')
   })
 })

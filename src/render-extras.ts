@@ -33,32 +33,32 @@ export function buildOutlineTree(
   const outlineRef = pdfDoc.context.nextRef()
   const itemRefs = filtered.map(() => pdfDoc.context.nextRef())
 
-  // Returns index of nearest ancestor heading, or -1 (root-level)
-  function parentIdxOf(i: number): number {
+  // Pre-compute parent index for every heading (O(n)) to avoid repeated O(n) scans inside loops
+  const parentOf: number[] = filtered.map((_, i) => {
     for (let j = i - 1; j >= 0; j--) {
       if (filtered[j]!.level < filtered[i]!.level) return j
     }
     return -1
-  }
+  })
 
   for (let i = 0; i < filtered.length; i++) {
     const h = filtered[i]!
     const pageRef = pageRefs[h.pageIndex] ?? pageRefs[pageRefs.length - 1]!
-    const myParentIdx = parentIdxOf(i)
+    const myParentIdx = parentOf[i]!
     const myParentRef = myParentIdx === -1 ? outlineRef : itemRefs[myParentIdx]!
 
     const dest = pdfDoc.context.obj([pageRef, PDFName.of('XYZ'), PDFNull, PDFNull, PDFNull])
 
     let prevRef: PDFRef | undefined
     for (let j = i - 1; j >= 0; j--) {
-      if (filtered[j]!.level === h.level && parentIdxOf(j) === myParentIdx) {
+      if (filtered[j]!.level === h.level && parentOf[j] === myParentIdx) {
         prevRef = itemRefs[j]; break
       }
     }
 
     let nextRef: PDFRef | undefined
     for (let j = i + 1; j < filtered.length; j++) {
-      if (filtered[j]!.level === h.level && parentIdxOf(j) === myParentIdx) {
+      if (filtered[j]!.level === h.level && parentOf[j] === myParentIdx) {
         nextRef = itemRefs[j]; break
       }
     }
@@ -68,7 +68,7 @@ export function buildOutlineTree(
     let childCount = 0
     for (let j = i + 1; j < filtered.length; j++) {
       if (filtered[j]!.level <= h.level) break
-      if (parentIdxOf(j) === i) {
+      if (parentOf[j] === i) {
         if (!firstChildRef) firstChildRef = itemRefs[j]
         lastChildRef = itemRefs[j]
         childCount++
@@ -86,10 +86,10 @@ export function buildOutlineTree(
     if (lastChildRef) entry['Last'] = lastChildRef
     if (childCount > 0) entry['Count'] = childCount
 
-    pdfDoc.context.assign(itemRefs[i]!, pdfDoc.context.obj(entry as any))
+    pdfDoc.context.assign(itemRefs[i]!, pdfDoc.context.obj(entry as any)) // pdf-lib: obj() accepts Record<string,unknown> at runtime but types don't reflect it
   }
 
-  const topIdxs = filtered.map((_, i) => i).filter(i => parentIdxOf(i) === -1)
+  const topIdxs = filtered.map((_, i) => i).filter(i => parentOf[i] === -1)
   const rootEntry: Record<string, unknown> = {
     Type: PDFName.of('Outlines'),
     Count: filtered.length,
@@ -98,7 +98,7 @@ export function buildOutlineTree(
     rootEntry['First'] = itemRefs[topIdxs[0]!]!
     rootEntry['Last'] = itemRefs[topIdxs[topIdxs.length - 1]!]!
   }
-  pdfDoc.context.assign(outlineRef, pdfDoc.context.obj(rootEntry as any))
+  pdfDoc.context.assign(outlineRef, pdfDoc.context.obj(rootEntry as any)) // pdf-lib: same runtime/type mismatch as above
 
   pdfDoc.catalog.set(PDFName.of('Outlines'), outlineRef)
   pdfDoc.catalog.set(PDFName.of('PageMode'), PDFName.of('UseOutlines'))
@@ -210,65 +210,67 @@ export function renderFormField(
     backgroundColor: rgb(bgRgb[0], bgRgb[1], bgRgb[2]),
   }
 
-  try {
-    switch (el.fieldType) {
-      case 'text': {
-        const field = form.createTextField(el.name)
-        if (el.defaultValue) field.setText(el.defaultValue)
-        if (el.multiline) field.enableMultiline()
-        if (el.maxLength) field.setMaxLength(el.maxLength)
-        field.addToPage(pdfPage, fieldOpts)
-        break
-      }
-      case 'checkbox': {
-        const field = form.createCheckBox(el.name)
-        if (el.checked) field.check()
-        field.addToPage(pdfPage, {
-          x,
-          y: fieldBottomPdfY,
-          width: fieldHeight,
-          height: fieldHeight,
-          borderColor: rgb(borderRgb[0], borderRgb[1], borderRgb[2]),
-          backgroundColor: rgb(bgRgb[0], bgRgb[1], bgRgb[2]),
-        })
-        break
-      }
-      case 'radio': {
-        const group = form.createRadioGroup(el.name)
-        const opts = el.options ?? []
-        const optHeight = Math.max(16, Math.floor(fieldHeight / Math.max(1, opts.length)))
-        for (let i = 0; i < opts.length; i++) {
-          group.addOptionToPage(opts[i]!.value, pdfPage, {
-            x,
-            y: fieldBottomPdfY + fieldHeight - optHeight * (i + 1),
-            width: optHeight,
-            height: optHeight,
-            borderColor: rgb(borderRgb[0], borderRgb[1], borderRgb[2]),
-          })
-        }
-        if (el.defaultSelected) {
-          try { group.select(el.defaultSelected) } catch { /* option may not exist */ }
-        }
-        break
-      }
-      case 'dropdown': {
-        const field = form.createDropdown(el.name)
-        const opts = (el.options ?? []).map(o => o.value)
-        if (opts.length > 0) field.addOptions(opts)
-        if (el.defaultSelected) {
-          try { field.select(el.defaultSelected) } catch { /* option may not exist */ }
-        }
-        field.addToPage(pdfPage, fieldOpts)
-        break
-      }
-      case 'button': {
-        const field = form.createButton(el.name)
-        field.addToPage(el.label ?? el.name, pdfPage, fieldOpts)
-        break
-      }
+  switch (el.fieldType) {
+    case 'text': {
+      const field = form.createTextField(el.name)
+      if (el.defaultValue) field.setText(el.defaultValue)
+      if (el.multiline) field.enableMultiline()
+      if (el.maxLength) field.setMaxLength(el.maxLength)
+      field.addToPage(pdfPage, fieldOpts)
+      break
     }
-  } catch {
-    // Non-fatal: if pdf-lib throws for an edge case, skip the field rather than crashing
+    case 'checkbox': {
+      const field = form.createCheckBox(el.name)
+      if (el.checked) field.check()
+      field.addToPage(pdfPage, {
+        x,
+        y: fieldBottomPdfY,
+        width: fieldHeight,
+        height: fieldHeight,
+        borderColor: rgb(borderRgb[0], borderRgb[1], borderRgb[2]),
+        backgroundColor: rgb(bgRgb[0], bgRgb[1], bgRgb[2]),
+      })
+      break
+    }
+    case 'radio': {
+      const group = form.createRadioGroup(el.name)
+      const opts = el.options ?? []
+      const minButtonSize = 16
+      const maxVisible = Math.max(1, Math.floor(fieldHeight / minButtonSize))
+      const visibleOpts = opts.slice(0, maxVisible)
+      if (opts.length > maxVisible) {
+        process.stderr.write(`[pretext-pdf] Warning: radio group "${el.name}" has ${opts.length} options but only ${maxVisible} fit in ${fieldHeight}pt height. Increase element height to show all options.\n`)
+      }
+      const optHeight = Math.max(minButtonSize, Math.floor(fieldHeight / Math.max(1, visibleOpts.length)))
+      for (let i = 0; i < visibleOpts.length; i++) {
+        group.addOptionToPage(visibleOpts[i]!.value, pdfPage, {
+          x,
+          y: fieldBottomPdfY + fieldHeight - optHeight * (i + 1),
+          width: optHeight,
+          height: optHeight,
+          borderColor: rgb(borderRgb[0], borderRgb[1], borderRgb[2]),
+        })
+      }
+      if (el.defaultSelected) {
+        try { group.select(el.defaultSelected) } catch { /* option may not exist */ }
+      }
+      break
+    }
+    case 'dropdown': {
+      const field = form.createDropdown(el.name)
+      const opts = (el.options ?? []).map(o => o.value)
+      if (opts.length > 0) field.addOptions(opts)
+      if (el.defaultSelected) {
+        try { field.select(el.defaultSelected) } catch { /* option may not exist */ }
+      }
+      field.addToPage(pdfPage, fieldOpts)
+      break
+    }
+    case 'button': {
+      const field = form.createButton(el.name)
+      field.addToPage(el.label ?? el.name, pdfPage, fieldOpts)
+      break
+    }
   }
 }
 

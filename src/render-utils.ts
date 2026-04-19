@@ -4,6 +4,9 @@
  */
 
 import { PDFDocument, PDFFont, PDFName, PDFNull, PDFRef, PDFString, rgb } from '@cantoo/pdf-lib'
+import { PretextPdfError } from './errors.js'
+
+const SAFE_URL_SCHEME = /^(https?|mailto|ftp|#)/i
 
 /**
  * Draw a single line of text with justified alignment.
@@ -59,6 +62,13 @@ export function addLinkAnnotation(
   fontSize: number,
   url: string
 ): void {
+  if (!SAFE_URL_SCHEME.test(url)) {
+    throw new PretextPdfError('VALIDATION_ERROR', `Unsafe URL scheme rejected at render time: "${url.slice(0, 60)}"`)
+  }
+  if (url.length > 2048) {
+    process.stderr.write(`[pretext-pdf] Warning: link URL exceeds 2048 characters (${url.length}). Some PDF viewers may truncate it.\n`)
+  }
+
   const rectBottom = pdfY - fontSize * 0.2
   const rectTop    = pdfY + fontSize * 0.8
 
@@ -78,7 +88,7 @@ export function addLinkAnnotation(
 
   const existingAnnots = pdfPage.node.get(PDFName.of('Annots'))
   if (existingAnnots) {
-    const annots = pdfDoc.context.lookup(existingAnnots) as any
+    const annots = pdfDoc.context.lookup(existingAnnots) as any // pdf-lib: PDFArray has no public push() type
     annots.push(linkAnnot)
   } else {
     pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([linkAnnot]))
@@ -115,7 +125,7 @@ export function addGoToAnnotation(
 
   const existingAnnots = pdfPage.node.get(PDFName.of('Annots'))
   if (existingAnnots) {
-    const annots = pdfDoc.context.lookup(existingAnnots) as any
+    const annots = pdfDoc.context.lookup(existingAnnots) as any // pdf-lib: PDFArray has no public push() type
     annots.push(goToAnnot)
   } else {
     pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([goToAnnot]))
@@ -135,10 +145,7 @@ export function addStickyNoteAnnotation(
   color?: string,
   open?: boolean
 ): void {
-  const hex = (color ?? '#FFFF00').replace('#', '')
-  const r = parseInt(hex.substring(0, 2), 16) / 255
-  const g = parseInt(hex.substring(2, 4), 16) / 255
-  const b = parseInt(hex.substring(4, 6), 16) / 255
+  const [r, g, b] = hexToRgb(color ?? '#FFFF00')
 
   const annotRef = pdfDoc.context.register(
     pdfDoc.context.obj({
@@ -155,7 +162,7 @@ export function addStickyNoteAnnotation(
 
   const existingAnnots = pdfPage.node.get(PDFName.of('Annots'))
   if (existingAnnots) {
-    const annots = pdfDoc.context.lookup(existingAnnots) as any
+    const annots = pdfDoc.context.lookup(existingAnnots) as any // pdf-lib: PDFArray has no public push() type
     annots.push(annotRef)
   } else {
     pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([annotRef]))
@@ -179,14 +186,14 @@ export function drawTextDecoration(
   if (!decoration.underline && !decoration.strikethrough) return
 
   // Prefer font-designed metrics via fontkit embedder; fall back to height math
-  const embedder = (pdfFont as any).embedder
+  const embedder = (pdfFont as any).embedder // pdf-lib internal: no public embedder property
   const fkFont   = embedder?.font    // fontkit Font object (undefined for standard fonts)
   const scale    = embedder?.scale ?? 1
   const ascentPt = pdfFont.heightAtSize(fontSize, { descender: false })
 
   const thickness = fkFont
     ? Math.max(0.5, (fkFont.underlineThickness * scale / 1000) * fontSize)
-    : Math.max(0.5, fontSize / 14)
+    : Math.max(0.5, fontSize / 16)
 
   const [r, g, b] = color
   const lineColor = rgb(r, g, b)
@@ -282,11 +289,23 @@ export function resolveX(
   }
 }
 
-/** Replace {{pageNumber}} and {{totalPages}} tokens */
-export function resolveTokens(text: string, pageNumber: number, totalPages: number): string {
+/** Default body line height multiplier — paragraphs, lists, blockquotes, footnotes, TOC */
+export const LINE_HEIGHT_BODY = 1.5
+/** Default compact line height multiplier — headings, code blocks, callout titles */
+export const LINE_HEIGHT_COMPACT = 1.4
+
+/** Replace {{pageNumber}}, {{totalPages}}, {{date}}, and {{author}} tokens */
+export function resolveTokens(
+  text: string,
+  pageNumber: number,
+  totalPages: number,
+  extra?: { date?: string; author?: string }
+): string {
   return text
-    .replace('{{pageNumber}}', String(pageNumber))
-    .replace('{{totalPages}}', String(totalPages))
+    .replaceAll('{{pageNumber}}', String(pageNumber))
+    .replaceAll('{{totalPages}}', String(totalPages))
+    .replaceAll('{{date}}', extra?.date ?? '')
+    .replaceAll('{{author}}', extra?.author ?? '')
 }
 
 /** Parse a 6-digit hex color string to normalized RGB [0,1] triple.

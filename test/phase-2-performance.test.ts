@@ -367,4 +367,22 @@ describe('Phase 2 — Performance & Correctness', () => {
       (err: Error) => err.message.includes('columns')
     )
   })
+
+  // 2G: error code coverage — COLUMN_WIDTH_TOO_NARROW
+  // A4 contentWidth = 595 - 72 - 72 = 451pt.
+  // columns: 6, columnGap: 50 → (451 - 5*50) / 6 = 33.5pt < 50pt minimum.
+  test('paragraph columns too narrow throws COLUMN_WIDTH_TOO_NARROW', async () => {
+    await assert.rejects(
+      () => render({
+        pageSize: 'A4',  // explicit: math comment above depends on A4 dimensions
+        content: [{
+          type: 'paragraph',
+          columns: 6,
+          columnGap: 50,
+          text: 'narrow',
+        }],
+      }),
+      { code: 'COLUMN_WIDTH_TOO_NARROW' },
+    )
+  })
 })

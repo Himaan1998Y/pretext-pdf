@@ -7,6 +7,7 @@ import { validate } from './validate.js'
 import { loadFonts } from './fonts.js'
 import { loadImages } from './assets.js'
 import { measureAllBlocks, measureHeaderFooterHeight, buildFontKey } from './measure.js'
+import { LINE_HEIGHT_COMPACT } from './render-utils.js'
 import { paginate } from './paginate.js'
 import { renderDocument } from './render.js'
 
@@ -25,6 +26,9 @@ export type {
   TableCell,
   ImageElement,
   SvgElement,
+  QrCodeElement,
+  BarcodeElement,
+  ChartElement,
   ListElement,
   ListItem,
   HorizontalRuleElement,
@@ -57,6 +61,36 @@ export type { ErrorCode } from './errors.js'
 export type { NamedPageSize } from './page-sizes.js'
 export { createPdf } from './builder.js'
 export type { PdfBuilderOptions } from './builder.js'
+
+let _fnSetCounter = 0
+
+/**
+ * Create a set of paired footnote definitions and their IDs for use in rich-paragraph spans.
+ *
+ * Returns an array where each entry has:
+ * - `id`: unique string for use as `InlineSpan.footnoteRef`
+ * - `def`: a `FootnoteDefElement` ready to push into `doc.content`
+ *
+ * @example
+ * ```ts
+ * const fns = createFootnoteSet([
+ *   { text: 'See Smith (2022) for details.' },
+ *   { text: 'Ibid., p. 42.' },
+ * ])
+ * // In content:
+ * // { type: 'rich-paragraph', spans: [{ text: 'Text', footnoteRef: fns[0].id }] }
+ * // ...fns.map(f => f.def)
+ * ```
+ */
+export function createFootnoteSet(
+  items: Array<{ text: string; fontSize?: number; fontFamily?: string; spaceAfter?: number }>
+): Array<{ id: string; def: FootnoteDefElement }> {
+  const base = _fnSetCounter++
+  return items.map((item, i) => {
+    const id = `fn-${base}-${i}`
+    return { id, def: { type: 'footnote-def' as const, id, ...item } }
+  })
+}
 
 /**
  * Resolve the active header and footer for a given 1-based page number.
@@ -143,6 +177,13 @@ export async function render(doc: PdfDocument): Promise<Uint8Array> {
     }
   }
 
+  // Set PDF creation/modification date
+  const creationDate = doc.renderDate
+    ? (doc.renderDate instanceof Date ? doc.renderDate : new Date(doc.renderDate))
+    : new Date()
+  pdfDoc.setCreationDate(creationDate)
+  pdfDoc.setModificationDate(creationDate)
+
   // Load fonts and images in parallel — both are I/O-bound and independent
   const [fontMap, imageMap] = await Promise.all([
     loadFonts(doc, pdfDoc),
@@ -158,7 +199,7 @@ export async function render(doc: PdfDocument): Promise<Uint8Array> {
         doc.header.fontSize ?? 10,
         doc.header.fontFamily ?? defaultFont,
         contentWidth,
-        (doc.header.fontSize ?? 10) * 1.4
+        (doc.header.fontSize ?? 10) * LINE_HEIGHT_COMPACT
       ) + 8 // 8pt padding between header and content
     : 0
 
@@ -168,7 +209,7 @@ export async function render(doc: PdfDocument): Promise<Uint8Array> {
         doc.footer.fontSize ?? 10,
         doc.footer.fontFamily ?? defaultFont,
         contentWidth,
-        (doc.footer.fontSize ?? 10) * 1.4
+        (doc.footer.fontSize ?? 10) * LINE_HEIGHT_COMPACT
       ) + 8
     : 0
 

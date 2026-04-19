@@ -174,4 +174,15 @@ test('Phase 5 — Image Floats', async (t) => {
     assert.ok(pdf instanceof Uint8Array)
   })
 
+  // 2G: error code coverage — IMAGE_LOAD_FAILED
+  await t.test('image with bad file path throws IMAGE_LOAD_FAILED when onImageLoadError returns throw', async () => {
+    await assert.rejects(
+      () => render({
+        onImageLoadError: (_src, _err) => 'throw',
+        content: [{ type: 'image', src: '/nonexistent/does-not-exist.png' }],
+      }),
+      { code: 'IMAGE_LOAD_FAILED' },
+    )
+  })
+
 })

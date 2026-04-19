@@ -73,6 +73,27 @@ export interface PdfDocument {
    * If omitted, failures are logged as warnings and the image is skipped.
    */
   onImageLoadError?: (src: string | Uint8Array, error: Error) => 'skip' | 'throw'
+  /**
+   * Called when a form field fails to render (field type error, font missing, etc.).
+   * Return 'skip' to silently omit the field.
+   * Return 'throw' to abort rendering with the original error.
+   * If omitted, failures are logged as warnings and the field is skipped.
+   */
+  onFormFieldError?: (fieldName: string | undefined, error: Error) => 'skip' | 'throw'
+  /**
+   * Document creation date written into PDF metadata.
+   * Accepts an ISO 8601 string or a Date object. Default: current date/time.
+   */
+  renderDate?: string | Date
+  /**
+   * Restrict filesystem access to these absolute directory paths.
+   * When set, any image/SVG/font `src` pointing outside these directories
+   * throws PATH_TRAVERSAL. Strongly recommended when src values originate
+   * from user-controlled input to prevent arbitrary file reads.
+   *
+   * Example: `allowedFileDirs: ['/app/assets', '/tmp/uploads']`
+   */
+  allowedFileDirs?: string[]
 }
 
 export interface DocumentMetadata {
@@ -303,6 +324,9 @@ export type ContentElement =
   | TableElement
   | ImageElement
   | SvgElement
+  | QrCodeElement
+  | BarcodeElement
+  | ChartElement
   | ListElement
   | HorizontalRuleElement
   | PageBreakElement
@@ -482,6 +506,8 @@ export interface TableCell {
   bgColor?: string
   /** Number of columns this cell spans. Default: 1 */
   colspan?: number
+  /** Number of rows this cell spans. Default: 1 */
+  rowspan?: number
   /**
    * Render digits (0–9) at a fixed slot width (widest digit in font).
    * Ensures numeric columns align regardless of digit width variation (1 vs 0 etc.).
@@ -517,8 +543,10 @@ export interface ImageElement {
   floatWidth?: number
   /** Gap between image and text columns in pt. Default: 12 */
   floatGap?: number
-  /** Text rendered alongside the image. Required when float is set. */
+  /** Text rendered alongside the image. Required when float is set. Mutually exclusive with floatSpans. */
   floatText?: string
+  /** Rich-text spans rendered alongside the image. Alternative to floatText for mixed-style float text. */
+  floatSpans?: InlineSpan[]
   /** Font size for floatText in pt. Default: doc.defaultFontSize */
   floatFontSize?: number
   /** Font family for floatText. Default: doc.defaultFont */
@@ -576,6 +604,80 @@ export interface SvgElement {
   spaceAfter?: number
 }
 
+// ─── QR Code ──────────────────────────────────────────────────────────────────
+
+export interface QrCodeElement {
+  type: 'qr-code'
+  /** The data to encode (URL, text, UPI string, etc.). Required. Max 2953 chars at error-correction L. */
+  data: string
+  /** Rendered size in pt (width = height). Default: 80 */
+  size?: number
+  /** QR error correction level. Default: 'M' */
+  errorCorrectionLevel?: 'L' | 'M' | 'Q' | 'H'
+  /** Module colour as 6-digit hex. Default: '#000000' */
+  foreground?: string
+  /** Background colour as 6-digit hex. Default: '#ffffff' */
+  background?: string
+  /** Quiet-zone modules around the symbol. Default: 4 */
+  margin?: number
+  /** Alignment within content area. Default: 'left' */
+  align?: 'left' | 'center' | 'right'
+  /** Space above element in pt. Default: 8 */
+  spaceBefore?: number
+  /** Space below element in pt. Default: 8 */
+  spaceAfter?: number
+}
+
+// ─── Barcode ──────────────────────────────────────────────────────────────────
+
+export interface BarcodeElement {
+  type: 'barcode'
+  /**
+   * Barcode symbology. Common values: 'ean13', 'ean8', 'upca', 'code128',
+   * 'code39', 'qrcode', 'pdf417', 'datamatrix', 'itf14', 'azteccode'.
+   * Full list: https://bwip-js.metafloor.com/
+   */
+  symbology: string
+  /** Data to encode. Format requirements vary by symbology. */
+  data: string
+  /** Rendered width in pt. Default: 200 */
+  width?: number
+  /** Rendered height in pt. Default: 60 */
+  height?: number
+  /** Render human-readable text below the barcode. Default: true */
+  includeText?: boolean
+  /** Alignment within content area. Default: 'left' */
+  align?: 'left' | 'center' | 'right'
+  /** Space above element in pt. Default: 8 */
+  spaceBefore?: number
+  /** Space below element in pt. Default: 8 */
+  spaceAfter?: number
+}
+
+// ─── Chart ────────────────────────────────────────────────────────────────────
+
+export interface ChartElement {
+  type: 'chart'
+  /**
+   * A vega-lite JSON specification object.
+   * Requires `vega` and `vega-lite` to be installed: `npm install vega vega-lite`
+   * @see https://vega.github.io/vega-lite/docs/spec.html
+   */
+  spec: Record<string, unknown>
+  /** Rendered width in pt. Default: available content width */
+  width?: number
+  /** Rendered height in pt. Default: 300 */
+  height?: number
+  /** Optional figure caption rendered below the chart. */
+  caption?: string
+  /** Alignment within content area. Default: 'left' */
+  align?: 'left' | 'center' | 'right'
+  /** Space above element in pt. Default: 8 */
+  spaceBefore?: number
+  /** Space below element in pt. Default: 8 */
+  spaceAfter?: number
+}
+
 // ─── List ─────────────────────────────────────────────────────────────────────
 
 export interface ListElement {
@@ -616,7 +718,7 @@ export interface ListItem {
   dir?: 'ltr' | 'rtl' | 'auto'
   /** Font weight for this item. Default: 400 */
   fontWeight?: 400 | 700
-  /** Nested items — 1 level deep maximum in Phase 2 */
+  /** Nested items — up to 2 levels deep. */
   items?: ListItem[]
 }
 
@@ -702,8 +804,7 @@ export interface CodeBlockElement {
 // ─── Rich Paragraph ───────────────────────────────────────────────────────────
 
 /**
- * A paragraph composed of inline spans with mixed formatting (bold, italic, color).
- * All spans must use the same fontSize — cross-size spans (subscript etc.) are Phase 4.
+ * A paragraph composed of inline spans with mixed formatting (bold, italic, color, per-span fontSize).
  */
 export interface RichParagraphElement {
   type: 'rich-paragraph'
@@ -763,6 +864,10 @@ export interface InlineSpan {
   href?: string
   /** Raise text as superscript or lower as subscript. Default: none */
   verticalAlign?: 'superscript' | 'subscript'
+  /** Simulate small-caps: uppercase text at 80% font size. Default: false */
+  smallCaps?: boolean
+  /** Extra spacing between characters in pt. Default: 0 */
+  letterSpacing?: number
   /**
    * ID of a matching footnote-def element. When set, this span renders as a
    * superscript number and pins the footnote def to the bottom of this page.
@@ -797,6 +902,8 @@ export interface RichFragment {
   yOffset?: number
   /** Carried from InlineSpan.footnoteRef — used by renderer to identify footnote refs */
   footnoteRef?: string
+  /** Extra spacing between characters in pt. Carried from InlineSpan.letterSpacing. */
+  letterSpacing?: number
 }
 
 // ─── Blockquote ───────────────────────────────────────────────────────────────
@@ -1027,6 +1134,8 @@ export interface MeasuredBlock {
     textColX: number
     textColWidth: number
     textLines: PretextLine[]
+    /** Set when the image element uses floatSpans instead of floatText */
+    richFloatLines?: RichLine[]
     textFontKey: string
     textFontSize: number
     textLineHeight: number
@@ -1149,6 +1258,8 @@ export interface MeasuredTableRow {
   isHeader: boolean
   /** Column gap indices (0..colCount-2) where vertical lines should be drawn. Gaps spanned by merged cells are excluded. */
   activeBoundaries: number[]
+  /** True if any cell in this row spans into the next row — horizontal separator after this row is suppressed */
+  hasRowspan?: boolean
 }
 
 export interface MeasuredTableCell {
@@ -1164,6 +1275,12 @@ export interface MeasuredTableCell {
   colspan: number
   /** Total width in pt after colspan expansion, including border-width between spanned columns */
   mergedWidth: number
+  /** Number of rows this cell spans. Undefined or 1 = no row span. */
+  rowspan?: number
+  /** Combined height of all spanned rows in pt. Only set when rowspan > 1. */
+  spanHeight?: number
+  /** True for placeholder cells inserted in rows below a rowspan origin — skipped in all render passes */
+  isSpanPlaceholder?: boolean
   /** RTL text detected in this cell (for alignment defaults) */
   isRTL?: boolean
   /** Render digits at fixed slot width for column alignment */

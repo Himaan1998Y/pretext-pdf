@@ -12,6 +12,7 @@ import { PretextPdfError } from './errors.js'
 import { measureRichText } from './rich-text.js'
 import { buildFontKey } from './measure.js'
 import { measureText, HyphenatorOpts, getPretext, detectAndReorderRTL } from './measure-text.js'
+import { LINE_HEIGHT_BODY, LINE_HEIGHT_COMPACT } from './render-utils.js'
 
 /** Heading level size multipliers and defaults */
 const HEADING_DEFAULTS = {
@@ -78,7 +79,7 @@ export async function measureBlock(
         fontSize: 0,
         lineHeight: 0,
         fontKey: '',
-        spaceAfter: (element as any).spaceAfter ?? 0,
+        spaceAfter: (element as import('./types.js').CommentElement).spaceAfter ?? 0,
         spaceBefore: 0,
       }
     }
@@ -86,7 +87,7 @@ export async function measureBlock(
     case 'form-field': {
       const el = element as import('./types.js').FormFieldElement
       const fs = el.fontSize ?? baseFontSize
-      const labelHeight = el.label ? fs * 1.5 + 4 : 0
+      const labelHeight = el.label ? fs * LINE_HEIGHT_BODY + 4 : 0
       let fieldHeight = el.height
       if (!fieldHeight) {
         if (el.fieldType === 'text' && el.multiline) fieldHeight = 60
@@ -114,7 +115,7 @@ export async function measureBlock(
       // smallCaps renders at 80% of fontSize — measure at the same size to avoid
       // overestimating block height and wasting vertical space
       const effectiveFontSize = element.smallCaps === true ? fontSize * 0.8 : fontSize
-      const lineHeight = element.lineHeight ?? doc.defaultParagraphStyle?.lineHeight ?? doc.defaultLineHeight ?? (effectiveFontSize * 1.5)
+      const lineHeight = element.lineHeight ?? doc.defaultParagraphStyle?.lineHeight ?? doc.defaultLineHeight ?? (effectiveFontSize * LINE_HEIGHT_BODY)
       const fontFamily = element.fontFamily ?? doc.defaultParagraphStyle?.fontFamily ?? baseFont
       const fontWeight = element.fontWeight ?? doc.defaultParagraphStyle?.fontWeight ?? 400
       const fontKey = buildFontKey(fontFamily, fontWeight, 'normal')
@@ -127,8 +128,8 @@ export async function measureBlock(
       // Multi-column layout
       let computedColumnWidth = contentWidth
       if (columns > 1) {
-        if (columns > 20) {
-          throw new PretextPdfError('VALIDATION_ERROR', `columns must be 1–20, got ${columns}`)
+        if (columns > 6) {
+          throw new PretextPdfError('VALIDATION_ERROR', `columns must be 1–6, got ${columns}`)
         }
         computedColumnWidth = (contentWidth - (columns - 1) * columnGap) / columns
         if (computedColumnWidth < 50) {
@@ -202,7 +203,7 @@ export async function measureBlock(
       const fontSize = element.fontSize ?? (baseHeadingFontSize * defaults.sizeMultiplier)
       // smallCaps renders at 80% — measure at effective size
       const effectiveFontSize = element.smallCaps === true ? fontSize * 0.8 : fontSize
-      const lineHeight = element.lineHeight ?? doc.defaultParagraphStyle?.lineHeight ?? doc.defaultLineHeight ?? (effectiveFontSize * 1.4)
+      const lineHeight = element.lineHeight ?? doc.defaultParagraphStyle?.lineHeight ?? doc.defaultLineHeight ?? (effectiveFontSize * LINE_HEIGHT_COMPACT)
       const fontFamily = element.fontFamily ?? doc.defaultParagraphStyle?.fontFamily ?? baseFont
       const fontWeight = element.fontWeight ?? doc.defaultParagraphStyle?.fontWeight ?? defaults.fontWeight
       const fontKey = buildFontKey(fontFamily, fontWeight, 'normal')
@@ -285,7 +286,7 @@ export async function measureBlock(
       const { isRTL } = await detectAndReorderRTL(fullText, element.dir)
 
       const fontSize = element.fontSize ?? baseFontSize
-      const lineHeight = element.lineHeight ?? doc.defaultLineHeight ?? (fontSize * 1.5)
+      const lineHeight = element.lineHeight ?? doc.defaultLineHeight ?? (fontSize * LINE_HEIGHT_BODY)
       // 'justify' uses left alignment for measurement (justify is rendering-only)
       const alignRaw = element.align ?? 'left'
       const align = alignRaw === 'justify' ? 'left' : alignRaw as 'left' | 'center' | 'right'
@@ -363,7 +364,7 @@ export async function measureBlock(
 
     case 'code': {
       const fontSize = element.fontSize ?? Math.max(baseFontSize - 2, 8)
-      const lineHeight = element.lineHeight ?? (fontSize * 1.4)
+      const lineHeight = element.lineHeight ?? (fontSize * LINE_HEIGHT_COMPACT)
       const padding = element.padding ?? 8
       // Text area is narrower by padding on both sides
       const textWidth = contentWidth - 2 * padding
@@ -407,7 +408,7 @@ export async function measureBlock(
       const { visual: visualText, isRTL, logical: logicalText } = await detectAndReorderRTL(element.text, element.dir)
 
       const fontSize = element.fontSize ?? baseFontSize
-      const lineHeight = element.lineHeight ?? doc.defaultLineHeight ?? (fontSize * 1.5)
+      const lineHeight = element.lineHeight ?? doc.defaultLineHeight ?? (fontSize * LINE_HEIGHT_BODY)
       const fontFamily = element.fontFamily ?? baseFont
       const fontWeight = element.fontWeight ?? 400
       const fontStyle = element.fontStyle ?? 'normal'
@@ -444,7 +445,7 @@ export async function measureBlock(
     case 'callout': {
       const el = element as import('./types.js').CalloutElement
       const fs = el.fontSize ?? baseFontSize
-      const lh = el.lineHeight ?? (fs * 1.5)
+      const lh = el.lineHeight ?? (fs * LINE_HEIGHT_BODY)
       const ph = el.paddingH ?? el.padding ?? 16
       const pv = el.paddingV ?? el.padding ?? 10
       const family = el.fontFamily ?? baseFont
@@ -457,7 +458,7 @@ export async function measureBlock(
       // Measure title height (one line assumed, bold)
       let titleHeight = 0
       if (el.title) {
-        titleHeight = fs * 1.4 + 4  // 1.4 line height + 4pt separator
+        titleHeight = fs * LINE_HEIGHT_COMPACT + 4  // compact line height + 4pt separator
       }
 
       // Measure content text
@@ -503,7 +504,7 @@ export async function measureBlock(
       const fn = element as import('./types.js').FootnoteDefElement
       const baseFontSize = doc.defaultFontSize ?? 12
       const fontSize = fn.fontSize ?? Math.max(8, baseFontSize - 2)
-      const lineHeight = fontSize * 1.5
+      const lineHeight = fontSize * LINE_HEIGHT_BODY
       const fontFamily = fn.fontFamily ?? doc.defaultFont ?? 'Inter'
       const fontKey = buildFontKey(fontFamily, 400, 'normal')
 
@@ -658,27 +659,36 @@ export async function measureFloatImageBlock(
   const imageRenderWidth = imageBlock.imageData!.renderWidth
   const imageRenderHeight = imageBlock.imageData!.renderHeight
 
-  // Measure the float text
+  // Measure the float text (plain or rich)
   const fontSize = element.floatFontSize ?? doc.defaultFontSize ?? 12
-  const lineHeight = fontSize * 1.5
+  const lineHeight = fontSize * LINE_HEIGHT_BODY
   const fontFamily = element.floatFontFamily ?? doc.defaultFont ?? 'Inter'
   const fontKey = buildFontKey(fontFamily, 400, 'normal')
 
-  const textLines = await measureText(
-    element.floatText!,
-    fontSize,
-    fontFamily,
-    400,
-    textColWidth,
-    lineHeight,
-    undefined,
-  )
+  let textLines: import('./types.js').PretextLine[] = []
+  let richFloatLines: import('./types.js').RichLine[] | undefined
+
+  if (element.floatSpans) {
+    richFloatLines = await measureRichText(element.floatSpans, fontSize, lineHeight, textColWidth, 'left', doc)
+  } else {
+    textLines = await measureText(
+      element.floatText!,
+      fontSize,
+      fontFamily,
+      400,
+      textColWidth,
+      lineHeight,
+      undefined,
+    )
+  }
 
   // Column X positions
   const imageColX = element.float === 'left' ? 0 : textColWidth + floatGap
   const textColX = element.float === 'left' ? floatWidth + floatGap : 0
 
-  const textHeight = textLines.length * lineHeight
+  const textHeight = richFloatLines
+    ? richFloatLines.reduce((sum, l) => sum + l.lineHeight, 0)
+    : textLines.length * lineHeight
   const compositeHeight = Math.max(imageRenderHeight, textHeight)
 
   return {
@@ -698,6 +708,7 @@ export async function measureFloatImageBlock(
       textColX,
       textColWidth,
       textLines,
+      ...(richFloatLines ? { richFloatLines } : {}),
       textFontKey: fontKey,
       textFontSize: fontSize,
       textLineHeight: lineHeight,
@@ -762,7 +773,7 @@ export async function measureFloatGroup(
 
     for (const block of blocks) {
       const fontSize = block.fontSize || baseFontSize
-      const lineHeight = block.lineHeight || (fontSize * 1.5)
+      const lineHeight = block.lineHeight || (fontSize * LINE_HEIGHT_BODY)
 
       // Extract text from lines or rich-lines
       let lines: import('./types.js').PretextLine[] = []
@@ -839,17 +850,17 @@ async function measureList(
 ): Promise<MeasuredBlock[]> {
   const baseFontFamily = doc.defaultFont ?? 'Inter'
   const fontSize = element.fontSize ?? baseFontSize
-  const lineHeight = element.lineHeight ?? doc.defaultLineHeight ?? (fontSize * 1.5)
+  const lineHeight = element.lineHeight ?? doc.defaultLineHeight ?? (fontSize * LINE_HEIGHT_BODY)
   const indent = element.indent ?? 20
   const itemSpaceAfter = element.itemSpaceAfter ?? 4
   const fontKey = buildFontKey(baseFontFamily, 400, 'normal')
 
   const blocks: MeasuredBlock[] = []
 
-  // Flatten items and nested items
+  // Flatten items and nested items (up to 2 levels deep)
   const nestedStyle = element.nestedNumberingStyle ?? 'continue'
   let orderedIndex = 1
-  const allItems: Array<{ text: string; marker: string; isNested: boolean; isFirstInList: boolean; fontWeight: 400 | 700 }> = []
+  const allItems: Array<{ text: string; marker: string; depth: number; isFirstInList: boolean; fontWeight: 400 | 700 }> = []
 
   for (let i = 0; i < element.items.length; i++) {
     const item = element.items[i]!
@@ -860,9 +871,9 @@ async function measureList(
       : (element.marker ?? '•')
     orderedIndex++
 
-    allItems.push({ text: item.text, marker, isNested: false, isFirstInList: isFirst, fontWeight: item.fontWeight ?? 400 })
+    allItems.push({ text: item.text, marker, depth: 0, isFirstInList: isFirst, fontWeight: item.fontWeight ?? 400 })
 
-    // Nested items (1 level deep)
+    // Nested items (depth 1)
     if (item.items && item.items.length > 0) {
       // 'restart': nested ordered items count from 1, parent counter unaffected
       // 'continue': nested items share the parent counter (existing behavior)
@@ -871,10 +882,24 @@ async function measureList(
         const nested = item.items[ni]!
         const nestedMarker = element.style === 'ordered'
           ? `${nestedIndex}.`
-          : '◦'  // hollow bullet for nested unordered
+          : '◦'  // hollow bullet for depth-1 unordered
         nestedIndex++
         if (nestedStyle === 'continue') orderedIndex++
-        allItems.push({ text: nested.text, marker: nestedMarker, isNested: true, isFirstInList: false, fontWeight: nested.fontWeight ?? 400 })
+        allItems.push({ text: nested.text, marker: nestedMarker, depth: 1, isFirstInList: false, fontWeight: nested.fontWeight ?? 400 })
+
+        // Nested items (depth 2)
+        if (nested.items && nested.items.length > 0) {
+          let deepIndex = nestedStyle === 'restart' ? 1 : nestedIndex
+          for (let di = 0; di < nested.items.length; di++) {
+            const deep = nested.items[di]!
+            const deepMarker = element.style === 'ordered'
+              ? `${deepIndex}.`
+              : '▪'  // small filled square for depth-2 unordered
+            deepIndex++
+            if (nestedStyle === 'continue') orderedIndex++
+            allItems.push({ text: deep.text, marker: deepMarker, depth: 2, isFirstInList: false, fontWeight: deep.fontWeight ?? 400 })
+          }
+        }
       }
     }
   }
@@ -904,8 +929,8 @@ async function measureList(
   for (let i = 0; i < allItems.length; i++) {
     const item = allItems[i]!
     const isLast = i === allItems.length - 1
-    const nestedIndent = item.isNested ? indent + markerWidth : indent
-    const nestedTextWidth = item.isNested ? textWidth - markerWidth : textWidth
+    const nestedIndent = indent + item.depth * markerWidth
+    const nestedTextWidth = textWidth - item.depth * markerWidth
 
     const lines = await measureText(item.text, fontSize, baseFontFamily, item.fontWeight, nestedTextWidth, lineHeight, hyphenatorOpts)
 
@@ -940,6 +965,28 @@ async function measureList(
 
 // ─── Table measurement ────────────────────────────────────────────────────────
 
+type SpanEntry = { originRowIdx: number; originColStart: number; colspan: number; rowspan: number }
+
+/** Build a map from "rowIdx,colIdx" → span origin info for all positions occupied by a rowspan cell from an earlier row. */
+function buildSpanGrid(rows: import('./types.js').TableRow[]): Map<string, SpanEntry> {
+  const grid = new Map<string, SpanEntry>()
+  for (let ri = 0; ri < rows.length; ri++) {
+    let ci = 0
+    for (const cell of rows[ri]!.cells) {
+      while (grid.has(`${ri},${ci}`)) ci++
+      const cs = cell.colspan ?? 1
+      const rs = cell.rowspan ?? 1
+      for (let r2 = ri + 1; r2 < ri + rs; r2++) {
+        for (let c2 = ci; c2 < ci + cs; c2++) {
+          grid.set(`${r2},${c2}`, { originRowIdx: ri, originColStart: ci, colspan: cs, rowspan: rs })
+        }
+      }
+      ci += cs
+    }
+  }
+  return grid
+}
+
 async function measureTable(
   element: TableElement,
   contentWidth: number,
@@ -949,24 +996,29 @@ async function measureTable(
 ): Promise<MeasuredBlock> {
   const baseFontFamily = doc.defaultFont ?? 'Inter'
   const fontSize = element.fontSize ?? baseFontSize
-  const lineHeight = doc.defaultLineHeight ?? (fontSize * 1.5)
+  const lineHeight = doc.defaultLineHeight ?? (fontSize * LINE_HEIGHT_BODY)
   const cellPaddingH = element.cellPaddingH ?? 8
   const cellPaddingV = element.cellPaddingV ?? 6
   const borderWidth = element.borderWidth ?? 0.5
   const borderColor = element.borderColor ?? '#cccccc'
   const headerBgColor = element.headerBgColor ?? '#f5f5f5'
 
+  // Build span occupancy grid (needed for correct colStart tracking in all passes)
+  const spanGrid = buildSpanGrid(element.rows)
+
   // Pre-pass: measure natural widths for 'auto' columns — run all in parallel
   const hasAutoColumns = element.columns.some(c => c.width === 'auto')
   let naturalWidths: number[] | undefined
   if (hasAutoColumns) {
     naturalWidths = new Array(element.columns.length).fill(0)
-    // Collect all auto-column cells first (sequential index tracking)
+    // Collect all auto-column cells first (sequential index tracking, span-grid-aware)
     type AutoCellJob = { colIdx: number; cs: number; fontWeight: 400|700; cellFontSize: number; cellFamily: string; text: string }
     const jobs: AutoCellJob[] = []
-    for (const row of element.rows) {
+    for (let rowIdx = 0; rowIdx < element.rows.length; rowIdx++) {
+      const row = element.rows[rowIdx]!
       let colIdx = 0
       for (const cell of row.cells) {
+        while (spanGrid.has(`${rowIdx},${colIdx}`)) colIdx++
         const cs = cell.colspan ?? 1
         if (element.columns[colIdx]?.width === 'auto') {
           jobs.push({
@@ -1006,11 +1058,14 @@ async function measureTable(
     : element.rows.filter(r => r.isHeader).length
 
   // Measure all rows — parallelize all cell async work across the entire table at once
-  // Step 1: Compute all synchronous cell metadata (colStart tracking is sequential)
+  // Step 1: Compute all synchronous cell metadata (span-grid-aware colStart tracking)
   type CellMeta = {
     cell: import('./types.js').TableCell
     row: import('./types.js').TableRow
+    rowIdx: number
+    colStart: number
     cs: number
+    rs: number
     col: import('./types.js').ColumnDef
     mergedWidth: number
     fontWeight: 400 | 700
@@ -1022,10 +1077,13 @@ async function measureTable(
     cellDir: 'ltr' | 'rtl' | 'auto'
   }
   const allCellMeta: CellMeta[] = []
-  for (const row of element.rows) {
+  for (let rowIdx = 0; rowIdx < element.rows.length; rowIdx++) {
+    const row = element.rows[rowIdx]!
     let colStart = 0
     for (const cell of row.cells) {
+      while (spanGrid.has(`${rowIdx},${colStart}`)) colStart++
       const cs = cell.colspan ?? 1
+      const rs = cell.rowspan ?? 1
       const col = element.columns[colStart]!
       let mergedWidth = 0
       for (let si = colStart; si < colStart + cs && si < columnWidths.length; si++) {
@@ -1035,11 +1093,11 @@ async function measureTable(
       const fontWeight = (cell.fontWeight ?? (row.isHeader ? 700 : 400)) as 400 | 700
       const fontFamily = cell.fontFamily ?? baseFontFamily
       const cellFontSize = cell.fontSize ?? fontSize
-      const cellLineHeight = doc.defaultLineHeight ?? (cellFontSize * 1.5)
+      const cellLineHeight = doc.defaultLineHeight ?? (cellFontSize * LINE_HEIGHT_BODY)
       const cellFontKey = buildFontKey(fontFamily, fontWeight, 'normal')
       const textWidth = mergedWidth - 2 * cellPaddingH - borderWidth
       const cellDir = (cell.dir ?? element.dir ?? 'auto') as 'ltr' | 'rtl' | 'auto'
-      allCellMeta.push({ cell, row, cs, col, mergedWidth, fontWeight, fontFamily, cellFontSize, cellLineHeight, cellFontKey, textWidth, cellDir })
+      allCellMeta.push({ cell, row, rowIdx, colStart, cs, rs, col, mergedWidth, fontWeight, fontFamily, cellFontSize, cellLineHeight, cellFontKey, textWidth, cellDir })
       colStart += cs
     }
   }
@@ -1053,38 +1111,115 @@ async function measureTable(
     })
   )
 
-  // Step 3: Reassemble into measuredRows
-  const measuredRows: MeasuredTableRow[] = []
-  let cellIdx = 0
-  for (const row of element.rows) {
-    const measuredCells: MeasuredTableCell[] = []
-    let maxCellHeight = 0
-    for (const _ of row.cells) {
-      const m = allCellMeta[cellIdx]!
-      const { cellIsRTL, lines } = cellResults[cellIdx]!
-      const cellContentHeight = Math.max(lines.length, 1) * m.cellLineHeight
-      maxCellHeight = Math.max(maxCellHeight, cellContentHeight)
-      const align = m.cell.align ?? m.col.align ?? (cellIsRTL ? 'right' : 'left')
-      const measuredCell: MeasuredTableCell = {
-        lines,
-        fontSize: m.cellFontSize,
-        lineHeight: m.cellLineHeight,
-        fontKey: m.cellFontKey,
-        fontFamily: m.fontFamily,
-        align,
-        color: m.cell.color ?? '#000000',
-        colspan: m.cs,
-        mergedWidth: m.mergedWidth,
-        isRTL: cellIsRTL,
-        ...(m.cell.tabularNumbers !== undefined && { tabularNumbers: m.cell.tabularNumbers }),
-      }
-      if (m.cell.bgColor !== undefined) measuredCell.bgColor = m.cell.bgColor
-      measuredCells.push(measuredCell)
-      cellIdx++
+  // Step 3: Reassemble into measuredRows with rowspan support
+  // Build lookup: (rowIdx, colStart) → (meta, result)
+  type CellAtCol = { meta: CellMeta; result: { cellIsRTL: boolean; lines: import('./types.js').PretextLine[] } }
+  const cellByKey = new Map<string, CellAtCol>()
+  for (let i = 0; i < allCellMeta.length; i++) {
+    const m = allCellMeta[i]!
+    cellByKey.set(`${m.rowIdx},${m.colStart}`, { meta: m, result: cellResults[i]! })
+  }
+
+  // Sub-pass 3a: Compute raw row heights from non-spanning cells only
+  const rowHeights: number[] = new Array(element.rows.length).fill(0)
+  for (const { meta: m, result } of cellByKey.values()) {
+    if (m.rs === 1) {
+      const cellContentHeight = Math.max(result.lines.length, 1) * m.cellLineHeight
+      rowHeights[m.rowIdx] = Math.max(rowHeights[m.rowIdx]!, cellContentHeight)
     }
-    const rowHeight = maxCellHeight + 2 * cellPaddingV
-    const activeBoundaries = computeActiveBoundaries(row.cells, element.columns.length)
-    measuredRows.push({ cells: measuredCells, height: rowHeight, isHeader: row.isHeader ?? false, activeBoundaries })
+  }
+  for (let ri = 0; ri < rowHeights.length; ri++) {
+    rowHeights[ri] = (rowHeights[ri] ?? 0) + 2 * cellPaddingV
+  }
+
+  // Sub-pass 3b: Expand last spanned row if spanning cell needs more space
+  for (const { meta: m, result } of cellByKey.values()) {
+    if (m.rs > 1) {
+      const cellContentHeight = Math.max(result.lines.length, 1) * m.cellLineHeight + 2 * cellPaddingV
+      let spanHeight = 0
+      for (let r2 = m.rowIdx; r2 < m.rowIdx + m.rs && r2 < rowHeights.length; r2++) {
+        spanHeight += rowHeights[r2]!
+      }
+      if (cellContentHeight > spanHeight) {
+        const lastRowIdx = Math.min(m.rowIdx + m.rs - 1, rowHeights.length - 1)
+        rowHeights[lastRowIdx]! += cellContentHeight - spanHeight
+      }
+    }
+  }
+
+  // Sub-pass 3c: Build measuredRows, inserting placeholder cells for rowspan continuations
+  const measuredRows: MeasuredTableRow[] = []
+  const numColumns = element.columns.length
+
+  for (let rowIdx = 0; rowIdx < element.rows.length; rowIdx++) {
+    const row = element.rows[rowIdx]!
+    const rowHeight = rowHeights[rowIdx]!
+    const measuredCells: MeasuredTableCell[] = []
+    let hasRowspan = false
+
+    let colCursor = 0
+    while (colCursor < numColumns) {
+      const spanEntry = spanGrid.get(`${rowIdx},${colCursor}`)
+      if (spanEntry) {
+        // Only insert ONE placeholder per span group (at the leftmost column of the span)
+        if (colCursor === spanEntry.originColStart) {
+          const originCell = cellByKey.get(`${spanEntry.originRowIdx},${spanEntry.originColStart}`)
+          const pw = originCell?.meta.mergedWidth ?? (columnWidths[colCursor] ?? 0)
+          measuredCells.push({
+            lines: [], fontSize: 0, lineHeight: 0, fontKey: '', fontFamily: '',
+            align: 'left', color: '#000000',
+            colspan: spanEntry.colspan, mergedWidth: pw,
+            isSpanPlaceholder: true,
+          })
+          colCursor += spanEntry.colspan
+        } else {
+          // Mid-span column not at origin — advance past the full span group
+          colCursor += spanEntry.colspan
+        }
+      } else {
+        const cellAtCol = cellByKey.get(`${rowIdx},${colCursor}`)
+        if (!cellAtCol) { colCursor++; continue }
+        const { meta: m, result: { cellIsRTL, lines } } = cellAtCol
+
+        let spanHeight: number | undefined
+        if (m.rs > 1) {
+          spanHeight = 0
+          for (let r2 = rowIdx; r2 < rowIdx + m.rs && r2 < rowHeights.length; r2++) {
+            spanHeight += rowHeights[r2]!
+          }
+          hasRowspan = true
+        }
+
+        const align = m.cell.align ?? m.col.align ?? (cellIsRTL ? 'right' : 'left')
+        const measuredCell: MeasuredTableCell = {
+          lines,
+          fontSize: m.cellFontSize,
+          lineHeight: m.cellLineHeight,
+          fontKey: m.cellFontKey,
+          fontFamily: m.fontFamily,
+          align,
+          color: m.cell.color ?? '#000000',
+          colspan: m.cs,
+          mergedWidth: m.mergedWidth,
+          isRTL: cellIsRTL,
+          ...(m.cell.tabularNumbers !== undefined && { tabularNumbers: m.cell.tabularNumbers }),
+          ...(m.rs > 1 ? { rowspan: m.rs } : {}),
+          ...(spanHeight !== undefined ? { spanHeight } : {}),
+        }
+        if (m.cell.bgColor !== undefined) measuredCell.bgColor = m.cell.bgColor
+        measuredCells.push(measuredCell)
+        colCursor += m.cs
+      }
+    }
+
+    const activeBoundaries = computeActiveBoundaries(measuredCells, numColumns)
+    measuredRows.push({
+      cells: measuredCells,
+      height: rowHeight,
+      isHeader: row.isHeader ?? false,
+      activeBoundaries,
+      ...(hasRowspan ? { hasRowspan: true } : {}),
+    })
   }
 
   // Header rows are the first N rows
@@ -1221,7 +1356,7 @@ export function resolveColumnWidths(
  *
  * Example: 3 columns with a cell spanning cols 0-1 → active boundaries are [1] (only between cols 1-2)
  */
-function computeActiveBoundaries(cells: import('./types.js').TableCell[], colCount: number): number[] {
+function computeActiveBoundaries(cells: Array<{ colspan?: number }>, colCount: number): number[] {
   // Track which boundaries are "spanned" (internal to a merged cell)
   const spannedBoundaries = new Set<number>()
   let colIdx = 0
@@ -1267,7 +1402,7 @@ async function measureNaturalTextWidth(
   // Use a very large width to prevent wrapping; also handle multi-line text (\n)
   // by taking the max line width across all lines
   const prepared = prepareWithSegments(text, fontString, { whiteSpace: 'pre-wrap' })
-  const result = layoutWithLines(prepared, 99999, fontSize * 1.5)
+  const result = layoutWithLines(prepared, 99999, fontSize * LINE_HEIGHT_BODY)
   const lines: Array<{ text: string; width: number }> = result.lines ?? []
 
   return lines.reduce((max, line) => Math.max(max, line.width), 0)

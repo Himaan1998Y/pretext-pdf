@@ -7,6 +7,7 @@ import { createRequire } from 'module'
 import type { PdfDocument, FontSpec, FontMap } from './types.js'
 import { PretextPdfError } from './errors.js'
 import { buildFontKey } from './measure.js'
+import { assertPathAllowed } from './assets.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const _require = createRequire(import.meta.url)
@@ -83,7 +84,7 @@ export async function loadFonts(
 
   // Load all font bytes in parallel
   const loadPromises = Array.from(needed.entries()).map(async ([key, spec]) => {
-    const bytes = await loadFontBytes(spec)
+    const bytes = await loadFontBytes(spec, doc.allowedFileDirs)
     return { key, bytes, spec }
   })
 
@@ -244,7 +245,8 @@ function collectNeededFonts(doc: PdfDocument): Map<string, FontSpec & { src: str
 
 /** Load font bytes from file path, Uint8Array, or bundled Inter */
 async function loadFontBytes(
-  spec: { family: string; weight?: number; src: string | Uint8Array | 'bundled' }
+  spec: { family: string; weight?: number; src: string | Uint8Array | 'bundled' },
+  allowedFileDirs?: string[]
 ): Promise<Uint8Array> {
   if (spec.src instanceof Uint8Array) {
     return spec.src
@@ -276,20 +278,25 @@ async function loadFontBytes(
     )
   }
 
-  if (!fs.existsSync(spec.src)) {
+  const resolvedSrc = path.resolve(spec.src)
+
+  // Path traversal guard — delegates to shared assertPathAllowed (assets.ts)
+  assertPathAllowed(resolvedSrc, allowedFileDirs, 'Font')
+
+  if (!fs.existsSync(resolvedSrc)) {
     throw new PretextPdfError(
       'FONT_LOAD_FAILED',
-      `Font file not found: "${spec.src}". Check the path in doc.fonts[].src.`
+      `Font file not found: "${path.basename(spec.src)}". Check the path in doc.fonts[].src.`
     )
   }
 
   try {
-    const buffer = fs.readFileSync(spec.src)
+    const buffer = fs.readFileSync(resolvedSrc)
     return new Uint8Array(buffer)
   } catch (err) {
     throw new PretextPdfError(
       'FONT_LOAD_FAILED',
-      `Failed to read font file "${spec.src}": ${err instanceof Error ? err.message : String(err)}`
+      `Failed to read font file "${path.basename(spec.src)}": ${err instanceof Error ? err.message : String(err)}`
     )
   }
 }

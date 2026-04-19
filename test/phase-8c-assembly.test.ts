@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert'
-import { render, merge, assemble } from '../dist/index.js'
+import { render, merge, assemble } from '../src/index.js'
 
 test('Phase 8C — Document Assembly', async (t) => {
   await t.test('merge two PDFs produces combined result', async () => {
@@ -85,5 +85,16 @@ test('Phase 8C — Document Assembly', async (t) => {
     const merged = await merge(pdfs)
     assert.ok(merged instanceof Uint8Array)
     assert.ok(merged.byteLength > 0)
+  })
+
+  // 2G: error code coverage — ASSEMBLY_FAILED
+  // Use a valid %PDF header with no actual structure so pdf-lib definitively rejects it.
+  await t.test('merge with corrupt bytes throws ASSEMBLY_FAILED', async () => {
+    let caught: any
+    try {
+      await merge([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x00])])  // '%PDF\0' — valid header, no structure
+    } catch (e) { caught = e }
+    assert.ok(caught, 'expected an error to be thrown')
+    assert.strictEqual(caught.code, 'ASSEMBLY_FAILED')
   })
 })

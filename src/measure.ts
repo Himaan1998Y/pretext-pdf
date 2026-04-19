@@ -9,6 +9,7 @@ import type {
 import { PretextPdfError } from './errors.js'
 import { measureBlock } from './measure-blocks.js'
 import { getPretext, HyphenatorOpts, getHyphenator } from './measure-text.js'
+import { LINE_HEIGHT_BODY } from './render-utils.js'
 
 // Re-export for backward compatibility with tests
 export { measureBlock }
@@ -51,19 +52,6 @@ export async function measureHeaderFooterHeight(
 }
 
 /**
- * Phase 8D: Resolve preset callout style colors
- */
-function resolveCalloutColors(style?: string): { bg: string; border: string } {
-  switch (style) {
-    case 'info':    return { bg: '#EFF6FF', border: '#3B82F6' }
-    case 'warning': return { bg: '#FFFBEB', border: '#F59E0B' }
-    case 'tip':     return { bg: '#F0FDF4', border: '#10B981' }
-    case 'note':    return { bg: '#F3F4F6', border: '#6B7280' }
-    default:        return { bg: '#FFFFFF', border: '#D1D5DB' }
-  }
-}
-
-/**
  * Build measured TOC entry blocks from draft headings (two-pass TOC generation).
  * Each entry is placed on a specific page.
  */
@@ -79,7 +67,7 @@ export async function buildTocEntryBlocks(
   const maxLevel = tocElement.maxLevel ?? 3
   const fontSize = tocElement.fontSize ?? doc.defaultFontSize ?? 12
   const titleFontSize = tocElement.titleFontSize ?? (fontSize + 4)
-  const lineHeight = fontSize * 1.5
+  const lineHeight = fontSize * LINE_HEIGHT_BODY
   const levelIndent = tocElement.levelIndent ?? 16
   const leader = tocElement.leader ?? '.'
   const fontFamily = tocElement.fontFamily ?? doc.defaultFont ?? 'Inter'
@@ -90,13 +78,13 @@ export async function buildTocEntryBlocks(
   // Title block (if showTitle !== false)
   if (tocElement.showTitle !== false) {
     const title = tocElement.title ?? 'Table of Contents'
-    const titleLines = await measureText(title, titleFontSize, fontFamily, 700, contentWidth, titleFontSize * 1.5, undefined)
+    const titleLines = await measureText(title, titleFontSize, fontFamily, 700, contentWidth, titleFontSize * LINE_HEIGHT_BODY, undefined)
     blocks.push({
       element: { type: 'toc-entry', text: title, pageNumber: -1, level: 1, levelIndent: 0, leader: '', fontFamily, fontWeight: 700 } as import('./types.js').TocEntryElement,
-      height: titleLines.length * (titleFontSize * 1.5),
+      height: titleLines.length * (titleFontSize * LINE_HEIGHT_BODY),
       lines: titleLines,
       fontSize: titleFontSize,
-      lineHeight: titleFontSize * 1.5,
+      lineHeight: titleFontSize * LINE_HEIGHT_BODY,
       fontKey: buildFontKey(fontFamily, 700, 'normal'),
       spaceAfter: lineHeight,
       spaceBefore: 0,
@@ -168,24 +156,27 @@ export async function measureAllBlocks(
         const block = await measureImageWithKey(el, imageKey, imageMap, contentWidth, pageContentHeight)
         results.push(block)
       }
-    } else if (el.type === 'svg') {
-      const svgKey = `svg-${i}`
-      // Skip SVGs that failed to load (not in imageMap)
+    } else if (el.type === 'svg' || el.type === 'qr-code' || el.type === 'barcode' || el.type === 'chart') {
+      const prefix = el.type === 'svg' ? 'svg' : el.type === 'qr-code' ? 'qr' : el.type === 'barcode' ? 'barcode' : 'chart'
+      const svgKey = `${prefix}-${i}`
+      // Skip elements whose image failed to generate (not in imageMap)
       if (!imageMap.has(svgKey)) {
         continue
       }
+      const elWidth  = 'width'  in el ? el.width  : el.type === 'qr-code' ? el.size : undefined
+      const elHeight = 'height' in el ? el.height : el.type === 'qr-code' ? el.size : undefined
       // Synthetic ImageElement reuses existing measurement logic (aspect ratio, clamping, height validation)
       const syntheticImage: import('./types.js').ImageElement = {
         type: 'image',
         src: '',  // unused by measureImageWithKey — it reads from imageMap only
-        ...(el.width !== undefined ? { width: el.width } : {}),
-        ...(el.height !== undefined ? { height: el.height } : {}),
-        ...(el.align !== undefined ? { align: el.align } : {}),
-        spaceAfter: el.spaceAfter ?? 8,
+        ...(elWidth  !== undefined ? { width:  elWidth  } : {}),
+        ...(elHeight !== undefined ? { height: elHeight } : {}),
+        ...(el.align !== undefined ? { align:  el.align } : {}),
+        spaceAfter:  el.spaceAfter  ?? 8,
         spaceBefore: el.spaceBefore ?? 8,
       }
       const block = await measureImageWithKey(syntheticImage, svgKey, imageMap, contentWidth, pageContentHeight)
-      // Swap back to real SvgElement so render.ts routing sees type === 'svg'
+      // Preserve the original element type so render.ts can route correctly
       ;(block as any).element = el
       results.push(block)
     } else if (el.type === 'float-group') {
