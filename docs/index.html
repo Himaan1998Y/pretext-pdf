@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pretext-pdf — The PDF library AI agents speak natively</title>
+  <meta name="description" content="A PdfDocument is plain JSON. LLMs emit it in one shot — no codegen, no headless browser. Professional typography, MCP server included." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --purple: #bc8cff;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Layout ── */
+    .container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 48px 0 40px;
+    }
+
+    header h1 {
+      font-size: 2.4rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+    }
+
+    header h1 span { color: var(--accent); }
+
+    header p.tagline {
+      font-size: 1.15rem;
+      color: var(--muted);
+      max-width: 600px;
+      margin-bottom: 24px;
+    }
+
+    .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+    .badges img { height: 20px; }
+
+    .cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity .15s;
+    }
+    .btn:hover { opacity: .85; text-decoration: none; }
+    .btn-primary { background: var(--accent); color: #0d1117; }
+    .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+
+    /* ── Sections ── */
+    section { padding: 48px 0; border-bottom: 1px solid var(--border); }
+    section:last-child { border-bottom: none; }
+
+    h2 { font-size: 1.4rem; font-weight: 600; margin-bottom: 20px; }
+
+    /* ── Comparison table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th, td { padding: 10px 14px; text-align: left; border: 1px solid var(--border); }
+    th { background: var(--surface); color: var(--muted); font-weight: 600; }
+    td:first-child { color: var(--muted); white-space: nowrap; }
+    td.yes { color: var(--green); }
+    td.no { color: #f85149; }
+    td.partial { color: #e3b341; }
+    td.highlight { color: var(--text); font-weight: 600; }
+    th.highlight { color: var(--accent); }
+
+    /* ── Code block ── */
+    pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.6;
+      margin: 16px 0;
+    }
+    code { font-family: var(--mono); font-size: 0.85em; }
+
+    /* ── Feature grid ── */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .feature-card .icon { font-size: 1.5rem; margin-bottom: 10px; }
+    .feature-card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; }
+    .feature-card p { font-size: 0.85rem; color: var(--muted); }
+
+    /* ── Screenshots ── */
+    .screenshot-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .screenshot-row img {
+      width: 100%;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    /* ── Footer ── */
+    footer {
+      padding: 32px 0;
+      color: var(--muted);
+      font-size: 0.85rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: space-between;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <h1>pretext-<span>pdf</span></h1>
+    <p class="tagline">The PDF library AI agents speak natively. A <code>PdfDocument</code> is plain JSON — LLMs emit it in one shot, no codegen, no headless browser.</p>
+
+    <div class="badges">
+      <img src="https://img.shields.io/npm/v/pretext-pdf" alt="npm version" />
+      <img src="https://img.shields.io/npm/dw/pretext-pdf" alt="downloads" />
+      <img src="https://github.com/Himaan1998Y/pretext-pdf/actions/workflows/ci.yml/badge.svg" alt="CI" />
+      <img src="https://img.shields.io/badge/typescript-strict-blue" alt="TypeScript" />
+      <img src="https://img.shields.io/badge/tests-598-brightgreen" alt="Tests" />
+      <img src="https://img.shields.io/badge/license-MIT-blue" alt="License" />
+    </div>
+
+    <div class="cta-row">
+      <a href="https://pretext-pdf.adi-life.com" class="btn btn-primary">Try Live Demo</a>
+      <a href="https://github.com/Himaan1998Y/pretext-pdf" class="btn btn-secondary">GitHub</a>
+      <a href="https://www.npmjs.com/package/pretext-pdf" class="btn btn-secondary">npm</a>
+      <a href="https://www.npmjs.com/package/pretext-pdf-mcp" class="btn btn-secondary">MCP Server</a>
+    </div>
+  </header>
+
+  <section>
+    <h2>Why pretext-pdf</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>pdfmake / jsPDF</th>
+            <th>Puppeteer / Playwright</th>
+            <th>LaTeX / WeasyPrint</th>
+            <th class="highlight">pretext-pdf</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Lightweight (no Chromium)</td>
+            <td class="yes">✅</td>
+            <td class="no">❌ ~300 MB</td>
+            <td class="no">❌ native binaries</td>
+            <td class="yes highlight">✅</td>
+          </tr>
+          <tr>
+            <td>Pure ESM, runs in serverless</td>
+            <td class="yes">✅</td>
+            <td class="partial">⚠️ painful in Lambda</td>
+            <td class="no">❌</td>
+            <td class="yes highlight">✅</td>
+          </tr>
+          <tr>
+            <td>Professional typography</td>
+            <td class="no">❌</td>
+            <td class="yes">✅</td>
+            <td class="yes">✅</td>
+            <td class="yes highlight">✅</td>
+          </tr>
+          <tr>
+            <td>Declarative JSON API</td>
+            <td class="partial">⚠️ partial</td>
+            <td class="no">❌</td>
+            <td class="no">❌</td>
+            <td class="yes highlight">✅</td>
+          </tr>
+          <tr>
+            <td>LLM emits a working document in one shot</td>
+            <td class="no">❌</td>
+            <td class="no">❌</td>
+            <td class="no">❌</td>
+            <td class="yes highlight">✅</td>
+          </tr>
+          <tr>
+            <td>MCP server out of the box</td>
+            <td class="no">❌</td>
+            <td class="no">❌</td>
+            <td class="no">❌</td>
+            <td class="yes highlight">✅</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Drop into Claude / Cursor / Windsurf via MCP</h2>
+    <pre>{
+  "mcpServers": {
+    "pretext-pdf": {
+      "command": "npx",
+      "args": ["-y", "pretext-pdf-mcp"]
+    }
+  }
+}</pre>
+    <p style="color:var(--muted); font-size:0.88rem;">Tools exposed: <code>generate_pdf</code>, <code>generate_invoice</code>, <code>generate_report</code>, <code>generate_from_markdown</code>, <code>list_element_types</code>.</p>
+  </section>
+
+  <section>
+    <h2>Install</h2>
+    <pre>npm install pretext-pdf</pre>
+    <pre>import { render } from 'pretext-pdf'
+
+const pdf = await render({
+  type: 'document',
+  children: [
+    { type: 'text', content: 'Hello, pretext-pdf!', fontSize: 24, bold: true }
+  ]
+})
+
+// pdf is a Uint8Array — write to disk, stream it, return it from an API</pre>
+  </section>
+
+  <section>
+    <h2>Features</h2>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon">📄</div>
+        <h3>Rich text &amp; typography</h3>
+        <p>Kerning, hyphenation, RTL/CJK, inline bold/italic/code spans.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📊</div>
+        <h3>Tables &amp; charts</h3>
+        <p>Vega-Lite charts, data tables with column sizing and borders.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🖼️</div>
+        <h3>Images &amp; SVG</h3>
+        <p>Embed PNG/JPEG from URL or base64, SVG inline or from file.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🔲</div>
+        <h3>QR codes &amp; barcodes</h3>
+        <p>Generate QR codes and Code128 barcodes from any string.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📝</div>
+        <h3>Markdown input</h3>
+        <p>Pass raw Markdown — it's converted to a typed document tree automatically.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🧾</div>
+        <h3>Invoice &amp; report templates</h3>
+        <p>One-call helpers for common business documents including GST invoices.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Examples</h2>
+    <div class="screenshot-row">
+      <img src="screenshots/showcase-invoice.png" alt="Invoice example" />
+      <img src="screenshots/showcase-report.png" alt="Report example" />
+      <img src="screenshots/showcase-resume.png" alt="Resume example" />
+    </div>
+  </section>
+
+  <section>
+    <h2>Links</h2>
+    <ul style="list-style:none; display:flex; flex-direction:column; gap:8px;">
+      <li><a href="https://pretext-pdf.adi-life.com">Live Demo</a> — interactive JSON editor, renders PDF in your browser</li>
+      <li><a href="https://www.npmjs.com/package/pretext-pdf">npm: pretext-pdf</a></li>
+      <li><a href="https://www.npmjs.com/package/pretext-pdf-mcp">npm: pretext-pdf-mcp</a> — MCP server for AI coding tools</li>
+      <li><a href="https://github.com/Himaan1998Y/pretext-pdf">GitHub repository</a></li>
+      <li><a href="MIGRATION_FROM_PDFMAKE.md">Migrating from pdfmake?</a></li>
+    </ul>
+  </section>
+
+</div>
+
+<footer>
+  <div class="container" style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; width:100%;">
+    <span>pretext-pdf — MIT License</span>
+    <span>Layout powered by <a href="https://github.com/chenglou/pretext">@chenglou/pretext</a> by Cheng Lou</span>
+  </div>
+</footer>
+
+</body>
+</html>
