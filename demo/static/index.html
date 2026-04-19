@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>pretext-pdf — Live Demo</title>
+  <meta name="description" content="Edit JSON, render a real PDF in your browser. No install. No server. Built on pretext-pdf.">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a2e; }
+
+    header { background: #1a1a2e; color: #fff; padding: 12px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    header h1 { font-size: 16px; font-weight: 600; }
+    header a { color: #7cb3ff; font-size: 13px; text-decoration: none; }
+    header a:hover { text-decoration: underline; }
+    .badge { background: #0070f3; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+    .pill { background: #2a2a4e; color: #aaa; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+    .spacer { flex: 1; }
+    .hint { font-size: 11px; color: #888; }
+    .hint kbd { background: #3a3a5e; padding: 1px 5px; border-radius: 3px; font-family: inherit; font-size: 10px; color: #ddd; }
+
+    .tabs { display: flex; background: #2a2a4e; padding: 0 16px; }
+    .tab { padding: 10px 20px; font-size: 13px; font-weight: 500; color: #aaa; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; user-select: none; }
+    .tab:hover { color: #fff; }
+    .tab.active { color: #fff; border-bottom-color: #0070f3; }
+
+    .main { display: flex; height: calc(100vh - 92px); }
+
+    .editor-pane { width: 50%; display: flex; flex-direction: column; border-right: 1px solid #ddd; }
+    .editor-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #fff; border-bottom: 1px solid #eee; }
+    .btn { padding: 6px 16px; font-size: 13px; font-weight: 600; border: none; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+    .btn-primary { background: #0070f3; color: #fff; }
+    .btn-primary:hover { background: #005ed4; }
+    .btn-primary:disabled { background: #999; cursor: not-allowed; }
+    .btn-secondary { background: #eee; color: #333; }
+    .btn-secondary:hover { background: #ddd; }
+    .btn-secondary:disabled { background: #eee; color: #aaa; cursor: not-allowed; }
+    .status { font-size: 12px; color: #888; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .status.error { color: #e53e3e; }
+    .status.ok { color: #38a169; }
+
+    textarea { flex: 1; width: 100%; padding: 12px; font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace; font-size: 12.5px; line-height: 1.5; border: none; outline: none; resize: none; background: #fafafa; tab-size: 2; }
+
+    .preview-pane { width: 50%; background: #e8e8e8; display: flex; flex-direction: column; }
+    .preview-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #fff; border-bottom: 1px solid #eee; font-size: 12px; color: #888; }
+    iframe { flex: 1; border: none; background: #fff; }
+    .placeholder { flex: 1; display: flex; align-items: center; justify-content: center; color: #999; font-size: 14px; text-align: center; line-height: 1.6; padding: 20px; }
+    .placeholder.error { color: #e53e3e; }
+    .placeholder code { background: #2a2a4e; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>pretext-pdf</h1>
+    <span class="badge" id="versionBadge">loading…</span>
+    <span class="pill">renders in your browser</span>
+    <a href="https://github.com/Himaan1998Y/pretext-pdf" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://www.npmjs.com/package/pretext-pdf" target="_blank" rel="noopener">npm</a>
+    <a href="https://www.npmjs.com/package/pretext-pdf-mcp" target="_blank" rel="noopener">MCP server</a>
+    <span class="spacer"></span>
+    <span class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to render</span>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="invoice">Invoice</div>
+    <div class="tab" data-tab="report">Report</div>
+    <div class="tab" data-tab="resume">Resume</div>
+    <div class="tab" data-tab="custom">Custom</div>
+  </div>
+
+  <div class="main">
+    <div class="editor-pane">
+      <div class="editor-toolbar">
+        <button class="btn btn-primary" id="renderBtn" disabled>Loading…</button>
+        <button class="btn btn-secondary" id="downloadBtn" disabled>Download</button>
+        <span class="status" id="status"></span>
+      </div>
+      <textarea id="editor" spellcheck="false" placeholder="Loading editor…"></textarea>
+    </div>
+    <div class="preview-pane">
+      <div class="preview-toolbar">
+        <span id="previewInfo">Booting client-side renderer…</span>
+        <span class="spacer"></span>
+      </div>
+      <div class="placeholder" id="placeholder">
+        Loading <code>pretext-pdf</code> from esm.sh and Inter font files…<br>
+        <small>(first load fetches ~1 MB total, then everything renders locally)</small>
+      </div>
+      <iframe id="pdfFrame" style="display:none" title="PDF preview"></iframe>
+    </div>
+  </div>
+
+<script type="module">
+// ─── Boot: load pretext-pdf via esm.sh + Inter TTFs from same-origin ────────
+
+const PRETEXT_PDF_VERSION = '0.8.1'
+
+const editor = document.getElementById('editor')
+const statusEl = document.getElementById('status')
+const renderBtn = document.getElementById('renderBtn')
+const downloadBtn = document.getElementById('downloadBtn')
+const pdfFrame = document.getElementById('pdfFrame')
+const placeholder = document.getElementById('placeholder')
+const previewInfo = document.getElementById('previewInfo')
+const versionBadge = document.getElementById('versionBadge')
+
+let render = null
+let interRegular = null
+let interBold = null
+
+async function fetchBytes(url) {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`Failed to fetch ${url}: HTTP ${res.status}`)
+  return new Uint8Array(await res.arrayBuffer())
+}
+
+async function boot() {
+  try {
+    const [mod, regularBytes, boldBytes] = await Promise.all([
+      import(`https://esm.sh/pretext-pdf@${PRETEXT_PDF_VERSION}`),
+      fetchBytes('./fonts/Inter-Regular.ttf'),
+      fetchBytes('./fonts/Inter-Bold.ttf'),
+    ])
+    render = mod.render
+    interRegular = regularBytes
+    interBold = boldBytes
+    versionBadge.textContent = 'v' + PRETEXT_PDF_VERSION
+    renderBtn.disabled = false
+    renderBtn.textContent = 'Generate PDF'
+    editor.value = JSON.stringify(PRESETS.invoice, null, 2)
+    await renderPdf()
+  } catch (err) {
+    versionBadge.textContent = 'load failed'
+    placeholder.className = 'placeholder error'
+    placeholder.innerHTML = `Failed to load <code>pretext-pdf</code> from esm.sh.<br>${err.message}<br><br><small>Reload the page to retry. If the error persists, try a different browser or check your network.</small>`
+  }
+}
+
+// ─── Preset Documents ───────────────────────────────────────────────────────
+
+const PRESETS = {
+  invoice: {
+    pageSize: "A4",
+    margins: { top: 50, bottom: 50, left: 56, right: 56 },
+    defaultFontSize: 10,
+    footer: { text: "Page {{pageNumber}} of {{totalPages}}  \u00b7  Generated by pretext-pdf", fontSize: 8, color: "#aaaaaa", align: "center" },
+    content: [
+      { type: "heading", level: 1, text: "Antigravity Systems", fontSize: 22, color: "#1a1a2e", spaceAfter: 2 },
+      { type: "paragraph", text: "AI Infrastructure & Consulting  \u00b7  Gurugram, Haryana  \u00b7  GSTIN: 06AABCA1234Z1ZK", fontSize: 9, color: "#666666", spaceAfter: 2 },
+      { type: "paragraph", text: "hello@antigravity.dev  \u00b7  +91 98765 43210", fontSize: 9, color: "#0070f3", spaceAfter: 16 },
+      { type: "hr", color: "#1a1a2e", thickness: 2, spaceBelow: 14 },
+      { type: "heading", level: 3, text: "INVOICE", fontSize: 18, color: "#1a1a2e", spaceAfter: 8 },
+      {
+        type: "table",
+        columns: [{ width: "1*" }, { width: "1*" }],
+        rows: [
+          { cells: [{ text: "Invoice No.\nINV-2026-0087" }, { text: "Bill To\nTata Consultancy Services Ltd.\nPowai, Mumbai 400076" }] },
+          { cells: [{ text: "Date\nApril 8, 2026" }, { text: "Due Date\nMay 8, 2026" }] }
+        ],
+        borderColor: "#e8e8e8", borderWidth: 0.5, cellPaddingH: 10, cellPaddingV: 8, spaceAfter: 16
+      },
+      { type: "heading", level: 3, text: "Services Rendered", color: "#1a1a2e", spaceAfter: 6 },
+      {
+        type: "table",
+        columns: [{ width: "3*", align: "left" }, { width: 70, align: "center" }, { width: 90, align: "right" }, { width: 90, align: "right" }],
+        rows: [
+          { isHeader: true, cells: [{ text: "Description", fontWeight: 700, color: "#ffffff" }, { text: "Qty", fontWeight: 700, color: "#ffffff" }, { text: "Rate", fontWeight: 700, color: "#ffffff" }, { text: "Amount", fontWeight: 700, color: "#ffffff" }] },
+          { cells: [{ text: "LLM Fine-tuning Pipeline" }, { text: "1" }, { text: "2,50,000" }, { text: "2,50,000" }] },
+          { cells: [{ text: "AI Strategy Workshop (2 days)" }, { text: "2" }, { text: "75,000" }, { text: "1,50,000" }] },
+          { cells: [{ text: "ML Engineer (March)" }, { text: "1 mo" }, { text: "1,80,000" }, { text: "1,80,000" }] },
+          { cells: [{ text: "Data Pipeline Review" }, { text: "8 hrs" }, { text: "12,000" }, { text: "96,000" }] }
+        ],
+        headerBgColor: "#1a1a2e", borderColor: "#e0e0e0", borderWidth: 0.5, cellPaddingH: 8, cellPaddingV: 6, spaceAfter: 4
+      },
+      { type: "hr", color: "#e0e0e0", thickness: 0.5, spaceBelow: 6 },
+      { type: "paragraph", text: "Subtotal:   Rs.6,76,000", align: "right", spaceAfter: 3 },
+      { type: "paragraph", text: "IGST @ 18%: Rs.1,21,680", align: "right", color: "#555555", spaceAfter: 6 },
+      { type: "hr", color: "#1a1a2e", thickness: 1, spaceBelow: 6 },
+      { type: "paragraph", text: "TOTAL DUE:  Rs.7,97,680", fontSize: 14, fontWeight: 700, color: "#1a1a2e", align: "right", spaceAfter: 20 },
+      { type: "hr", color: "#e8e8e8", spaceBelow: 8 },
+      { type: "paragraph", text: "Generated by pretext-pdf", fontSize: 8, color: "#aaaaaa", align: "center" }
+    ]
+  },
+
+  report: {
+    pageSize: "A4",
+    margins: { top: 60, bottom: 60, left: 64, right: 64 },
+    defaultFontSize: 11,
+    bookmarks: { minLevel: 1, maxLevel: 3 },
+    header: { text: "Quarterly Report Q1 2026", fontSize: 8, color: "#999999", align: "right" },
+    footer: { text: "Page {{pageNumber}} of {{totalPages}}", fontSize: 8, color: "#999999", align: "center" },
+    metadata: { title: "Quarterly Report Q1 2026", author: "Antigravity Research" },
+    content: [
+      { type: "spacer", height: 40 },
+      { type: "heading", level: 1, text: "Quarterly Business Report", fontSize: 28, color: "#1a1a2e", align: "center", spaceAfter: 10, bookmark: false },
+      { type: "paragraph", text: "Q1 2026  \u00b7  Antigravity Systems", fontSize: 12, color: "#555555", align: "center", spaceAfter: 6 },
+      { type: "hr", color: "#1a1a2e", thickness: 2, spaceBelow: 40 },
+      { type: "toc", title: "Contents", showTitle: true, leader: ".", minLevel: 1, maxLevel: 2, fontSize: 11, spaceAfter: 20 },
+      { type: "page-break" },
+      { type: "heading", level: 1, text: "Executive Summary", spaceAfter: 8 },
+      { type: "paragraph", text: "Q1 2026 delivered strong results across all business lines. Revenue grew 34% quarter-over-quarter driven by enterprise AI consulting engagements. The LLM fine-tuning pipeline product achieved product-market fit with 12 active enterprise clients.", spaceAfter: 12 },
+      { type: "callout", style: "tip", title: "Key Highlight", content: "Annual Recurring Revenue crossed Rs.2.4 Crore \u2014 a 3x increase from Q4 2025.", spaceAfter: 16 },
+      { type: "heading", level: 1, text: "Financial Overview", spaceAfter: 8 },
+      { type: "paragraph", text: "The following table summarizes key financial metrics for Q1 2026 compared to the previous quarter.", spaceAfter: 8 },
+      {
+        type: "table",
+        columns: [{ width: "2*", align: "left" }, { width: "1*", align: "right" }, { width: "1*", align: "right" }, { width: "1*", align: "right" }],
+        rows: [
+          { isHeader: true, cells: [{ text: "Metric", fontWeight: 700, color: "#ffffff" }, { text: "Q4 2025", fontWeight: 700, color: "#ffffff" }, { text: "Q1 2026", fontWeight: 700, color: "#ffffff" }, { text: "Change", fontWeight: 700, color: "#ffffff" }] },
+          { cells: [{ text: "Revenue" }, { text: "Rs.45L" }, { text: "Rs.60L" }, { text: "+34%" }] },
+          { cells: [{ text: "Gross Margin" }, { text: "62%" }, { text: "68%" }, { text: "+6pp" }] },
+          { cells: [{ text: "Active Clients" }, { text: "8" }, { text: "12" }, { text: "+50%" }] },
+          { cells: [{ text: "Cloud Spend" }, { text: "Rs.3.2L" }, { text: "Rs.1.85L" }, { text: "-42%" }] }
+        ],
+        headerBgColor: "#1a1a2e", borderColor: "#e0e0e0", borderWidth: 0.5, cellPaddingH: 10, cellPaddingV: 6, spaceAfter: 16
+      },
+      { type: "heading", level: 1, text: "Outlook", spaceAfter: 8 },
+      { type: "paragraph", text: "Q2 priorities include launching the Cloud API for web-only users, publishing comparison content for SEO acquisition, and expanding the enterprise consulting pipeline into BFSI verticals.", spaceAfter: 8 }
+    ]
+  },
+
+  resume: {
+    pageSize: "A4",
+    margins: { top: 40, bottom: 40, left: 52, right: 52 },
+    defaultFontSize: 10,
+    content: [
+      { type: "heading", level: 1, text: "Himanshu Jain", fontSize: 24, color: "#1a1a2e", spaceAfter: 2 },
+      { type: "paragraph", text: "AI Systems Architect  \u00b7  Entrepreneur  \u00b7  Gurugram, India", fontSize: 11, color: "#555555", spaceAfter: 3 },
+      { type: "rich-paragraph", fontSize: 10, spans: [
+        { text: "himanshu@antigravity.dev", color: "#0070f3" },
+        { text: "  \u00b7  github.com/Himaan1998Y  \u00b7  +91 98765 43210", color: "#555555" }
+      ], spaceAfter: 6 },
+      { type: "hr", color: "#1a1a2e", thickness: 1.5, spaceBelow: 10 },
+      { type: "heading", level: 3, text: "PROFILE", fontSize: 9, color: "#888888", letterSpacing: 2, smallCaps: true, spaceAfter: 4 },
+      { type: "paragraph", text: "Founder and AI architect with 4+ years building AI-powered products. Deep expertise in LLM integration, multi-agent orchestration, and data pipeline architecture.", spaceAfter: 10 },
+      { type: "heading", level: 3, text: "EXPERIENCE", fontSize: 9, color: "#888888", letterSpacing: 2, smallCaps: true, spaceAfter: 6 },
+      { type: "rich-paragraph", fontSize: 11, spans: [
+        { text: "Founder & CEO", fontWeight: 700 },
+        { text: "  \u00b7  Antigravity Systems", color: "#333333" },
+        { text: "  \u00b7  2022 \u2013 Present", color: "#888888" }
+      ], spaceAfter: 4 },
+      { type: "list", style: "unordered", fontSize: 10, spaceAfter: 8, items: [
+        { text: "Built AI infrastructure platform serving 12+ enterprise clients" },
+        { text: "Designed multi-agent content pipeline processing 500+ articles/month" },
+        { text: "Open-sourced pretext-pdf \u2014 declarative PDF generation library" }
+      ] },
+      { type: "heading", level: 3, text: "SKILLS", fontSize: 9, color: "#888888", letterSpacing: 2, smallCaps: true, spaceAfter: 6 },
+      {
+        type: "table",
+        columns: [{ width: 100 }, { width: "1*" }],
+        rows: [
+          { cells: [{ text: "AI / ML", fontWeight: 700 }, { text: "LLM APIs, fine-tuning, RAG, vector DBs, multi-agent systems" }] },
+          { cells: [{ text: "Backend", fontWeight: 700 }, { text: "Node.js, TypeScript, Python, PostgreSQL, Redis" }] },
+          { cells: [{ text: "Frontend", fontWeight: 700 }, { text: "Next.js 14, React, Tailwind CSS" }] },
+          { cells: [{ text: "Infra", fontWeight: 700 }, { text: "Docker, Coolify, OVH VPS, GitHub Actions CI/CD" }] }
+        ],
+        borderColor: "#e8e8e8", borderWidth: 0.5, cellPaddingH: 8, cellPaddingV: 5, spaceAfter: 10
+      },
+      { type: "heading", level: 3, text: "EDUCATION", fontSize: 9, color: "#888888", letterSpacing: 2, smallCaps: true, spaceAfter: 6 },
+      { type: "rich-paragraph", fontSize: 10, spans: [
+        { text: "B.E. Mechanical + MBA", fontWeight: 700 },
+        { text: "  \u00b7  Thapar Institute, Patiala  \u00b7  2018\u20132022  \u00b7  GPA: 8.4/10", color: "#555555" }
+      ], spaceAfter: 10 },
+      { type: "hr", color: "#e0e0e0", spaceBelow: 6 },
+      { type: "paragraph", text: "Generated with pretext-pdf", fontSize: 8, color: "#aaaaaa", align: "center" }
+    ]
+  },
+
+  custom: {
+    pageSize: "A4",
+    margins: { top: 60, bottom: 60, left: 64, right: 64 },
+    defaultFontSize: 12,
+    content: [
+      { type: "heading", level: 1, text: "Hello, pretext-pdf!", spaceAfter: 12 },
+      { type: "paragraph", text: "Edit this JSON to build your own PDF. Everything renders locally in your browser \u2014 no server roundtrip, no Chromium, no rate limit.", spaceAfter: 12 },
+      { type: "paragraph", text: "Try the elements below. Press Ctrl+Enter (or Cmd+Enter) to re-render at any time.", spaceAfter: 8 },
+      { type: "list", style: "unordered", spaceAfter: 12, items: [
+        { text: "{ type: \"heading\", level: 2, text: \"Section Title\" }" },
+        { text: "{ type: \"table\", columns: [...], rows: [...] }" },
+        { text: "{ type: \"hr\" }  \u2014 horizontal rule" },
+        { text: "{ type: \"callout\", style: \"info\", content: \"...\" }" },
+        { text: "{ type: \"blockquote\", text: \"...\" }" },
+        { text: "{ type: \"page-break\" }" }
+      ] },
+      { type: "callout", style: "tip", title: "Tip", content: "Visit github.com/Himaan1998Y/pretext-pdf for the full element-type reference and examples." }
+    ]
+  }
+}
+
+// ─── App State ──────────────────────────────────────────────────────────────
+
+let currentTab = 'invoice'
+let currentBlobUrl = null
+let lastPdfBlob = null
+
+// ─── Tab Switching ──────────────────────────────────────────────────────────
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelector('.tab.active').classList.remove('active')
+    tab.classList.add('active')
+    currentTab = tab.dataset.tab
+    editor.value = JSON.stringify(PRESETS[currentTab], null, 2)
+    clearPreview()
+    renderPdf()
+  })
+})
+
+// ─── Render ─────────────────────────────────────────────────────────────────
+
+renderBtn.addEventListener('click', renderPdf)
+downloadBtn.addEventListener('click', downloadPdf)
+
+async function renderPdf() {
+  if (!render) return
+  renderBtn.disabled = true
+  downloadBtn.disabled = true
+  statusEl.textContent = 'Rendering…'
+  statusEl.className = 'status'
+
+  let userDoc
+  try {
+    userDoc = JSON.parse(editor.value)
+  } catch (e) {
+    statusEl.textContent = 'Invalid JSON: ' + e.message.replace(/^JSON\.parse: /, '')
+    statusEl.className = 'status error'
+    renderBtn.disabled = false
+    return
+  }
+
+  // Inject browser-supplied Inter font bytes so the lib never falls through
+  // to its Node-only bundled-font path. User-provided fonts win in collectNeededFonts().
+  const docWithFonts = {
+    ...userDoc,
+    fonts: [
+      { family: 'Inter', weight: 400, style: 'normal', src: interRegular },
+      { family: 'Inter', weight: 700, style: 'normal', src: interBold },
+      ...(userDoc.fonts ?? []),
+    ],
+  }
+
+  try {
+    const t0 = performance.now()
+    const pdf = await render(docWithFonts)
+    const ms = (performance.now() - t0).toFixed(0)
+    const blob = new Blob([pdf], { type: 'application/pdf' })
+    const sizeKb = (blob.size / 1024).toFixed(1)
+
+    if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl)
+    currentBlobUrl = URL.createObjectURL(blob)
+    lastPdfBlob = blob
+
+    pdfFrame.src = currentBlobUrl
+    pdfFrame.style.display = 'block'
+    placeholder.style.display = 'none'
+    previewInfo.textContent = `${sizeKb} KB  \u00b7  ${ms}ms  \u00b7  rendered locally`
+    statusEl.textContent = 'Done'
+    statusEl.className = 'status ok'
+    downloadBtn.disabled = false
+  } catch (err) {
+    const msg = err && err.message ? err.message : String(err)
+    const code = err && err.code ? err.code + ': ' : ''
+    statusEl.textContent = code + msg
+    statusEl.className = 'status error'
+  } finally {
+    renderBtn.disabled = false
+  }
+}
+
+function downloadPdf() {
+  if (!lastPdfBlob || !currentBlobUrl) return
+  const a = document.createElement('a')
+  a.href = currentBlobUrl
+  a.download = currentTab + '.pdf'
+  a.click()
+}
+
+function clearPreview() {
+  if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl)
+  currentBlobUrl = null
+  lastPdfBlob = null
+  pdfFrame.style.display = 'none'
+  placeholder.style.display = 'flex'
+  placeholder.className = 'placeholder'
+  placeholder.textContent = 'Generating PDF…'
+  previewInfo.textContent = 'Rendering…'
+  downloadBtn.disabled = true
+  statusEl.textContent = ''
+  statusEl.className = 'status'
+}
+
+// ─── Keyboard Shortcuts ─────────────────────────────────────────────────────
+
+editor.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault()
+    renderPdf()
+    return
+  }
+  if (e.key === 'Tab') {
+    e.preventDefault()
+    const start = editor.selectionStart
+    const end = editor.selectionEnd
+    editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end)
+    editor.selectionStart = editor.selectionEnd = start + 2
+  }
+})
+
+// ─── Boot ───────────────────────────────────────────────────────────────────
+
+boot()
+</script>
+</body>
+</html>
