@@ -23,14 +23,14 @@ jobs:
             set -e
 
             # Clone or pull latest pretext-pdf
-            if [ -d /opt/pretext-pdf-demo ]; then
-              cd /opt/pretext-pdf-demo && git pull
+            if [ -d ~/pretext-pdf-demo ]; then
+              cd ~/pretext-pdf-demo && git pull
             else
-              git clone https://github.com/Himaan1998Y/pretext-pdf.git /opt/pretext-pdf-demo
+              git clone https://github.com/Himaan1998Y/pretext-pdf.git ~/pretext-pdf-demo
             fi
 
             # Build Docker image from the demo subfolder
-            docker build -t pretext-pdf-demo /opt/pretext-pdf-demo/demo/stackblitz/
+            docker build -t pretext-pdf-demo ~/pretext-pdf-demo/demo/stackblitz/
 
             # Replace running container
             docker stop pretext-pdf-demo 2>/dev/null || true
