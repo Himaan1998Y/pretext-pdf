@@ -7,6 +7,6 @@
     "start": "node src/server.js"
   },
   "dependencies": {
-    "pretext-pdf": "^0.5.3"
+    "pretext-pdf": "^0.8.0"
   }
 }

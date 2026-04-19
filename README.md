@@ -12,7 +12,7 @@
 [![Tests](https://img.shields.io/badge/tests-598-brightgreen)](#test-coverage)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**[Try the Live Demo](https://stackblitz.com/github/Himaan1998Y/pretext-pdf/tree/master/demo/stackblitz?file=public%2Findex.html)** — edit JSON, generate PDFs instantly. No install required.
+**[Try the Live Demo](http://57.129.125.171:3001)** — edit JSON, generate PDFs instantly. No install required.
 
 **Coming from pdfmake?** See the [Migration Guide](docs/MIGRATION_FROM_PDFMAKE.md) — maps every pdfmake pattern to its pretext-pdf equivalent.
 
