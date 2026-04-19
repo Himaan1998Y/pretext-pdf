@@ -1,120 +1,109 @@
 # pretext-pdf
 
-> **Declarative JSON → PDF generation with professional typography.**
+> **The PDF library AI agents speak natively.**
 >
-> Build sophisticated, multi-page documents with precise text layout, international support, and zero browser overhead.
+> A `PdfDocument` is plain JSON. LLMs emit it in one shot — no codegen, no headless browser, no `eval`. Humans get a strict-typed, declarative API for invoices, reports, and templates.
 
 [![npm version](https://img.shields.io/npm/v/pretext-pdf)](https://www.npmjs.com/package/pretext-pdf)
 [![npm downloads](https://img.shields.io/npm/dw/pretext-pdf)](https://www.npmjs.com/package/pretext-pdf)
 [![CI](https://github.com/Himaan1998Y/pretext-pdf/actions/workflows/ci.yml/badge.svg)](https://github.com/Himaan1998Y/pretext-pdf/actions)
 [![TypeScript](https://img.shields.io/badge/typescript-strict-blue)](https://www.typescriptlang.org/)
-[![Type Safety](https://img.shields.io/badge/type--safety-documented--casts-blueviolet)](#type-safety-v046)
 [![Tests](https://img.shields.io/badge/tests-598-brightgreen)](#test-coverage)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**[Try the Live Demo](http://57.129.125.171:3001)** — edit JSON, generate PDFs instantly. No install required.
+**[Live demo](https://himaan1998y.github.io/pretext-pdf/)** — edit JSON, render PDFs instantly. No install.
+**[`pretext-pdf-mcp`](https://www.npmjs.com/package/pretext-pdf-mcp)** — drop-in MCP server for Claude / Cursor / Windsurf.
+**[Migrating from pdfmake?](docs/MIGRATION_FROM_PDFMAKE.md)** — every pattern mapped.
 
-**Coming from pdfmake?** See the [Migration Guide](docs/MIGRATION_FROM_PDFMAKE.md) — maps every pdfmake pattern to its pretext-pdf equivalent.
+*Layout powered by [`@chenglou/pretext`](https://github.com/chenglou/pretext) — the precision text-layout engine by [Cheng Lou](https://github.com/chenglou) (React core team, Midjourney).*
 
 ---
 
-## v0.8.0 — QR Codes, Barcodes, Charts, Markdown, Templates
+## Why pretext-pdf
 
-Five new capabilities added, all via optional peer dependencies (zero extra weight if unused):
+There are three established camps in JS PDF generation, and one gap. pretext-pdf lives in the gap.
 
-- **`qr-code` element** — embed scannable QR codes (UPI payments, URLs, vCards). Requires `qrcode`.
-- **`barcode` element** — 100+ symbologies (EAN-13, Code128, PDF417, QR, DataMatrix…). Requires `bwip-js`.
-- **`chart` element** — embed Vega-Lite data visualisations as crisp vector SVG. Requires `vega` + `vega-lite`.
-- **`pretext-pdf/markdown`** entry point — convert any Markdown string to `ContentElement[]` in one call. Requires `marked`.
-- **`pretext-pdf/templates`** entry point — zero-dep helper functions: `createInvoice`, `createGstInvoice` (India GST / IGST / CGST+SGST), `createReport`.
+| | pdfmake / jsPDF / pdfkit | Puppeteer / Playwright | LaTeX / WeasyPrint | **pretext-pdf** |
+|---|---|---|---|---|
+| Lightweight (no Chromium) | ✅ | ❌ ~300 MB | ❌ native binaries | ✅ |
+| Pure ESM, runs in serverless | ✅ | ⚠️ painful in Lambda | ❌ | ✅ |
+| Professional typography (kerning, hyphenation, RTL/CJK) | ❌ | ✅ | ✅ | ✅ |
+| Declarative — describe the document, don't draw it | ⚠️ partial | ❌ | ❌ | ✅ |
+| **LLM emits a working document in one shot** | ❌ requires a code-execution loop | ❌ requires HTML+CSS knowledge | ❌ requires LaTeX knowledge | ✅ pure JSON |
+| MCP server available out of the box | ❌ | ❌ | ❌ | ✅ |
 
-Install only what you need:
+**The headline:** every other JS PDF library asks an LLM to *write code*. pretext-pdf asks it for a JSON object. That difference is what makes agent-generated PDFs reliable.
 
-```bash
-npm install pretext-pdf@^0.8.0
-npm install qrcode              # for qr-code element
-npm install bwip-js             # for barcode element
-npm install vega vega-lite      # for chart element
-npm install marked              # for pretext-pdf/markdown
+---
+
+## Built for AI agents
+
+A `PdfDocument` is a plain JSON object. No functions are required. No classes to instantiate. Every field is optional except `type` and a few element-specific essentials. That shape is exactly what an LLM can produce reliably with no tool-use loop.
+
+### Drop into Claude / Cursor / Windsurf via MCP
+
+```json
+{
+  "mcpServers": {
+    "pretext-pdf": {
+      "command": "npx",
+      "args": ["-y", "pretext-pdf-mcp"]
+    }
+  }
+}
 ```
 
-> **ESM only** — pretext-pdf is a pure ESM package (`"type": "module"`). Use `import`, not `require`.
+Tools exposed: `generate_pdf`, `generate_invoice`, `generate_report`, `generate_from_markdown`, `list_element_types`. Built on the live [`pretext-pdf-mcp`](https://www.npmjs.com/package/pretext-pdf-mcp) package — versioned alongside this library.
 
----
+### Or call from any agent framework
 
-## v0.4.6 — Security & Quality Hardening
+```typescript
+import { render } from 'pretext-pdf'
 
-All 41 issues from comprehensive April 2026 security audit resolved:
-
-- **Phase 1**: Security hardening (path traversal protection, async file I/O, explicit error handling)
-- **Phase 2**: Type safety (reduced and documented any-casts, proper module typing, strict inference)
-- **Phase 3**: Test coverage (false-positive fixes, boundary case validation)
-- **Phase 4**: Code quality (silent failures → explicit errors, improved decoupling)
-
-**Result**: 188+ comprehensive tests, 100% pass rate, production-ready reliability.
-
----
-
-## Why pretext-pdf?
-
-| | pdfmake | Puppeteer | **pretext-pdf** |
-|---|---|---|---|
-| Easy declarative API | ✅ | ❌ | ✅ |
-| Professional typography | ❌ | ✅ | ✅ |
-| Lightweight (no browser) | ✅ | ❌ | ✅ |
-| International text (RTL/CJK) | ❌ | ✅ | ✅ |
-| Pure Node.js | ✅ | ❌ | ✅ |
-| Hyperlinks + annotations | ❌ | ✅ | ✅ |
-| Document assembly | ❌ | ❌ | ✅ |
-
-### Powered by [pretext](https://github.com/chenglou/pretext)
-
-Pretext is a precision text layout engine by [Cheng Lou](https://github.com/chenglou) (React core team, Midjourney).
-
-```
-JSON descriptor  →  pretext layout  →  pdf-lib renderer  →  PDF bytes
-                     (kerning,           (annotations,
-                      hyphenation,        encryption,
-                      RTL, CJK)           hyperlinks)
+// Whatever produced this JSON — Claude, GPT, a workflow node, a form submission — works the same
+const pdf = await render({
+  metadata: { title: 'AI-generated quarterly report' },
+  content: [
+    { type: 'heading', level: 1, text: 'Q1 2026 Summary' },
+    { type: 'paragraph', text: 'Revenue grew 18% YoY.' },
+    { type: 'table', columns: [...], rows: [...] },
+  ],
+})
 ```
 
----
+### Why JSON-first matters for agents
 
-## Output Samples
-
-Real documents generated with pretext-pdf:
-
-| Invoice | Market Report | Resume / CV |
-|---------|--------------|-------------|
-| [![Invoice](docs/screenshots/showcase-invoice.png)](examples/showcase-invoice.ts) | [![Report](docs/screenshots/showcase-report.png)](examples/showcase-report.ts) | [![Resume](docs/screenshots/showcase-resume.png)](examples/showcase-resume.ts) |
-| [View source](examples/showcase-invoice.ts) | [View source](examples/showcase-report.ts) | [View source](examples/showcase-resume.ts) |
+- **No code execution loop.** The model returns JSON; you call `render()`. No sandbox, no `vm`, no Vercel Sandbox roundtrip.
+- **Schema-validatable.** Strict TypeScript types double as the contract. Pair with [Anthropic tool use](https://docs.anthropic.com/en/docs/build-with-claude/tool-use) or [Vercel AI SDK structured output](https://sdk.vercel.ai/docs/ai-sdk-core/generating-structured-data) for guaranteed-shape results.
+- **Self-correcting errors.** Every failure throws `PretextPdfError` with a typed `code`. Feed it back to the model and it fixes itself.
+- **Progressive disclosure.** Optional peer deps mean an agent can ask for QR codes, charts, or markdown only when needed — token-efficient prompts.
 
 ---
 
 ## Install
 
 ```bash
-npm install pretext-pdf@^0.8.0
+npm install pretext-pdf
 ```
 
-> **ESM only** — use `import`, not `require`.
+> **ESM only** — use `import`, not `require`. Requires Node.js ≥ 18.
 
 Optional peer dependencies — install only what you need:
 
 ```bash
-npm install @napi-rs/canvas    # SVG elements (qr-code / barcode / chart all require this too)
+npm install @napi-rs/canvas    # SVG / qr-code / barcode / chart elements
 npm install qrcode             # qr-code element
 npm install bwip-js            # barcode element
-npm install vega vega-lite     # chart element
+npm install vega vega-lite     # chart element (Vega-Lite specs → vector SVG)
 npm install marked             # pretext-pdf/markdown entry point
 npm install @signpdf/signpdf   # PKCS#7 cryptographic signing
 ```
 
-> **Encryption is built-in since v0.4.0** — no extra install needed. Just add `encryption` to your document config.
+> **Encryption is built-in** since v0.4.0 — no extra install needed. Just add `encryption` to your document config.
 
 ---
 
-## Quick Start
+## Quick start
 
 ```typescript
 import { render } from 'pretext-pdf'
@@ -146,7 +135,7 @@ const pdf = await render({
 writeFileSync('invoice.pdf', pdf)
 ```
 
-### Builder API
+### Builder API (fluent style)
 
 ```typescript
 import { createPdf } from 'pretext-pdf'
@@ -160,63 +149,32 @@ const pdf = await createPdf({ pageSize: 'A4' })
 
 ---
 
-## Agent / AI Integration
+## Output samples
 
-pretext-pdf works great as a tool for AI agents generating PDFs on demand.
+Real documents generated with pretext-pdf:
 
-### MCP Server (Claude Desktop, Cursor, Windsurf)
-
-Use [`pretext-pdf-mcp`](https://www.npmjs.com/package/pretext-pdf-mcp) to call pretext-pdf directly from any AI agent:
-
-```json
-{
-  "mcpServers": {
-    "pretext-pdf": {
-      "command": "npx",
-      "args": ["-y", "pretext-pdf-mcp"]
-    }
-  }
-}
-```
-
-Tools available: `generate_pdf`, `generate_invoice`, `generate_report`, `generate_from_markdown`, `list_element_types`
-
-### Quick pattern for LLMs
-
-```typescript
-import { render } from 'pretext-pdf'
-
-// Every PdfDocument is a plain JSON object — perfect for AI generation
-const pdf = await render({
-  metadata: { title: 'AI-Generated Report' },
-  content: [
-    { type: 'heading', level: 1, text: 'Summary' },
-    { type: 'paragraph', text: 'Generated content here.' },
-    // ... AI fills this array
-  ]
-})
-```
-
-### Key facts for AI agents
-
-- `content` is an array of typed elements — each has a `type` field
-- All fields are optional except `type` and element-specific required fields (e.g. `text`, `level`)
-- Errors are typed: `err.code` tells you exactly what went wrong
-- `render()` is fully async, safe to `await` in any context
-- Works in Node.js 18+ and modern browsers (with `@napi-rs/canvas` for SVG)
-
-### Element type reference (quick)
-
-```
-paragraph    heading(1-4)   spacer       hr           page-break
-table        image          svg          list         code
-blockquote   rich-paragraph callout      comment      form-field
-toc          qr-code        barcode      chart
-```
+| Invoice | Market Report | Resume / CV |
+|---------|--------------|-------------|
+| [![Invoice](docs/screenshots/showcase-invoice.png)](examples/showcase-invoice.ts) | [![Report](docs/screenshots/showcase-report.png)](examples/showcase-report.ts) | [![Resume](docs/screenshots/showcase-resume.png)](examples/showcase-resume.ts) |
+| [View source](examples/showcase-invoice.ts) | [View source](examples/showcase-report.ts) | [View source](examples/showcase-resume.ts) |
 
 ---
 
-## India / GST Invoicing
+## What's in v0.8.0
+
+Five new capabilities, all behind optional peer dependencies (zero extra weight if unused):
+
+- **`qr-code`** — scannable QR codes for UPI payments, URLs, vCards. Requires `qrcode`.
+- **`barcode`** — 100+ symbologies (EAN-13, Code128, PDF417, DataMatrix…). Requires `bwip-js`.
+- **`chart`** — embed Vega-Lite specs as crisp vector SVG. Requires `vega` + `vega-lite`.
+- **`pretext-pdf/markdown`** — convert any Markdown string to `ContentElement[]` in one call. Requires `marked`.
+- **`pretext-pdf/templates`** — zero-dep template helpers: `createInvoice`, `createGstInvoice` (India GST / IGST / CGST+SGST), `createReport`.
+
+See [CHANGELOG.md](CHANGELOG.md) for the full history.
+
+---
+
+## India / GST invoicing
 
 pretext-pdf has built-in support for Indian invoice requirements:
 
@@ -226,7 +184,7 @@ pretext-pdf has built-in support for Indian invoice requirements:
 - **Amount in words** — Indian numbering system (Lakh/Crore)
 - **SAC/HSN codes** — column support in line-item tables
 
-Use the `createGstInvoice` template for a complete GST-compliant invoice in one function call:
+Use the `createGstInvoice` template for a complete GST-compliant invoice in one call:
 
 ```typescript
 import { createGstInvoice } from 'pretext-pdf/templates'
@@ -283,7 +241,7 @@ Supported Markdown: headings h1–h4, bold, italic, strikethrough, inline code, 
 
 ---
 
-## Invoice & Report Templates (`pretext-pdf/templates`)
+## Invoice & report templates (`pretext-pdf/templates`)
 
 Pre-built zero-dependency template functions that generate `ContentElement[]` arrays:
 
@@ -317,19 +275,14 @@ const pdf = await render({ content: reportContent })
 
 ---
 
-## Features
+## Element type reference
 
-### Security & Reliability
-
-- ✅ **Type-safe architecture** — strict TypeScript inference, documented casts for pdf-lib internals
-- ✅ **Cryptographically signed PDFs** — PKCS#7 signing support (Phase 3)
-- ✅ **Path traversal protection** — Secure file operations with validated paths
-- ✅ **Error sanitization** — No sensitive data in error messages
-- ✅ **Async-safe I/O** — Non-blocking file operations throughout
-- ✅ **Comprehensive test coverage** — 188+ tests with 100% pass rate
-- ✅ **No hardcoded secrets** — Environment-based configuration
-
-### Element Types
+```
+paragraph    heading(1-4)   spacer       hr           page-break
+table        image          svg          list         code
+blockquote   rich-paragraph callout      comment      form-field
+toc          qr-code        barcode      chart        footnote-def
+```
 
 | Element | What it does |
 | --- | --- |
@@ -351,7 +304,7 @@ const pdf = await render({ content: reportContent })
 | `spacer` | Fixed-height gap |
 | `page-break` | Force new page |
 
-### Document Features
+### Document-level features
 
 | Feature | Config key | Notes |
 | --- | --- | --- |
@@ -362,97 +315,18 @@ const pdf = await render({ content: reportContent })
 | Headers/Footers | `doc.header` / `doc.footer` | `{{pageNumber}}`, `{{totalPages}}`, `{{date}}`, `{{author}}` tokens |
 | Per-section overrides | `doc.sections` | Different header/footer/margins per page range |
 | Metadata | `doc.metadata` | Title, author, subject, keywords, `language` (PDF /Lang), `producer` |
-
-### Phase 8 Features
-
-| Feature | API |
-| --- | --- |
-| **Hyperlinks** | `paragraph.url`, `heading.url`, `heading.anchor`, `span.href` |
-| **Inline formatting** | `span.verticalAlign: 'superscript'\|'subscript'`, `paragraph.letterSpacing`, `heading.smallCaps` |
-| **Sticky notes** | `{ type: 'comment', contents: '...' }`, `paragraph.annotation` |
-| **Document assembly** | `merge(pdfs)`, `assemble(parts)` |
-| **Interactive forms** | `{ type: 'form-field', fieldType: 'text'\|'checkbox'\|'radio'\|'dropdown'\|'button' }`, `doc.flattenForms` |
-| **Signature placeholder** | `doc.signature: { signerName, reason, location, x, y, page }` |
-| **Callout boxes** | `{ type: 'callout', content, style: 'info'\|'warning'\|'tip'\|'note', title }` |
-| **Form error handling** | `doc.onFormFieldError: (name, err) => 'skip' \| 'throw'` |
-| **Image error handling** | `doc.onImageLoadError: (src, err) => 'skip' \| 'throw'` |
-
-### Type Safety (v0.4.6+)
-
-pretext-pdf is built with **strict TypeScript**. Remaining `as any` casts are limited to pdf-lib internal APIs with no public type surface, each documented with a comment explaining why:
-
-- **Full type inference** — No need to cast document configs or response types
-- **Element validation** — TypeScript catches invalid element types at compile time
-- **API contract testing** — Every API boundary has comprehensive type tests
-- **Error types** — `PretextPdfError` with typed code field for safe error handling
-- **Module typing** — Complete type definitions for all exports and configurations
+| Hyperlinks | `paragraph.url`, `heading.url`, `heading.anchor`, `span.href` | External, mailto, internal anchors |
+| Inline formatting | `span.verticalAlign: 'superscript'\|'subscript'`, `paragraph.letterSpacing`, `heading.smallCaps` | |
+| Sticky notes | `{ type: 'comment', contents: '...' }`, `paragraph.annotation` | |
+| Document assembly | `merge(pdfs)`, `assemble(parts)` | Combine pre-rendered + freshly rendered |
+| Interactive forms | `{ type: 'form-field', fieldType: 'text'\|'checkbox'\|'radio'\|'dropdown'\|'button' }`, `doc.flattenForms` | |
+| Cryptographic signing | `doc.signature: { p12, passphrase, signerName, reason, location }` | PKCS#7 via optional `@signpdf/signpdf` |
+| Visual signature placeholder | `doc.signature: { signerName, reason, location, x, y, page }` | |
+| Callout boxes | `{ type: 'callout', content, style: 'info'\|'warning'\|'tip'\|'note', title }` | |
 
 ---
 
-## Security Audit (April 2026)
-
-Comprehensive security and quality audit completed. **41 issues identified and fixed across 5 phases:**
-
-| Phase | Focus | Issues | Status |
-| --- | --- | --- | --- |
-| 0 | Core rendering | Footnote truncation | ✅ Fixed |
-| 1 | Security hardening | Path validation, async I/O, error handling | ✅ Fixed |
-| 2 | Type safety | Any-cast elimination, module typing | ✅ Fixed |
-| 3 | Test coverage | False-positives, boundary cases, crypto signing | ✅ Fixed |
-| 4 | Code quality | Silent failures → explicit errors, decoupling | ✅ Fixed |
-
-**Audit results:**
-
-- Zero path traversal vulnerabilities
-- All error messages sanitized (no data leaks)
-- Async file I/O throughout (non-blocking)
-- No hardcoded secrets or credentials
-- 188+ tests, 100% pass rate
-- Production-ready reliability
-
-See [SECURITY.md](SECURITY.md) for detailed security policies.
-
----
-
-## Examples
-
-Run working examples from the `examples/` directory:
-
-```bash
-# v0.8.0 new element examples (install optional deps first)
-# npm install qrcode bwip-js vega vega-lite marked
-
-# QR code in a document:
-# content: [{ type: 'qr-code', data: 'upi://pay?pa=merchant@upi&am=1000', size: 80, align: 'center' }]
-
-# Barcode:
-# content: [{ type: 'barcode', symbology: 'ean13', data: '5901234123457', width: 200, height: 80 }]
-
-# Vega-Lite chart:
-# content: [{ type: 'chart', spec: { data: { values: [...] }, mark: 'bar', encoding: { x: ..., y: ... } } }]
-
-# Phase 7 examples
-npm run example                # Basic invoice
-npm run example:watermark      # Text/image watermarks
-npm run example:bookmarks      # PDF outline/bookmarks
-npm run example:toc            # Auto table of contents
-npm run example:rtl            # Arabic/Hebrew RTL text
-npm run example:encryption     # Password-protected PDF
-
-# Phase 8 examples
-npm run example:hyperlinks     # External links, email links, internal anchors
-npm run example:annotations    # Sticky notes on elements
-npm run example:assembly       # Merge and assemble multiple PDFs
-npm run example:inline         # Superscript, subscript, letter-spacing, small-caps
-npm run example:forms          # Interactive form fields (text, checkbox, radio, dropdown)
-npm run example:callout        # Callout boxes (info, warning, tip, note presets)
-```
-
-All examples write output to `output/*.pdf`.
-
----
-
-## API Reference
+## API reference
 
 ### `render(doc): Promise<Uint8Array>`
 
@@ -506,106 +380,7 @@ const report = await assemble([
 
 ---
 
-## Error Handling
-
-Every error throws `PretextPdfError` with a typed code:
-
-```typescript
-import { render, PretextPdfError } from 'pretext-pdf'
-
-try {
-  const pdf = await render(config)
-} catch (err) {
-  if (err instanceof PretextPdfError) {
-    switch (err.code) {
-      case 'VALIDATION_ERROR':   // Invalid config
-      case 'FONT_LOAD_FAILED':   // Font file not found
-      case 'IMAGE_TOO_TALL':     // Image doesn't fit on page
-      case 'ASSEMBLY_EMPTY':     // merge/assemble called with empty array
-      // ... see CHANGELOG.md for full list
-    }
-  }
-}
-```
-
----
-
-## Troubleshooting
-
-### Hyphenation language not found
-
-```
-UNSUPPORTED_LANGUAGE: Language 'en-US' not supported
-```
-
-Use **lowercase** language codes that match the npm package name:
-
-```typescript
-// Wrong — 'en-US' fails on Linux (case-sensitive filesystem)
-hyphenation: { language: 'en-US' }
-
-// Correct — matches 'hyphenation.en-us' package name
-hyphenation: { language: 'en-us' }
-```
-
-### Encryption
-
-Encryption is built-in since v0.4.0. Add `encryption` to your document config:
-
-```typescript
-const pdf = await render({
-  encryption: {
-    userPassword: 'open123',
-    ownerPassword: 'admin456',
-    permissions: { printing: true, copying: false, modifying: false }
-  },
-  content: [...]
-})
-```
-
-### SVG rendering requires optional dependency
-
-Install `@napi-rs/canvas` for SVG support:
-
-```bash
-npm install @napi-rs/canvas
-```
-
-### PDF is blank or too small
-
-Check margins — if left+right margins exceed page width, content width becomes negative:
-
-```typescript
-// For narrow pages, reduce margins:
-margins: { top: 36, bottom: 36, left: 36, right: 36 }
-```
-
-### Form fields not interactive after flattenForms
-
-`flattenForms: true` bakes fields into static content — by design. Remove it to keep interactive.
-
----
-
-## Test Coverage
-
-598+ tests across all phases with 100% pass rate:
-
-```bash
-npm test              # Full suite (unit + e2e + all phases including v0.8.0)
-npm run test:unit     # Validation, builder, rich-text unit tests
-npm run test:e2e      # End-to-end render tests
-npm run test:10a      # QR code + barcode tests
-npm run test:10b      # Vega-Lite chart tests
-npm run test:10c      # Markdown converter tests
-npm run test:10d      # Template function tests
-npm run test:phases   # All phase tests (7–11, performance, signatures)
-```
-
-**Coverage**: Type safety, path validation, error handling, boundary cases, crypto signing, document assembly, all content elements, optional-dep error codes, MCP tool validation.
-
----
-
-## Custom Fonts
+## Custom fonts
 
 ```typescript
 const pdf = await render({
@@ -622,9 +397,11 @@ const pdf = await render({
 })
 ```
 
+> **Avoid `system-ui`** as a font name on macOS — it triggers a known layout-measurement inaccuracy in Pretext. Always name fonts explicitly.
+
 ---
 
-## Rich Text
+## Rich text
 
 ```typescript
 {
@@ -677,31 +454,120 @@ await render({
 
 ---
 
-## Roadmap
+## Examples
 
-| Phase | Feature | Status |
-|-------|---------|--------|
-| 1–4 | Core engine, pagination, typography | ✅ |
-| 5 | Rich text / builder API | ✅ |
-| 6 | Headers/footers, columns, decoration | ✅ |
-| 7A | PDF Bookmarks / Outline | ✅ |
-| 7B | Watermarks | ✅ |
-| 7C | Hyphenation | ✅ |
-| 7D | Table of Contents | ✅ |
-| 7E | SVG support | ✅ |
-| 7F | RTL text (Arabic/Hebrew) | ✅ |
-| 7G | Encryption | ✅ |
-| 8A | Sticky note annotations | ✅ |
-| 8B | Interactive forms (text/checkbox/radio/dropdown/button) | ✅ |
-| 8C | Document assembly (merge + assemble) | ✅ |
-| 8D | Callout boxes (info/warning/tip/note) | ✅ |
-| 8E | Signature placeholder | ✅ |
-| 8F | Document metadata (language, producer) | ✅ |
-| 8G | Hyperlinks | ✅ |
-| 8H | Inline formatting (super/subscript, letterSpacing, smallCaps) | ✅ |
-| 9A | Digital signatures (cryptographic, PKCS#7) | 🔜 |
-| 9B | Image floats (text flowing around images) | 🔜 |
-| 9C | Font subsetting pre-computation | 🔜 |
+Run working examples from the `examples/` directory:
+
+```bash
+# v0.8.0 new element examples (install optional deps first)
+# npm install qrcode bwip-js vega vega-lite marked
+
+# Phase 7 examples
+npm run example                # Basic invoice
+npm run example:watermark      # Text/image watermarks
+npm run example:bookmarks      # PDF outline/bookmarks
+npm run example:toc            # Auto table of contents
+npm run example:rtl            # Arabic/Hebrew RTL text
+npm run example:encryption     # Password-protected PDF
+
+# Phase 8 examples
+npm run example:hyperlinks     # External links, email links, internal anchors
+npm run example:annotations    # Sticky notes on elements
+npm run example:assembly       # Merge and assemble multiple PDFs
+npm run example:inline         # Superscript, subscript, letter-spacing, small-caps
+npm run example:forms          # Interactive form fields
+npm run example:callout        # Callout boxes (info, warning, tip, note)
+npm run example:gst            # India GST-compliant invoice
+```
+
+All examples write output to `output/*.pdf`.
+
+---
+
+## Error handling
+
+Every error throws `PretextPdfError` with a typed `code` — designed so an LLM (or a human) can self-correct:
+
+```typescript
+import { render, PretextPdfError } from 'pretext-pdf'
+
+try {
+  const pdf = await render(config)
+} catch (err) {
+  if (err instanceof PretextPdfError) {
+    switch (err.code) {
+      case 'VALIDATION_ERROR':   // Invalid config
+      case 'FONT_LOAD_FAILED':   // Font file not found
+      case 'IMAGE_TOO_TALL':     // Image doesn't fit on page
+      case 'ASSEMBLY_EMPTY':     // merge/assemble called with empty array
+      // ... see CHANGELOG.md for full list
+    }
+  }
+}
+```
+
+---
+
+## Troubleshooting
+
+### Hyphenation language not found
+
+```
+UNSUPPORTED_LANGUAGE: Language 'en-US' not supported
+```
+
+Use **lowercase** language codes that match the npm package name:
+
+```typescript
+// Wrong — 'en-US' fails on Linux (case-sensitive filesystem)
+hyphenation: { language: 'en-US' }
+
+// Correct — matches 'hyphenation.en-us' package name
+hyphenation: { language: 'en-us' }
+```
+
+### SVG rendering requires optional dependency
+
+Install `@napi-rs/canvas` for SVG / chart / qr-code / barcode support:
+
+```bash
+npm install @napi-rs/canvas
+```
+
+### PDF is blank or too small
+
+Check margins — if left+right margins exceed page width, content width becomes negative:
+
+```typescript
+// For narrow pages, reduce margins:
+margins: { top: 36, bottom: 36, left: 36, right: 36 }
+```
+
+### Form fields not interactive after `flattenForms`
+
+`flattenForms: true` bakes fields into static content — by design. Remove it to keep them interactive.
+
+---
+
+## Non-goals
+
+What pretext-pdf is **not** trying to be — pick a different tool for these:
+
+- **Editing or parsing existing PDFs** → [`pdf-lib`](https://github.com/Hopding/pdf-lib), [`pdf-parse`](https://www.npmjs.com/package/pdf-parse)
+- **Filling existing PDF form templates** → [`pdf-lib`](https://github.com/Hopding/pdf-lib), [`pdftk`](https://www.pdflabs.com/tools/pdftk-server/)
+- **Heavily art-directed pages** with CSS grids, SVG illustrations, floats, background images → headless Chrome (Puppeteer) still wins
+- **PDF/A archival, PDF/UA accessibility tagging** → not yet
+- **Print-shop kerning pairs, OpenType ligatures, variable-font axes beyond weight** → Pretext itself doesn't model these
+
+---
+
+## Runtime requirements
+
+- **Node.js ≥ 18** with `@napi-rs/canvas` peer dep (lazy-loaded — only required when you use SVG/chart/QR/barcode elements)
+- **`Intl.Segmenter`** (built-in on Node 18+ and all modern browsers)
+- **Browser support** — works directly in modern browsers; bring your own font bytes
+- **Cold-start cost** on serverless: `@napi-rs/canvas` adds ~5–10 MB and a few hundred ms on the first request. Subsequent requests in a warm container are sub-second.
+- **Fonts must be fully loaded** before `render()` runs — for browser usage, await `document.fonts.ready` first
 
 ---
 
@@ -721,9 +587,55 @@ For large documents (10,000+ elements), set `NODE_OPTIONS=--max-old-space-size=4
 
 ---
 
+## Test coverage
+
+598+ tests across all phases with 100% pass rate:
+
+```bash
+npm test              # Full suite (unit + e2e + all phases including v0.8.0)
+npm run test:unit     # Validation, builder, rich-text unit tests
+npm run test:e2e      # End-to-end render tests
+npm run test:10a      # QR code + barcode tests
+npm run test:10b      # Vega-Lite chart tests
+npm run test:10c      # Markdown converter tests
+npm run test:10d      # Template function tests
+npm run test:phases   # All phase tests (7–11, performance, signatures)
+```
+
+**Coverage**: type safety, path validation, error handling, boundary cases, crypto signing, document assembly, all content elements, optional-dep error codes, MCP tool validation.
+
+---
+
+## Security
+
+Comprehensive April 2026 security audit completed — 41 issues identified and fixed across path-traversal protection, async I/O, error sanitization, type-safety, and explicit failure modes. See [SECURITY.md](SECURITY.md) for the disclosure policy and [CHANGELOG.md](CHANGELOG.md) for audit details.
+
+Highlights:
+- Zero known path-traversal vulnerabilities; opt-in `allowedFileDirs` lockdown for user-controlled inputs
+- All error messages sanitized — no filesystem paths or secrets leak through
+- Async file I/O throughout (non-blocking)
+- Strict TypeScript with documented `any`-casts only at pdf-lib internal boundaries
+
+---
+
+## Roadmap
+
+| Phase | Feature | Status |
+|-------|---------|--------|
+| 1–6 | Core engine, pagination, typography, rich text, builder, columns | ✅ |
+| 7A–G | Bookmarks, watermarks, hyphenation, TOC, SVG, RTL, encryption | ✅ |
+| 8A–H | Annotations, forms, assembly, callouts, signatures, metadata, hyperlinks, inline formatting | ✅ |
+| 9A–C | Cryptographic signatures (PKCS#7), image floats, font subsetting | ✅ |
+| 10A–D | QR codes, barcodes, Vega-Lite charts, Markdown, templates | ✅ |
+| 11+ | Variable fonts, OpenType features, PDF/A, PDF/UA accessibility | 🔜 |
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan.
+
+---
+
 ## Migration from pdfmake
 
-Coming from pdfmake? See the **[Migration Guide](docs/MIGRATION_FROM_PDFMAKE.md)** for a complete cheat sheet covering every common pdfmake pattern and its pretext-pdf equivalent.
+Coming from pdfmake? See the **[Migration Guide](docs/MIGRATION_FROM_PDFMAKE.md)** — every common pdfmake pattern mapped to its pretext-pdf equivalent.
 
 ---
 
@@ -741,9 +653,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). TDD approach — write tests first.
 
 ## Credits
 
-Built by [Himanshu Jain](https://github.com/Himaan1998Y) on top of:
-- **[pretext](https://github.com/chenglou/pretext)** — Text layout engine (Cheng Lou)
-- **[pdf-lib](https://github.com/Hopding/pdf-lib)** — PDF manipulation
-- **[@napi-rs/canvas](https://github.com/napi-rs/canvas)** — Server-side Canvas API for Node.js
+Built by [Himanshu Jain](https://github.com/Himaan1998Y) on the shoulders of [pretext](https://github.com/chenglou/pretext), [pdf-lib](https://github.com/Hopding/pdf-lib), and [@napi-rs/canvas](https://github.com/napi-rs/canvas).
 
-Questions? [Open an issue](https://github.com/Himaan1998Y/pretext-pdf/issues)
+Questions? [Open an issue](https://github.com/Himaan1998Y/pretext-pdf/issues) — or try it live at the [demo](https://himaan1998y.github.io/pretext-pdf/).
