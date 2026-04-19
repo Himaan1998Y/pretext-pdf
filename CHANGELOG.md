@@ -7,6 +7,20 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [0.8.1] — 2026-04-20
+
+### Fixed
+
+- **Browser support** — `pretext-pdf` now imports cleanly in browsers. Module-init in `src/fonts.ts` previously called `fileURLToPath(import.meta.url)` and `createRequire(import.meta.url)` eagerly, which threw `"The URL must be of scheme file"` whenever the module was loaded from a non-`file://` URL (esm.sh, jsdelivr, Vite dev server). Both calls are now gated on a runtime `IS_NODE` check, and the bundled-Inter `BUNDLED_INTER_PATHS` arrays are constructed only in Node.
+- **Browser font-loading errors** — `loadFontBytes` now throws clear `FONT_LOAD_FAILED` messages when bundled Inter or string font paths are requested in a browser, pointing the consumer at the correct workaround (supply `Uint8Array` bytes via `doc.fonts`).
+
+### Notes for browser users
+
+- Always supply Inter (or your default font) explicitly via `doc.fonts: [{ family: 'Inter', weight: 400, src: <Uint8Array> }, { family: 'Inter', weight: 700, src: <Uint8Array> }]`. The library cannot read local font files in the browser.
+- SVG / chart / qr-code / barcode elements still depend on `@napi-rs/canvas` at runtime; in the browser, the native `OffscreenCanvas` is used instead and the polyfill is skipped automatically.
+
+---
+
 ## [0.8.0] — 2026-04-19
 
 ### Added

@@ -9,8 +9,13 @@ import { PretextPdfError } from './errors.js'
 import { buildFontKey } from './measure.js'
 import { assertPathAllowed } from './assets.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const _require = createRequire(import.meta.url)
+// Browser detection. The bundled-font paths below depend on Node-only APIs
+// (fileURLToPath, createRequire, fs). In a browser, these are guarded so that
+// import-time evaluation never throws and consumers must supply fonts via doc.fonts.
+const IS_NODE = typeof window === 'undefined' && typeof process !== 'undefined' && !!(process.versions?.node)
+
+const __dirname = IS_NODE ? path.dirname(fileURLToPath(import.meta.url)) : ''
+const _require = IS_NODE ? createRequire(import.meta.url) : null
 
 /**
  * Font loading strategy:
@@ -26,6 +31,7 @@ const _require = createRequire(import.meta.url)
  */
 
 function resolveInterFile(filename: string): string | null {
+  if (!_require) return null
   try {
     const pkgJson = _require.resolve('@fontsource/inter/package.json')
     return path.join(path.dirname(pkgJson), 'files', filename)
@@ -34,19 +40,19 @@ function resolveInterFile(filename: string): string | null {
   }
 }
 
-/** Path to bundled Inter 400 normal font — TTF preferred for pdf-lib */
-const BUNDLED_INTER_PATHS = [
+/** Path to bundled Inter 400 normal font — TTF preferred for pdf-lib (Node only) */
+const BUNDLED_INTER_PATHS: string[] = IS_NODE ? [
   path.join(__dirname, '..', 'fonts', 'Inter-Regular.ttf'),
   resolveInterFile('inter-latin-400-normal.woff2'),
   resolveInterFile('inter-all-400-normal.woff2'),
-].filter(Boolean) as string[]
+].filter(Boolean) as string[] : []
 
-/** Path to bundled Inter 700 (bold) font — TTF preferred for pdf-lib */
-const BUNDLED_INTER_BOLD_PATHS = [
+/** Path to bundled Inter 700 (bold) font — TTF preferred for pdf-lib (Node only) */
+const BUNDLED_INTER_BOLD_PATHS: string[] = IS_NODE ? [
   path.join(__dirname, '..', 'fonts', 'Inter-Bold.ttf'),
   resolveInterFile('inter-latin-700-normal.woff2'),
   resolveInterFile('inter-all-700-normal.woff2'),
-].filter(Boolean) as string[]
+].filter(Boolean) as string[] : []
 
 /**
  * Stage 2: Load and embed all fonts.
@@ -253,6 +259,12 @@ async function loadFontBytes(
   }
 
   if (spec.src === 'bundled') {
+    if (!IS_NODE) {
+      throw new PretextPdfError(
+        'FONT_LOAD_FAILED',
+        `Bundled Inter font is not available in the browser. Supply font bytes via doc.fonts: [{ family: 'Inter', weight: 400, src: <Uint8Array> }, { family: 'Inter', weight: 700, src: <Uint8Array> }]`
+      )
+    }
     const paths = (spec.weight ?? 400) >= 600 ? BUNDLED_INTER_BOLD_PATHS : BUNDLED_INTER_PATHS
     for (const p of paths) {
       if (fs.existsSync(p)) {
@@ -267,6 +279,14 @@ async function loadFontBytes(
     throw new PretextPdfError(
       'FONT_LOAD_FAILED',
       `Bundled Inter font not found. Make sure @fontsource/inter is installed: npm install @fontsource/inter`
+    )
+  }
+
+  // Browser context cannot read local file paths — only Uint8Array is supported
+  if (!IS_NODE) {
+    throw new PretextPdfError(
+      'FONT_LOAD_FAILED',
+      `Font path "${spec.src}" is a string, but file paths cannot be read in the browser. Fetch the font yourself and pass the bytes as a Uint8Array in doc.fonts[].src.`
     )
   }
 
