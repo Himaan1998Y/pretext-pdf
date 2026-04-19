@@ -5,6 +5,7 @@ on:
     branches: [master]
     paths:
       - 'demo/stackblitz/**'
+  workflow_dispatch:
 
 jobs:
   deploy:
