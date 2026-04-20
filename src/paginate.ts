@@ -8,6 +8,19 @@ const MAX_PAGES = 10_000
  *  sub-point rounding when measured heights are computed via floating-point multiplication. */
 const EPSILON = 0.01
 
+/**
+ * Return the title-row height to reserve for a callout block's first chunk.
+ * measureBlock always attaches calloutData for callout elements; a missing value
+ * indicates a producer bug, so fail loudly rather than silently returning 0.
+ */
+function calloutTitleHeight(block: MeasuredBlock, isFirstChunk: boolean): number {
+  if (!isFirstChunk || block.element.type !== 'callout') return 0
+  if (!block.calloutData) {
+    throw new Error('MeasuredBlock contract violated: callout block missing calloutData')
+  }
+  return block.calloutData.titleHeight
+}
+
 interface PaginateConfig {
   minOrphanLines: number  // min lines to keep at bottom of a page
   minWidowLines: number   // min lines to start at top of next page
@@ -320,9 +333,7 @@ function splitBlock(
     // Use codePad as reservation — if it turns out this IS the last chunk, the padding fits.
     // If it's a middle chunk, we conservatively reserve it to avoid overflow, then correct below.
     const bottomPadReserve = codePad
-    const calloutTitleH = (block.element.type === 'callout' && isFirstChunk && block.calloutData?.titleHeight)
-      ? block.calloutData.titleHeight : 0
-    const availableForLines = available - topPad - bottomPadReserve - calloutTitleH
+    const availableForLines = available - topPad - bottomPadReserve - calloutTitleHeight(block, isFirstChunk)
 
     // Rich paragraphs may have variable line heights when spans use different font sizes
     let linesInChunk: number
@@ -454,10 +465,8 @@ export function getCurrentY(pages: RenderedPage[]): number {
       const isLastChunk = pagedBlock.endLine === block.lines.length
       const paddingTop = isFirstChunk ? paddingV : 0
       const paddingBottom = isLastChunk ? paddingV : 0
-      const titleH = (el.type === 'callout' && isFirstChunk && block.calloutData?.titleHeight)
-        ? block.calloutData.titleHeight : 0
       blockBottom = pagedBlock.yFromTop +
-        titleH +
+        calloutTitleHeight(block, isFirstChunk) +
         lineCount * block.lineHeight +
         paddingTop + paddingBottom +
         block.spaceAfter

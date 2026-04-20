@@ -1097,7 +1097,7 @@ export interface MeasuredBlock {
   codeHighlightTokens?: Array<Array<{ text: string; color: string }>>
   /** Only set when element.type === 'rich-paragraph'. Mixed-font composed lines. */
   richLines?: RichLine[]
-  // ─── optional payload fields ────────────────────────────────────
+  // ─── Blockquote ────────────────────────────────────────────────
   /** Only set when element.type === 'blockquote'. Resolved vertical padding in pt. */
   blockquotePaddingV?: number
   /** Only set when element.type === 'blockquote'. Resolved horizontal padding in pt. */
@@ -1105,7 +1105,11 @@ export interface MeasuredBlock {
   /** Only set when element.type === 'blockquote'. Resolved left border width in pt. */
   blockquoteBorderWidth?: number
   // ─── Callout ────────────────────────────────────────────────────
-  /** Only set when element.type === 'callout'. Resolved styling metadata. */
+  /**
+   * Set by measureBlock for every element.type === 'callout'. Consumers must treat this
+   * as required when the element type is callout; see `calloutTitleHeight` in paginate.ts
+   * for the runtime invariant check.
+   */
   calloutData?: {
     titleHeight: number
     paddingH: number

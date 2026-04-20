@@ -477,9 +477,6 @@ export async function measureBlock(
         fontKey: buildFontKey(family, el.fontWeight ?? 400, 'normal'),
         spaceAfter: el.spaceAfter ?? 12,
         spaceBefore: el.spaceBefore ?? 0,
-        blockquotePaddingV: pv,
-        blockquotePaddingH: ph,
-        blockquoteBorderWidth: 3,
         calloutData: { titleHeight, paddingH: ph, paddingV: pv, borderColor, backgroundColor, titleColor, color, ...(el.title !== undefined ? { titleText: el.title } : {}) },
       }
     }
