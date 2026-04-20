@@ -244,7 +244,7 @@ function placeBlock(
   // At this point block.element is paragraph | heading | list-item | code | blockquote
   const el = block.element
   // List items use the parent ListElement — keepTogether not applicable (always false)
-  // Multi-column blocks are always keepTogether — no mid-column page breaks in Phase 5B
+  // Multi-column blocks are always keepTogether — no mid-column page breaks
   const keepTogether = (block.floatData !== undefined)
     ? true  // Float image blocks are atomic — never split across pages
     : (block.floatGroupData !== undefined)
@@ -320,7 +320,7 @@ function splitBlock(
       ? block.calloutData.titleHeight : 0
     const availableForLines = available - topPad - bottomPadReserve - calloutTitleH
 
-    // Phase 5B.4: rich-paragraph may have variable line heights (per-span fontSize)
+    // Rich paragraphs may have variable line heights when spans use different font sizes
     let linesInChunk: number
     if (block.element.type === 'rich-paragraph' && block.richLines) {
       linesInChunk = countRichLinesInHeight(block.richLines, remainingStartIndex, availableForLines)
@@ -457,7 +457,7 @@ export function getCurrentY(pages: RenderedPage[]): number {
         block.spaceAfter
 
     } else if (el.type === 'rich-paragraph' && block.richLines) {
-      // Phase 5B.4: rich-paragraph may have variable line heights (per-span fontSize)
+      // Rich paragraphs may have variable line heights when spans use different font sizes
       const visibleRichLines = block.richLines.slice(pagedBlock.startLine, pagedBlock.endLine)
       const contentHeight = visibleRichLines.reduce((sum, rl) => sum + rl.lineHeight, 0)
       blockBottom = pagedBlock.yFromTop + contentHeight + block.spaceAfter
@@ -475,7 +475,7 @@ export function getCurrentY(pages: RenderedPage[]): number {
   return maxY
 }
 
-// ─── Phase 5B.4: Per-line height counting for rich-paragraph ──────────────────
+// ─── Per-line height counting for rich-paragraph ──────────────────
 /**
  * Count how many lines from richLines array fit in the available height.
  * Uses greedy accumulation of per-line heights (which may vary due to per-span fontSize).

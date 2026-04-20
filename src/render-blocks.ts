@@ -160,14 +160,14 @@ export function renderTextBlock(
     let trimmedText = line.text.trimEnd()
     const isLastLine = i === lines.length - 1
 
-    // Phase 8H: smallCaps — uppercase text at 80% font size
+    // smallCaps — uppercase text at 80% font size
     const hasSmallCaps = textElement?.smallCaps === true
     const effectiveFontSize = hasSmallCaps ? measuredBlock.fontSize * 0.8 : measuredBlock.fontSize
     if (hasSmallCaps) trimmedText = trimmedText.toUpperCase()
 
     const hasTabular = textElement?.tabularNumbers === true
 
-    // Phase 8H: letterSpacing — draw char by char
+    // letterSpacing — draw char by char
     const letterSpacing = (textElement?.letterSpacing ?? 0) > 0
       ? textElement!.letterSpacing as number
       : 0
@@ -205,14 +205,14 @@ export function renderTextBlock(
       drawTextDecoration(pdfPage, drawX, lineWidth, pdfY, effectiveFontSize, pdfFont, [r, g, b], { underline: element.underline ?? false, strikethrough: element.strikethrough ?? false })
     }
 
-    // Phase 8G: Wire paragraph.url and heading.url for clickable links
+    // Clickable link annotation on paragraph/heading
     if ((element.type === 'paragraph' || element.type === 'heading') && element.url) {
       const lineWidth = pdfFont.widthOfTextAtSize(trimmedText, effectiveFontSize) + (letterSpacing > 0 ? letterSpacing * (trimmedText.length - 1) : 0)
       addLinkAnnotation(pdfDoc, pdfPage, drawX, pdfY, lineWidth, effectiveFontSize, element.url)
     }
   }
 
-  // Phase 8A: annotation on paragraph/heading — attach sticky note at top of block
+  // Annotation on paragraph/heading — attach sticky note at top of block
   if (textElement?.annotation) {
     const ann = textElement.annotation
     const absY = yFromTop + geo.margins.top + geo.headerHeight
@@ -834,7 +834,7 @@ export function renderBlockquote(
   }
 }
 
-// ─── Callout rendering (Phase 8D) ────────────────────────────────────────────
+// ─── Callout rendering ────────────────────────────────────────────
 
 export function renderCallout(
   pdfPage: ReturnType<PDFDocument['addPage']>,
@@ -949,7 +949,7 @@ export function renderRichParagraph(
   // Draw background color if set
   const columnData = measuredBlock.columnData
   if (element.type === 'rich-paragraph' && element.bgColor) {
-    // Phase 5B.4: Use sum of per-line heights (may vary with per-span fontSize)
+    // Use sum of per-line heights (may vary with per-span fontSize)
     const chunkHeight = columnData
       ? visibleLines.slice(0, columnData.linesPerColumn).reduce((sum, rl) => sum + rl.lineHeight, 0)
       : visibleLines.reduce((sum, rl) => sum + rl.lineHeight, 0)
@@ -969,7 +969,7 @@ export function renderRichParagraph(
   // Multi-column layout
   if (columnData) {
     const { columnCount, columnGap, columnWidth, linesPerColumn } = columnData
-    // Phase 5B.4: Track cumulative Y per column (per-line heights may vary)
+    // Track cumulative Y per column (per-line heights may vary)
     const colCumY = new Array<number>(columnCount).fill(0)
     for (let i = 0; i < visibleLines.length; i++) {
       const richLine = visibleLines[i]!
@@ -1035,7 +1035,7 @@ export function renderRichParagraph(
   }
 
   // Single-column layout (standard path)
-  // Phase 5B.4: Track cumulative Y (per-line heights may vary due to per-span fontSize)
+  // Track cumulative Y (per-line heights may vary due to per-span fontSize)
   let cumY = 0
   for (let i = 0; i < visibleLines.length; i++) {
     const richLine = visibleLines[i]!

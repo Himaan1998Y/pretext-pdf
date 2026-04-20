@@ -9,7 +9,7 @@
 [![npm downloads](https://img.shields.io/npm/dw/pretext-pdf)](https://www.npmjs.com/package/pretext-pdf)
 [![CI](https://github.com/Himaan1998Y/pretext-pdf/actions/workflows/ci.yml/badge.svg)](https://github.com/Himaan1998Y/pretext-pdf/actions)
 [![TypeScript](https://img.shields.io/badge/typescript-strict-blue)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-650%2B-brightgreen)](#tests)
+[![Tests](https://img.shields.io/badge/tests-600%2B-brightgreen)](#tests)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Bundle](https://img.shields.io/badge/runtime%20deps-7-informational)](#runtime-footprint)
 
@@ -671,7 +671,7 @@ For documents with 10,000+ elements, set `NODE_OPTIONS=--max-old-space-size=4096
 
 ## Tests
 
-650+ tests across all phases with 100% pass rate:
+600+ tests with 100% pass rate:
 
 ```bash
 npm test              # Full suite (contract + unit + e2e + phases + 2f stress)

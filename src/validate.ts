@@ -284,7 +284,7 @@ export function validate(doc: PdfDocument): void {
     if (sig.fontSize !== undefined && (typeof sig.fontSize !== 'number' || sig.fontSize <= 0)) {
       throw new PretextPdfError('VALIDATION_ERROR', 'signature.fontSize must be a positive number')
     }
-    // Phase 3: crypto signature validation
+    // Crypto signature validation
     if (sig.p12 !== undefined) {
       if (typeof sig.p12 !== 'string' && !(sig.p12 instanceof Uint8Array)) {
         throw new PretextPdfError('VALIDATION_ERROR', 'signature.p12 must be a file path string or Uint8Array of certificate bytes')
@@ -575,7 +575,7 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
       if (typeof el.text !== 'string') {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (paragraph): 'text' must be a string`)
       }
-      // NEW: Validate dir field (Phase 7F)
+      // NEW: Validate dir field
       if (el.dir !== undefined && !['ltr', 'rtl', 'auto'].includes(el.dir)) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (paragraph): 'dir' must be 'ltr', 'rtl', or 'auto'`)
       }
@@ -885,7 +885,7 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
       if (el.spaceBefore !== undefined && (typeof el.spaceBefore !== 'number' || el.spaceBefore < 0 || !isFinite(el.spaceBefore))) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (image): 'spaceBefore' must be a non-negative finite number`)
       }
-      // Phase 5: float validation
+      // Float validation
       if (el.float !== undefined && el.float !== 'left' && el.float !== 'right') {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (image): 'float' must be 'left' or 'right'`)
       }
@@ -1046,7 +1046,7 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
         if (typeof item.text !== 'string' || item.text.trim() === '') {
           throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].text must be a non-empty string`)
         }
-        // NEW: Validate dir field (Phase 7F)
+        // NEW: Validate dir field
         if (item.dir !== undefined && !['ltr', 'rtl', 'auto'].includes(item.dir)) {
           throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].dir must be 'ltr', 'rtl', or 'auto'`)
         }

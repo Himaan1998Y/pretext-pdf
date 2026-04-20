@@ -108,7 +108,7 @@ export async function measureBlock(
     }
 
     case 'paragraph': {
-      // NEW (Phase 7F): Detect and reorder RTL text
+      // Detect and reorder RTL text
       const { visual: visualText, isRTL, logical: logicalText } = await detectAndReorderRTL(element.text, element.dir)
 
       const fontSize = element.fontSize ?? doc.defaultParagraphStyle?.fontSize ?? baseFontSize
@@ -150,7 +150,7 @@ export async function measureBlock(
         measureWidth = Math.max(10, measureWidth * avgCharWidth / (avgCharWidth + letterSpacingValue))
       }
 
-      // CRITICAL (Phase 7F): Measure the VISUAL-ORDER text (what will actually be rendered).
+      // Measure the visual-order text (after RTL reordering) for accurate glyph metrics.
       // smallCaps uppercases at render time — measure the same uppercase text so
       // line-break widths match what is actually drawn.
       const measureText_ = element.smallCaps === true ? visualText.toUpperCase() : visualText
@@ -175,7 +175,7 @@ export async function measureBlock(
           spaceAfter: paraSpaceAfter,
           spaceBefore: paraSpaceBefore,
           columnData,
-          isRTL,  // NEW (Phase 7F)
+          isRTL,
           ...(isRTL && { logicalText }),  // NEW: Only store logical text when RTL
         }
       } else {
@@ -188,14 +188,14 @@ export async function measureBlock(
           fontKey,
           spaceAfter: paraSpaceAfter,
           spaceBefore: paraSpaceBefore,
-          isRTL,  // NEW (Phase 7F)
+          isRTL,
           ...(isRTL && { logicalText }),  // NEW: Only store logical text when RTL
         }
       }
     }
 
     case 'heading': {
-      // NEW (Phase 7F): Detect and reorder RTL text
+      // Detect and reorder RTL text
       const { visual: visualText, isRTL, logical: logicalText } = await detectAndReorderRTL(element.text, element.dir)
 
       const defaults = HEADING_DEFAULTS[element.level]
@@ -216,7 +216,7 @@ export async function measureBlock(
         ? Math.max(10, contentWidth * (effectiveFontSize * 0.5) / (effectiveFontSize * 0.5 + headingLetterSpacing))
         : contentWidth
 
-      // CRITICAL (Phase 7F): Measure the VISUAL-ORDER text (what will actually be rendered).
+      // Measure the visual-order text (after RTL reordering) for accurate glyph metrics.
       // smallCaps uppercases at render time — measure uppercase for consistent line widths.
       const headingMeasureText = element.smallCaps === true ? visualText.toUpperCase() : visualText
       const lines = await measureText(headingMeasureText, effectiveFontSize, fontFamily, fontWeight, headingMeasureWidth, lineHeight, opts)
@@ -230,7 +230,7 @@ export async function measureBlock(
         fontKey,
         spaceAfter: element.spaceAfter ?? doc.defaultParagraphStyle?.spaceAfter ?? defaults.spaceAfter,
         spaceBefore: element.spaceBefore ?? doc.defaultParagraphStyle?.spaceBefore ?? defaults.spaceBefore,
-        isRTL,  // NEW (Phase 7F)
+        isRTL,
         ...(isRTL && { logicalText }),  // NEW: Only store logical text when RTL
       }
     }
@@ -280,7 +280,7 @@ export async function measureBlock(
     }
 
     case 'rich-paragraph': {
-      // NEW (Phase 7F): Detect paragraph-level RTL direction (for alignment default)
+      // Detect paragraph-level RTL direction for alignment default
       // Individual spans can override via span.dir, but paragraph.dir sets the default
       const fullText = element.spans.map(s => s.text).join('')
       const { isRTL } = await detectAndReorderRTL(fullText, element.dir)
@@ -329,7 +329,7 @@ export async function measureBlock(
       }))
 
       // Construct result with or without columnData depending on columns value
-      // Phase 5B.4: Block height = sum of per-line heights (variable when spans have different fontSize)
+      // Block height = sum of per-line heights (variable when spans use different font sizes)
       const blockHeight = richLines.reduce((sum, rl) => sum + rl.lineHeight, 0)
 
       if (columnData) {
@@ -344,7 +344,7 @@ export async function measureBlock(
           spaceBefore: element.spaceBefore ?? 0,
           richLines,
           columnData,
-          isRTL,  // NEW (Phase 7F)
+          isRTL,
         }
       } else {
         return {
@@ -357,7 +357,7 @@ export async function measureBlock(
           spaceAfter: element.spaceAfter ?? 0,
           spaceBefore: element.spaceBefore ?? 0,
           richLines,
-          isRTL,  // NEW (Phase 7F)
+          isRTL,
         }
       }
     }
@@ -399,12 +399,12 @@ export async function measureBlock(
         spaceBefore: element.spaceBefore ?? 12,
         codePadding: padding,
         ...(codeHighlightTokens ? { codeHighlightTokens } : {}),
-        isRTL: false,  // NEW (Phase 7F): Code blocks always LTR
+        isRTL: false, // Code blocks always LTR
       }
     }
 
     case 'blockquote': {
-      // NEW (Phase 7F): Detect and reorder RTL text
+      // Detect and reorder RTL text
       const { visual: visualText, isRTL, logical: logicalText } = await detectAndReorderRTL(element.text, element.dir)
 
       const fontSize = element.fontSize ?? baseFontSize
@@ -420,7 +420,7 @@ export async function measureBlock(
       // Text area excludes left border + horizontal padding on both sides
       const textWidth = contentWidth - borderWidth - 2 * paddingH
 
-      // CRITICAL (Phase 7F): Measure the VISUAL-ORDER text (what will actually be rendered)
+      // Measure the visual-order text (after RTL reordering) for accurate glyph metrics.
       const lines = await measureText(visualText, fontSize, fontFamily, fontWeight, Math.max(textWidth, 1), lineHeight, hyphenatorOpts)
 
       // height = lines * lineHeight + padding top + padding bottom
@@ -438,7 +438,7 @@ export async function measureBlock(
         blockquotePaddingV: paddingV,
         blockquotePaddingH: paddingH,
         blockquoteBorderWidth: borderWidth,
-        isRTL,  // NEW (Phase 7F)
+        isRTL,
         ...(isRTL && { logicalText }),  // NEW: Only store logical text when RTL
       }
     }

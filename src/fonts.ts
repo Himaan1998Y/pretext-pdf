@@ -99,7 +99,7 @@ export async function loadFonts(
   // Embed each font into pdfDoc (must be sequential — pdf-lib limitation)
   for (const { key, bytes, spec } of loaded) {
     try {
-      // Phase 6D: Use fontkit's built-in subsetting for TTF fonts.
+      // Use fontkit's built-in subsetting for TTF fonts.
       // TTF magic bytes: 0x00010000 (TrueType) or 0x74727565 ('true').
       // woff2 starts with 0x774F4632 — fontkit has a known subsetting bug for woff2.
       const isTTF = bytes.length >= 4 && (
@@ -116,7 +116,7 @@ export async function loadFonts(
     }
   }
 
-  // Phase 2-C: Pre-compute font subsets by encoding all document text.
+  // Pre-compute font subsets by encoding all document text.
   // Calling pdfFont.encodeText() registers glyph IDs into the subset table
   // before pdfDoc.save(), producing smaller and faster-to-save PDFs.
   const textByFont = collectTextByFont(doc)
@@ -323,7 +323,7 @@ async function loadFontBytes(
 
 /**
  * Walk all content elements + header/footer and collect text strings grouped by font key.
- * Used by Phase 6D font subsetting to determine which glyphs each font needs.
+ * Used by font subsetting to determine which glyphs each font needs.
  *
  * Returns: Map<fontKey, concatenated text string>
  */

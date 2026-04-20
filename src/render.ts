@@ -109,12 +109,12 @@ export async function renderDocument(
     buildOutlineTree(pdfDoc, paginatedDoc.headings, doc.bookmarks)
   }
 
-  // Phase 8E: render signature placeholder if configured (skip if invisible)
+  // Render signature placeholder if configured (skip if invisible)
   if (doc.signature && !doc.signature.invisible) {
     renderSignaturePlaceholder(doc.signature, pdfDoc, fontMap, geo)
   }
 
-  // Phase 8B: finalize form field appearances
+  // Finalize form field appearances
   try {
     const form = pdfDoc.getForm()
     if (form.getFields().length > 0) {

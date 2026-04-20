@@ -114,15 +114,15 @@ export async function measureRichText(
     const fontWeight = span.fontWeight ?? 400
     const fontStyle = span.fontStyle ?? 'normal'
     const color = span.color ?? '#000000'
-    const spanFontSize = span.fontSize ?? fontSize  // Phase 5B.4: per-span font size
-    // Phase 6B: urls auto-apply blue color + underline when no explicit override
+    const spanFontSize = span.fontSize ?? fontSize
+    // URLs auto-apply blue color + underline when no explicit override
     const effectiveColor = span.url && !span.color ? '#0070f3' : (span.color ?? '#000000')
     const underline = span.url ? true : (span.underline ?? false)
     const strikethrough = span.strikethrough ?? false
     const url = span.url
     const fontKey = buildFontKey(fontFamily, fontWeight, fontStyle)
 
-    // Phase 8H: verticalAlign (superscript/subscript) → yOffset + smaller fontSize
+    // verticalAlign (superscript/subscript) → yOffset + smaller fontSize
     let spanEffectiveFontSize = spanFontSize
     let yOffset: number | undefined
     if (span.verticalAlign === 'superscript') {
@@ -133,7 +133,7 @@ export async function measureRichText(
       spanEffectiveFontSize = spanEffectiveFontSize * 0.65
     }
 
-    // Phase 3: smallCaps — render uppercase text at 80% font size
+    // smallCaps — render uppercase text at 80% font size
     const smallCaps = span.smallCaps === true
     if (smallCaps) spanEffectiveFontSize = spanEffectiveFontSize * 0.8
     const spanLetterSpacing = span.letterSpacing ?? 0
@@ -202,7 +202,7 @@ export async function measureRichText(
     const trimmedFragment = { ...last, text: trimmedText, width: trimmedWidth }
     const fragments = [...currentFragments.slice(0, -1), trimmedFragment]
 
-    // Phase 5B.4: Compute per-line lineHeight = max(fragment.fontSize) * lineHeightRatio
+    // Per-line lineHeight = max(fragment.fontSize) * lineHeightRatio
     const maxFontSize = fragments.length > 0
       ? Math.max(...fragments.map(f => f.fontSize))
       : fontSize
