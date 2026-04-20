@@ -303,11 +303,15 @@ function splitBlock(
   // We don't know if a chunk is "last" until we count lines, so we always reserve bottomPad
   // unless this is provably not the last chunk (remaining > linesInChunk after computation).
   // Both code and blockquote have visual padding that must be reserved when computing line capacity.
+  // Callout blocks measure their own paddingV under calloutData; prefer that over
+  // the shared blockquotePaddingV field so removing the legacy write is safe.
   const codePad = block.element.type === 'code'
     ? (block.codePadding ?? 0)
-    : (block.element.type === 'blockquote' || block.element.type === 'callout')
-      ? (block.blockquotePaddingV ?? 0)
-      : 0
+    : block.element.type === 'callout'
+      ? (block.calloutData?.paddingV ?? block.blockquotePaddingV ?? 0)
+      : block.element.type === 'blockquote'
+        ? (block.blockquotePaddingV ?? 0)
+        : 0
 
   while (remainingLines.length > 0) {
     const available = pageContentHeight - currentPageY
@@ -443,7 +447,9 @@ export function getCurrentY(pages: RenderedPage[]): number {
     } else if (el.type === 'blockquote' || el.type === 'callout') {
       // Blockquote/callout blocks include vertical padding in their height (same pattern as code)
       const lineCount = pagedBlock.endLine - pagedBlock.startLine
-      const paddingV = block.blockquotePaddingV ?? 10
+      const paddingV = el.type === 'callout'
+        ? (block.calloutData?.paddingV ?? block.blockquotePaddingV ?? 10)
+        : (block.blockquotePaddingV ?? 10)
       const isFirstChunk = pagedBlock.startLine === 0
       const isLastChunk = pagedBlock.endLine === block.lines.length
       const paddingTop = isFirstChunk ? paddingV : 0
