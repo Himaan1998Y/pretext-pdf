@@ -1,8 +1,9 @@
 # pretext-pdf
 
-> **The PDF library AI agents speak natively.**
+> **The PDF library AI agents speak natively — and humans love writing.**
 >
-> A `PdfDocument` is plain JSON. LLMs emit it in one shot — no codegen, no headless browser, no `eval`. Humans get a strict-typed, declarative API for invoices, reports, and templates.
+> LLMs emit `PdfDocument` JSON in one shot — no codegen, no headless browser, no `eval`.
+> Humans get a strict-typed, declarative API for invoices, reports, resumes, and templates.
 
 [![npm version](https://img.shields.io/npm/v/pretext-pdf)](https://www.npmjs.com/package/pretext-pdf)
 [![npm downloads](https://img.shields.io/npm/dw/pretext-pdf)](https://www.npmjs.com/package/pretext-pdf)
