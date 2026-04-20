@@ -132,6 +132,20 @@ async function boot() {
     render = mod.render
     interRegular = regularBytes
     interBold = boldBytes
+
+    // Register Inter with the browser's FontFace API so pretext's
+    // Canvas.measureText('Inter') matches the metrics that pdf-lib
+    // will use when drawing. Without this, pretext falls back to the
+    // system sans-serif and produces inaccurate positions in the
+    // composed PDF (visible as overlapping or extra-spaced rich-paragraph
+    // fragments).
+    const interRegularFace = new FontFace('Inter', regularBytes, { weight: '400', style: 'normal' })
+    const interBoldFace = new FontFace('Inter', boldBytes, { weight: '700', style: 'normal' })
+    await Promise.all([interRegularFace.load(), interBoldFace.load()])
+    document.fonts.add(interRegularFace)
+    document.fonts.add(interBoldFace)
+    await document.fonts.ready
+
     versionBadge.textContent = 'v' + PRETEXT_PDF_VERSION
     renderBtn.disabled = false
     renderBtn.textContent = 'Generate PDF'
