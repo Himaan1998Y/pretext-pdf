@@ -101,7 +101,7 @@
 <script type="module">
 // ─── Boot: load pretext-pdf via esm.sh + Inter TTFs from same-origin ────────
 
-const PRETEXT_PDF_VERSION = '0.8.1'
+const PRETEXT_PDF_VERSION = '0.8.2'
 
 const editor = document.getElementById('editor')
 const statusEl = document.getElementById('status')
@@ -234,7 +234,10 @@ const PRESETS = {
     content: [
       { type: "heading", level: 1, text: "Himanshu Jain", fontSize: 24, color: "#1a1a2e", spaceAfter: 2 },
       { type: "paragraph", text: "AI Systems Architect \u2014 Entrepreneur \u2014 Gurugram, India", fontSize: 11, color: "#555555", spaceAfter: 3 },
-      { type: "paragraph", text: "himanshu@antigravity.dev \u2014 github.com/Himaan1998Y \u2014 +91 98765 43210", fontSize: 10, color: "#555555", spaceAfter: 8 },
+      { type: "rich-paragraph", fontSize: 10, spans: [
+        { text: "himanshu@antigravity.dev", color: "#0070f3" },
+        { text: "  \u2014  github.com/Himaan1998Y  \u2014  +91 98765 43210", color: "#555555" }
+      ], spaceAfter: 8 },
       { type: "hr", color: "#1a1a2e", thickness: 1.5, spaceBelow: 10 },
       { type: "heading", level: 3, text: "PROFILE", fontSize: 9, color: "#888888", letterSpacing: 2, smallCaps: true, spaceAfter: 4 },
       { type: "paragraph", text: "Founder and AI architect with 4+ years building AI-powered products. Deep expertise in LLM integration, multi-agent orchestration, and data pipeline architecture.", spaceAfter: 10 },
