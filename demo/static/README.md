@@ -9,7 +9,7 @@ A fully client-side editor + preview for `pretext-pdf`. No server, no Chromium, 
 ## How it works
 
 - `index.html` is fully self-contained — no build step.
-- `pretext-pdf` is loaded at runtime from [esm.sh](https://esm.sh/) (`https://esm.sh/pretext-pdf@0.8.2`). 0.8.1 fixed module-init crashes in browsers; 0.8.2 fixed rich-paragraph whitespace collapse. Older versions will not work in browsers.
+- `pretext-pdf` is loaded at runtime from [esm.sh](https://esm.sh/) (`https://esm.sh/pretext-pdf@0.8.3`). 0.8.1 fixed module-init crashes in browsers; 0.8.2 fixed rich-paragraph whitespace collapse; 0.8.3 hardens SSRF (IPv4-mapped IPv6 + redirect bypass) and fixes a few content bugs. Older versions will not work in browsers.
 - Inter Regular + Bold are fetched from `./fonts/` (same-origin) and injected into every render via `doc.fonts`. This bypasses the library's Node-only bundled-font loader.
 - The render call runs in the user's browser via the library's existing browser code path (the polyfill in `src/node-polyfill.ts` is skipped when `window` is defined).
 
