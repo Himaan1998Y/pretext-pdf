@@ -50,9 +50,16 @@ setInterval(() => {
 const server = createServer(async (req, res) => {
   // POST /render — accept PdfDocument JSON, return PDF bytes
   if (req.method === 'POST' && req.url === '/render') {
-    const ip = (req.headers['x-forwarded-for'] ?? '').split(',')[0].trim()
-      || req.socket.remoteAddress
-      || 'unknown'
+    // Pick the first non-empty, IP-shaped XFF entry. A header like
+    // "X-Forwarded-For: ,1.2.3.4" produced an empty first split, which fell
+    // through to req.socket.remoteAddress — that's the proxy IP, collapsing
+    // every attacker into one rate-limit bucket and effectively disabling
+    // per-client throttling. Now we walk the comma-separated list and
+    // take the first entry that *looks* like an IP address.
+    const xff = String(req.headers['x-forwarded-for'] ?? '')
+    const isIpish = (s) => /^([0-9.]+|[0-9a-f:]+)$/i.test(s) && s.length > 0
+    const firstClientIp = xff.split(',').map(s => s.trim()).find(isIpish)
+    const ip = firstClientIp || req.socket.remoteAddress || 'unknown'
 
     if (!checkRateLimit(ip)) {
       res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' })
