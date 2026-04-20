@@ -123,10 +123,17 @@ function convertListItem(item: Tokens.ListItem): ListItem {
     if (token.type === 'text') {
       const t = token as Tokens.Text
       text += t.tokens ? extractPlainText(t.tokens) : t.text
+    } else if (token.type === 'paragraph') {
+      // Marked emits paragraph tokens (not text) for list items separated by
+      // blank lines. Extract the plain text so that content isn't dropped.
+      const p = token as Tokens.Paragraph
+      text += (text ? ' ' : '') + (p.tokens ? extractPlainText(p.tokens) : p.text)
     } else if (token.type === 'list') {
+      // Recurse so deeper-than-2-level nesting is preserved instead of being
+      // silently flattened to a single text-only leaf.
       const nested = token as Tokens.List
       for (const nestedItem of nested.items) {
-        nestedItems.push({ text: extractListItemText(nestedItem) })
+        nestedItems.push(convertListItem(nestedItem))
       }
     }
   }
@@ -134,16 +141,6 @@ function convertListItem(item: Tokens.ListItem): ListItem {
   const result: ListItem = { text: text.trim() }
   if (nestedItems.length > 0) result.items = nestedItems
   return result
-}
-
-function extractListItemText(item: Tokens.ListItem): string {
-  for (const token of item.tokens) {
-    if (token.type === 'text') {
-      const t = token as Tokens.Text
-      return t.tokens ? extractPlainText(t.tokens) : t.text
-    }
-  }
-  return item.text
 }
 
 function convertCode(token: Tokens.Code, options: MarkdownOptions): ContentElement {

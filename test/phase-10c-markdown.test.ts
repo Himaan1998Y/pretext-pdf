@@ -206,4 +206,39 @@ See full details in the appendix.
     assert.ok(items[0]!.text.includes('Important'), 'bold content should still appear')
   })
 
+  // ── v0.8.3 regression: deep nesting + paragraph-typed list items ──────────
+
+  await t.test('markdown: 3-level nested list preserves all content (v0.8.3 fix)', async () => {
+    // Pre-v0.8.3: convertListItem only created text-only leaves for nested
+    // lists, so anything deeper than 2 levels was silently dropped.
+    const md = '- A\n  - B\n    - C\n    - D'
+    const elements = await markdownToContent(md)
+    assert.equal(elements.length, 1)
+    const list = elements[0] as any
+    assert.equal(list.type, 'list')
+    assert.equal(list.items.length, 1, 'top level has 1 item (A)')
+    assert.equal(list.items[0].text, 'A')
+    const lvl2 = list.items[0].items
+    assert.ok(Array.isArray(lvl2) && lvl2.length === 1, 'level-2 has 1 item (B)')
+    assert.equal(lvl2[0].text, 'B')
+    const lvl3 = lvl2[0].items
+    assert.ok(Array.isArray(lvl3) && lvl3.length === 2, `level-3 should have C and D; got ${JSON.stringify(lvl3)}`)
+    assert.equal(lvl3[0].text, 'C')
+    assert.equal(lvl3[1].text, 'D')
+  })
+
+  await t.test('markdown: list item with paragraph-typed content preserves text (v0.8.3 fix)', async () => {
+    // When list items are separated by blank lines, marked emits paragraph tokens
+    // (not text tokens) for the item content. Pre-v0.8.3 this content was
+    // silently dropped because only `token.type === 'text'` was handled.
+    const md = '- First item paragraph\n\n- Second item paragraph'
+    const elements = await markdownToContent(md)
+    assert.equal(elements.length, 1)
+    const list = elements[0] as any
+    assert.equal(list.type, 'list')
+    assert.equal(list.items.length, 2)
+    assert.ok(list.items[0].text.includes('First item'), `lost first item text; got "${list.items[0].text}"`)
+    assert.ok(list.items[1].text.includes('Second item'), `lost second item text; got "${list.items[1].text}"`)
+  })
+
 })

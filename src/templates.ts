@@ -290,8 +290,11 @@ function amountInWords(amount: number): string {
   const rem = rupees % 1_000
   if (rem >= 100) words += threeDigits(Math.floor(rem / 100)) + ' Hundred '
   words += twoDigits(rem % 100)
-  let result = 'Rupees ' + words.trim()
-  if (paise > 0) result += ` and ${twoDigits(paise)} Paise`
+  // Use explicit "Zero" when there are no rupees (sub-rupee amounts) to avoid
+  // emitting "Rupees  and Fifty Paise Only" with a double space.
+  const rupeeWords = words.trim() || 'Zero'
+  let result = 'Rupees ' + rupeeWords
+  if (paise > 0) result += ' and ' + twoDigits(paise) + ' Paise'
   return result + ' Only'
 }
 

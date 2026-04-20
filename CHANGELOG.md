@@ -7,6 +7,27 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [0.8.3] — 2026-04-20
+
+### Security
+
+- **SSRF — IPv4-mapped IPv6 bypass** ([src/assets.ts](src/assets.ts) `assertSafeUrl`). Pre-0.8.3 the private-IP guard checked the parsed hostname against dotted-decimal regexes only. WHATWG `URL` normalizes `[::ffff:127.0.0.1]` to `[::ffff:7f00:1]` (hex IPv4-in-IPv6), so attacker-supplied URLs of the form `https://[::ffff:127.0.0.1]/admin` slipped past every `^127\.`/`^10\.`/etc. check and reached localhost or RFC 1918 ranges. Patched by detecting both the dotted (`::ffff:127.0.0.1`) and hex-compressed (`::ffff:7f00:1`) IPv4-mapped forms and decoding the embedded IPv4 before regex matching. Also explicitly blocks the IPv6 unspecified address `::`.
+- **SSRF — redirect-following bypass** ([src/assets.ts](src/assets.ts) `fetchWithTimeout`). The previous implementation used the default `redirect: 'follow'`, so a public URL could `302` to `http://127.0.0.1:8080/internal` and the library would happily fetch the private target despite the upfront `assertSafeUrl` check on the *initial* URL. Patched to use `redirect: 'manual'` and re-validate every `Location` hop with `assertSafeUrl`, capped at 3 redirects. Browser opaqueredirect responses are rejected with a clear error.
+
+### Fixed
+
+- **`createGstInvoice` amount-in-words double space for sub-rupee totals** ([src/templates.ts](src/templates.ts)). An invoice whose total was less than ₹1 (e.g. ₹0.50) produced `"Rupees  and Fifty Paise Only"` (two spaces after "Rupees") because the rupee-words branch resolved to an empty string. Now uses an explicit `"Zero"` when there are no rupees: `"Rupees Zero and Fifty Paise Only"`.
+- **Markdown deeper-than-2-level lists silently dropped** ([src/markdown.ts](src/markdown.ts) `convertListItem`). Pre-0.8.3 the converter only created text-only leaves for nested lists, so `- A\n  - B\n    - C` lost C entirely. Now recursive — preserves arbitrary nesting depth in the resulting `ListItem` tree.
+- **Markdown list items with paragraph-typed content** ([src/markdown.ts](src/markdown.ts)). When list items were separated by blank lines, marked emits `paragraph` tokens (not `text` tokens) for the item content. The converter only handled `text`, silently dropping the item text. Now also handles `paragraph` tokens.
+
+### Tests
+
+- New `test/v0.8.3-ssrf.test.ts` covers 11 IPv4-mapped IPv6 bypass cases, IPv6 unspecified/loopback regressions, and HTTP rejection.
+- Extended `test/phase-10c-markdown.test.ts` with regressions for 3-level nesting and paragraph-typed list items.
+- Extended `test/phase-10d-templates.test.ts` with the sub-rupee amount-in-words case.
+
+---
+
 ## [0.8.2] — 2026-04-20
 
 ### Fixed

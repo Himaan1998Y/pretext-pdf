@@ -26,10 +26,11 @@ export function assertPathAllowed(resolvedPath: string, allowedDirs: string[] | 
 /**
  * Validate a remote URL before fetching:
  * - Rejects http:// (plaintext only)
- * - Rejects private/internal IP ranges (SSRF prevention)
+ * - Rejects private/internal IP ranges (SSRF prevention), including IPv4-mapped IPv6
+ *   forms like [::ffff:127.0.0.1] which would otherwise bypass dotted-decimal regexes.
  * Throws IMAGE_LOAD_FAILED or SVG_LOAD_FAILED on violations.
  */
-function assertSafeUrl(url: string, errorCode: 'IMAGE_LOAD_FAILED' | 'SVG_LOAD_FAILED', label: string): void {
+export function assertSafeUrl(url: string, errorCode: 'IMAGE_LOAD_FAILED' | 'SVG_LOAD_FAILED', label: string): void {
   let parsed: URL
   try {
     parsed = new URL(url)
@@ -41,35 +42,83 @@ function assertSafeUrl(url: string, errorCode: 'IMAGE_LOAD_FAILED' | 'SVG_LOAD_F
     throw new PretextPdfError(errorCode, `${label}: HTTP URLs are not allowed — use HTTPS`)
   }
 
-  const h = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '') // strip IPv6 brackets
+  const raw = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '') // strip IPv6 brackets
+
+  // Normalize IPv4-mapped IPv6 to its dotted-decimal form so the IPv4
+  // private-range regexes catch it. WHATWG URL normalizes `[::ffff:127.0.0.1]`
+  // to `[::ffff:7f00:1]` (hex form), so we must handle BOTH the dotted
+  // (`::ffff:127.0.0.1`) and hex-compressed (`::ffff:7f00:1`) forms.
+  // Without this an attacker can bypass the localhost/private-IP check via
+  // `https://[::ffff:127.0.0.1]/admin` → resolves to 127.0.0.1.
+  let h = raw
+  const v4Dotted = raw.match(/^::ffff:(?:0:)?(\d{1,3}(?:\.\d{1,3}){3})$/i)
+  const v4Hex = raw.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i)
+  if (v4Dotted) {
+    h = v4Dotted[1]!
+  } else if (v4Hex) {
+    const hi = parseInt(v4Hex[1]!, 16)
+    const lo = parseInt(v4Hex[2]!, 16)
+    h = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`
+  }
 
   const isPrivate =
     h === 'localhost' ||
     h === '0.0.0.0' ||
+    h === '::' ||                  // IPv6 unspecified address (== 0.0.0.0)
     h === '::1' ||
+    raw === '::1' || raw === '::' || // also catch un-normalized IPv6 forms
     /^127\./.test(h) ||
     /^10\./.test(h) ||
     /^192\.168\./.test(h) ||
     /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
     /^169\.254\./.test(h) ||      // link-local / AWS IMDS
     /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(h) || // CGNAT RFC 6598
-    h.startsWith('fc') || h.startsWith('fd') ||            // IPv6 ULA fc00::/7
-    /^fe[89ab]/i.test(h)                                   // IPv6 link-local fe80::/10
+    raw.startsWith('fc') || raw.startsWith('fd') ||        // IPv6 ULA fc00::/7
+    /^fe[89ab]/i.test(raw)                                 // IPv6 link-local fe80::/10
 
   if (isPrivate) {
     throw new PretextPdfError(errorCode, `${label}: connections to private or internal addresses are not allowed`)
   }
 }
 
-/** Fetch with a hard 10-second timeout */
-async function fetchWithTimeout(url: string): Promise<Response> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 10_000)
-  try {
-    return await fetch(url, { signal: controller.signal })
-  } finally {
-    clearTimeout(timer)
+/**
+ * Fetch with a hard 10-second timeout AND a manual redirect chain that
+ * re-validates each hop against `assertSafeUrl`. Without manual redirect
+ * handling, a public URL could 302 to `http://127.0.0.1:8080/internal`
+ * and bypass the upfront check — the connection would still be made to
+ * the private target.
+ */
+async function fetchWithTimeout(
+  url: string,
+  errorCode: 'IMAGE_LOAD_FAILED' | 'SVG_LOAD_FAILED',
+  label: string
+): Promise<Response> {
+  const MAX_REDIRECTS = 3
+  let currentUrl = url
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    if (hop > 0) assertSafeUrl(currentUrl, errorCode, label)
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 10_000)
+    let res: Response
+    try {
+      res = await fetch(currentUrl, { signal: controller.signal, redirect: 'manual' })
+    } finally {
+      clearTimeout(timer)
+    }
+    // Browser fetch returns opaqueredirect (status 0) for cross-origin redirects.
+    // We treat that the same as a redirect we can't safely follow.
+    if (res.type === 'opaqueredirect') {
+      throw new PretextPdfError(errorCode, `${label}: cannot follow opaque redirect (browser CORS). Pre-resolve the URL.`)
+    }
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get('Location')
+      if (!loc) throw new PretextPdfError(errorCode, `${label}: redirect (${res.status}) with no Location header`)
+      currentUrl = new URL(loc, currentUrl).toString()
+      continue
+    }
+    return res
   }
+  throw new PretextPdfError(errorCode, `${label}: too many redirects (max ${MAX_REDIRECTS})`)
 }
 
 /**
@@ -157,7 +206,7 @@ async function resolveSvgContent(el: SvgElement, allowedFileDirs?: string[]): Pr
     assertSafeUrl(el.src, 'SVG_LOAD_FAILED', 'SVG')
     let resp: Response
     try {
-      resp = await fetchWithTimeout(el.src)
+      resp = await fetchWithTimeout(el.src, 'SVG_LOAD_FAILED', 'SVG')
     } catch (err) {
       throw new PretextPdfError('SVG_LOAD_FAILED', `SVG URL fetch failed: ${err instanceof Error ? err.message : String(err)}`)
     }
@@ -508,7 +557,7 @@ async function loadImageBytes(el: ImageElement, key: string, allowedDirs?: strin
     assertSafeUrl(src, 'IMAGE_LOAD_FAILED', `Image "${key}"`)
     let resp: Response
     try {
-      resp = await fetchWithTimeout(src)
+      resp = await fetchWithTimeout(src, 'IMAGE_LOAD_FAILED', `Image "${key}"`)
     } catch (err) {
       throw new PretextPdfError(
         'IMAGE_LOAD_FAILED',

@@ -183,6 +183,25 @@ test('Phase 10D — Templates', async (t) => {
     assert.ok(amtEl.text.includes('Rupees Zero Only'), `expected "Rupees Zero Only" but got: "${amtEl.text}"`)
   })
 
+  // ── v0.8.3 regression: amountInWords sub-rupee double-space ────────────────
+
+  await t.test('gst invoice: sub-rupee total renders without double-space (v0.8.3 fix)', () => {
+    // Pre-v0.8.3 a single ₹0.50 line item produced "Rupees  and Fifty Paise Only"
+    // (two spaces after "Rupees") because the rupee-words branch was empty.
+    const content = createGstInvoice({
+      supplier: { name: 'S', address: 'a', gstin: 'G1', state: 'Haryana' },
+      buyer: { name: 'B', address: 'b', gstin: 'G2', state: 'Haryana' },
+      invoiceNumber: 'PAISE-001',
+      invoiceDate: '2026-04-20',
+      placeOfSupply: 'HR',
+      items: [{ description: 'Token charge', hsnSac: '998314', quantity: 1, unit: 'Nos', rate: 0.5, taxRate: 0 }],
+    })
+    const amtEl = content.find(e => e.type === 'paragraph' && (e as any).text?.includes('Amount in words')) as any
+    assert.ok(amtEl, 'should have amount-in-words paragraph')
+    assert.doesNotMatch(amtEl.text, /  /, `Amount in words must not contain double spaces; got "${amtEl.text}"`)
+    assert.match(amtEl.text, /Rupees Zero and Fifty Paise Only/, `Expected "Rupees Zero and Fifty Paise Only"; got "${amtEl.text}"`)
+  })
+
   await t.test('report: renders as valid PDF', async () => {
     const content = createReport({
       title: 'Q1 2026 Sales Report',
