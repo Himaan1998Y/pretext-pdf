@@ -132,4 +132,52 @@ test('Phase 8D — Callout Boxes', async (t) => {
       `block.height (${blockDefault.height.toFixed(2)}) must be independent of spaceAfter (custom: ${blockCustom.height.toFixed(2)}). Bug: spaceAfter was baked into height.`
     )
   })
+
+  // ── Bug-fix regression: titled callout split — first chunk must account for titleHeight ─
+  // Before fix: splitBlock omitted calloutData.titleHeight from availableForLines.
+  // This allowed floor((titleH + lh) / lh) extra lines to be placed on the first chunk
+  // despite there being no room — the title row was clipped by content drawn on top of it.
+  // Fix: availableForLines = available - topPad - bottomPadReserve - titleH (first chunk only).
+
+  await t.test('titled callout split across pages: first chunk line count accounts for titleHeight', async () => {
+    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { paginate } = await import('../dist/paginate.js')
+
+    const el: any = {
+      type: 'callout',
+      title: 'Important Title',
+      content: Array(8).fill('This is a line of callout content.').join(' '),
+      style: 'info',
+    }
+
+    const block = await measureBlock(el, 480, { defaultFont: 'Inter', fonts: [] }) as any
+
+    assert.ok(block.lines.length >= 3, `Need >= 3 lines to force a split; got ${block.lines.length}`)
+    assert.ok(block.calloutData?.titleHeight > 0, 'Expected positive titleHeight for titled callout')
+
+    const paddingV: number = block.blockquotePaddingV ?? 10
+    const titleH: number = block.calloutData.titleHeight
+    const lh: number = block.lineHeight
+
+    // Tight page: fits exactly 1 content line when titleHeight is correctly subtracted.
+    // availableForLines = (paddingV + titleH + lh + paddingV + 1) - paddingV - paddingV - titleH = lh + 1
+    // Without fix: availableForLines = titleH + lh + 1 → floor gives ≥ 2 (clips title row).
+    const pageContentHeight = paddingV + titleH + lh + paddingV + 1
+
+    const paginatedDoc = paginate(
+      [block],
+      pageContentHeight,
+      { minOrphanLines: 1, minWidowLines: 1 }
+    )
+
+    assert.ok(paginatedDoc.pages.length >= 2, `Expected callout to split across pages; got ${paginatedDoc.pages.length} page(s)`)
+
+    const firstChunk = paginatedDoc.pages[0]!.blocks[0]!
+    const linesInFirstChunk = firstChunk.endLine - firstChunk.startLine
+
+    assert.equal(
+      linesInFirstChunk, 1,
+      `First chunk must have exactly 1 content line (title takes the reserved space). Got ${linesInFirstChunk}. Pre-fix: titleH not subtracted from availableForLines — extra lines were placed, clipping the title row.`
+    )
+  })
 })

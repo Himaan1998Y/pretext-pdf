@@ -275,6 +275,25 @@ describe('rich-text — whitespace preservation (v0.8.2 fix)', () => {
     )
   })
 
+  // ─── isLeadingSpace guard: first token of block ──────────────────────────────────
+  //
+  // The same guard (currentX === 0 && token.text.trim() === '') also fires at the
+  // absolute start of a block before any token has been placed. A span whose first
+  // characters are spaces (e.g. indented text) would have the leading-whitespace token
+  // silently dropped, causing the first word to snap to x=0 instead of being indented.
+  test('leading whitespace as the very first token of a block is preserved', async () => {
+    const lines = await measureRichText(
+      [{ text: '    indented' }],
+      FONT_SIZE, LINE_HEIGHT, CONTENT_WIDTH, 'left', DEFAULT_DOC
+    )
+    const indentedFrag = lines.flatMap(l => l.fragments).find(f => f.text.includes('indented'))
+    assert.ok(indentedFrag, 'Expected a fragment containing "indented"')
+    assert.ok(
+      indentedFrag.x > 0,
+      `"indented" should be pushed right by its leading spaces; got x=${indentedFrag.x.toFixed(2)}. Pre-fix: isLeadingSpace guard dropped the leading "    " token.`
+    )
+  })
+
   // ─── Separator span preserved after hard break (regression for isLeadingSpace bug) ─
   //
   // Bug: a guard stripped any whitespace-only token when currentX === 0. This fires
