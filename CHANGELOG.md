@@ -7,6 +7,28 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [0.9.0] — 2026-04-20
+
+Three additive enhancements that broaden the package's surface without growing its mandatory dependency footprint.
+
+### Added
+
+- **CLI binary** — `pretext-pdf` is now a `bin` entry. `pretext-pdf doc.json out.pdf`, `cat doc.json | pretext-pdf > out.pdf`, `echo '{...}' | pretext-pdf -o out.pdf`. Supports stdin/stdout and file arguments. `--markdown` flag converts Markdown input to PDF in one step (requires the `marked` peer dep). See [src/cli.ts](src/cli.ts).
+- **`pretext-pdf/compat` entry point** — `fromPdfmake(pdfmakeDoc)` translates pdfmake document descriptors into `PdfDocument` so existing pdfmake codebases can switch with a one-line change at the entry point. Covers strings, `text` nodes (with `style`/`bold`/`italics`/`color`/`fontSize`/`alignment`/`font`), `ul`/`ol`, `table` (with `widths` + `headerRows`), `image`, `qr`, `pageBreak` (`before`/`after`), `stack`, `pageSize`/`pageOrientation`/`pageMargins`, `defaultStyle`/`styles`, `info` → metadata, and string-form `header`/`footer`. Default style-name → heading mapping is configurable via `headingMap` option.
+- **Markdown: GFM tables** ([src/markdown.ts](src/markdown.ts)) — `markdownToContent()` now recognises GFM tables and translates them to `TableElement`, including column alignment from `:---:` / `---:` markers. Ragged rows are padded with empty cells.
+- **Markdown: GFM task lists** — `- [x] done` and `- [ ] todo` render with ☑ / ☐ Unicode markers prepended to the item text.
+
+### Tests
+
+- New `test/v0.9.0-features.test.ts` (21 tests): markdown table + task list, full CLI exec coverage (stdin, file, `--markdown`, error paths), and pdfmake compat (strings, headings, rich-paragraphs, lists, tables, images, QR, `pageBreak`, `stack`, `pageSize`/`pageMargins`, end-to-end render of a translated document).
+
+### Notes
+
+- Zero new mandatory dependencies. The CLI uses only Node built-ins. The compat shim is pure TypeScript. Markdown additions ride on the existing optional `marked` peer.
+- `dist/cli.js` is wired through `package.json#bin.pretext-pdf` — `npm install -g pretext-pdf` makes the CLI globally available; `npx pretext-pdf` works without install.
+
+---
+
 ## [0.8.3] — 2026-04-20
 
 ### Security

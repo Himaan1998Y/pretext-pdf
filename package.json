@@ -1,6 +1,6 @@
 {
   "name": "pretext-pdf",
-  "version": "0.8.3",
+  "version": "0.9.0",
   "description": "Declarative JSON → PDF generation with professional typography. Built on pretext's precision text layout engine.",
   "keywords": [
     "pdf",
@@ -34,6 +34,9 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "pretext-pdf": "./dist/cli.js"
+  },
   "files": [
     "dist/",
     "fonts/",
@@ -55,6 +58,10 @@
       "types": "./dist/templates.d.ts",
       "import": "./dist/templates.js"
     },
+    "./compat": {
+      "types": "./dist/compat.d.ts",
+      "import": "./dist/compat.js"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
@@ -69,7 +76,7 @@
     "test:10d": "tsx --test test/phase-10d-templates.test.ts",
     "test:phase-4": "tsx --test test/phase-4-footnotes.test.ts",
     "test:phase-5": "tsx --test test/phase-5-image-float.test.ts",
-    "test:phases": "tsx --test test/phase-4-footnotes.test.ts test/phase-5-image-float.test.ts test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts test/phase-8g-hyperlinks.test.ts test/phase-8h-inline-formatting.test.ts test/phase-8a-annotations.test.ts test/phase-8c-assembly.test.ts test/phase-8f-metadata.test.ts test/phase-8e-signatures.test.ts test/phase-8b-forms.test.ts test/phase-8d-callout.test.ts test/phase-9a-crypto-signatures.test.ts test/phase-9b-float-groups.test.ts test/phase-9c-font-subsetting.test.ts test/phase-2-performance.test.ts test/phase-3-signatures.test.ts test/phase-11-enhancements.test.ts test/phase-10a-qr-barcode.test.ts test/phase-10b-charts.test.ts test/phase-10c-markdown.test.ts test/phase-10d-templates.test.ts test/v0.8.3-ssrf.test.ts",
+    "test:phases": "tsx --test test/phase-4-footnotes.test.ts test/phase-5-image-float.test.ts test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts test/phase-8g-hyperlinks.test.ts test/phase-8h-inline-formatting.test.ts test/phase-8a-annotations.test.ts test/phase-8c-assembly.test.ts test/phase-8f-metadata.test.ts test/phase-8e-signatures.test.ts test/phase-8b-forms.test.ts test/phase-8d-callout.test.ts test/phase-9a-crypto-signatures.test.ts test/phase-9b-float-groups.test.ts test/phase-9c-font-subsetting.test.ts test/phase-2-performance.test.ts test/phase-3-signatures.test.ts test/phase-11-enhancements.test.ts test/phase-10a-qr-barcode.test.ts test/phase-10b-charts.test.ts test/phase-10c-markdown.test.ts test/phase-10d-templates.test.ts test/v0.8.3-ssrf.test.ts test/v0.9.0-features.test.ts",
     "test:phase-7": "tsx --test test/phase-7a.test.ts test/phase-7b.test.ts test/phase-7c.test.ts test/phase-7d-toc.test.ts test/phase-7e-svg.test.ts test/phase-7f-rtl.test.ts test/phase-7g.test.ts test/phase-7-integration.test.ts",
     "test:phase-8": "tsx --test test/phase-8g-hyperlinks.test.ts test/phase-8h-inline-formatting.test.ts test/phase-8a-annotations.test.ts test/phase-8c-assembly.test.ts test/phase-8b-forms.test.ts test/phase-8d-callout.test.ts test/phase-8e-signatures.test.ts test/phase-8f-metadata.test.ts",
     "test:8d": "tsx --test test/phase-8d-callout.test.ts",

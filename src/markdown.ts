@@ -9,6 +9,9 @@ import type {
   BlockquoteElement,
   HorizontalRuleElement,
   InlineSpan,
+  TableElement,
+  ColumnDef,
+  TableRow,
 } from './types.js'
 import { PretextPdfError } from './errors.js'
 
@@ -29,9 +32,11 @@ export interface MarkdownOptions {
  * Requires the `marked` package (optional peer dep). Install: npm install marked
  *
  * Supported Markdown:
- *   - Headings h1–h4
- *   - Paragraphs with inline bold / italic / code / links
- *   - Ordered and unordered lists (max 2 levels)
+ *   - Headings h1–h4 (h5/h6 collapse to h4)
+ *   - Paragraphs with inline bold / italic / strikethrough / code / links
+ *   - Ordered and unordered lists, recursive nesting
+ *   - GFM task lists: `- [x] done` and `- [ ] todo` render as ☑ / ☐
+ *   - GFM tables (with column alignment from `:---:`/`---:` markers)
  *   - Fenced code blocks (requires codeFontFamily option for styled rendering)
  *   - Blockquotes
  *   - Horizontal rules
@@ -75,6 +80,7 @@ function convertToken(
     case 'heading': return convertHeading(token as Tokens.Heading)
     case 'paragraph': return convertParagraph(token as Tokens.Paragraph, options)
     case 'list': return convertList(token as Tokens.List)
+    case 'table': return convertTable(token as Tokens.Table)
     case 'code': return convertCode(token as Tokens.Code, options)
     case 'blockquote': return convertBlockquote(token as Tokens.Blockquote)
     case 'hr': return { type: 'hr' } satisfies HorizontalRuleElement
@@ -138,9 +144,55 @@ function convertListItem(item: Tokens.ListItem): ListItem {
     }
   }
 
+  // GFM task list: `- [x] done` / `- [ ] todo` → ☑ / ☐ prefix.
+  // marked sets `task: true` and `checked: boolean` on the item.
+  if (item.task) {
+    const marker = item.checked ? '\u2611' : '\u2610' // ☑ ☐
+    text = `${marker} ${text}`
+  }
+
   const result: ListItem = { text: text.trim() }
   if (nestedItems.length > 0) result.items = nestedItems
   return result
+}
+
+function convertTable(token: Tokens.Table): TableElement {
+  // GFM tables. Header alignment from `:---:`/`---:` markers ends up in
+  // token.align as 'left' | 'center' | 'right' | null per column.
+  const colCount = token.header.length
+  const columns: ColumnDef[] = token.header.map((_, i) => {
+    const align = token.align[i]
+    const col: ColumnDef = { width: '1*' }
+    if (align === 'left' || align === 'center' || align === 'right') col.align = align
+    return col
+  })
+
+  const headerRow: TableRow = {
+    isHeader: true,
+    cells: token.header.map(h => ({
+      text: extractPlainText(h.tokens ?? []),
+      fontWeight: 700 as const,
+    })),
+  }
+
+  const bodyRows: TableRow[] = token.rows.map(row => ({
+    cells: row.map(cell => ({
+      text: extractPlainText(cell.tokens ?? []),
+    })),
+  }))
+
+  // Pad short rows so every row has colCount cells (markdown sometimes emits
+  // ragged rows on malformed input).
+  for (const row of bodyRows) {
+    while (row.cells.length < colCount) row.cells.push({ text: '' })
+    row.cells.length = colCount
+  }
+
+  return {
+    type: 'table',
+    columns,
+    rows: [headerRow, ...bodyRows],
+  }
 }
 
 function convertCode(token: Tokens.Code, options: MarkdownOptions): ContentElement {
