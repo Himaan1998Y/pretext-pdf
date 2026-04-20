@@ -7,6 +7,24 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Rich-paragraph: leading-space tokens stripped after hard break** ([src/rich-text.ts](src/rich-text.ts)). A pre-overflow guard (`isLeadingSpace: currentX === 0 && token.text.trim() === ''`) fired whenever `currentX` was zero — both at block start *and* after a `\n` hard break reset the cursor. Continuation spans beginning with whitespace (e.g. `'  ·  text'`) had their first token silently dropped, causing separator glyphs and indented text to appear mis-positioned. Guard removed; the overflow-wrap skip path that correctly skips trailing spaces after soft wraps is unaffected.
+- **Callout: `spaceAfter` double-applied by paginator** ([src/measure-blocks.ts](src/measure-blocks.ts)). `callout` block measurement included `el.spaceAfter ?? 12` inside `totalHeight` *and* returned the same value as `block.spaceAfter`. `paginate.ts` added `block.spaceAfter` on top of `block.height`, counting it twice and pushing callout content ~12 pt below its intended position. Fixed by removing `spaceAfter` from the `totalHeight` formula; the value is still returned in `block.spaceAfter` for the paginator.
+- **Callout with title: background rect clips title row when split across pages** ([src/paginate.ts](src/paginate.ts)). `splitBlock` did not subtract `calloutData.titleHeight` from `availableForLines` for the first chunk, allowing `floor((titleH + lh) / lh)` extra lines to be placed, leaving no room for the title row. `getCurrentY` also omitted `titleHeight` from `blockBottom`, producing incorrect Y tracking after a split callout. Both fixed: `titleH` is now subtracted from available space on the first chunk only, and added to `blockBottom` when computing the cursor position after the first chunk renders.
+
+### Tests
+
+- Regression: `leading whitespace as the very first token of a block is preserved` — verifies first-position leading-space tokens are retained after guard removal.
+- Regression: `leading-space span is not stripped after a hard break` — the primary regression scenario: `\n` resets `currentX`; continuation span with `'  ·  text'` must place `·` at `x > 0`.
+- Regression: `callout block.height does not bake in spaceAfter` — measures two blocks with differing `spaceAfter`; asserts `block.height` is independent and `block.spaceAfter` carries the correct value.
+- Regression: `titled callout split across pages: first chunk line count accounts for titleHeight` — constructs a page height exactly `paddingV + titleH + lh + paddingV + 1` and asserts the first chunk holds exactly 1 content line.
+- Regression: `paginator places next block at height + spaceAfter (not double)` — calls `paginate()` with `[callout, paragraph]` and asserts the paragraph's `yFromTop` equals `calloutHeight + spaceAfter`, not `calloutHeight + 2 × spaceAfter`.
+
+---
+
 ## [0.9.0] — 2026-04-20
 
 Three additive enhancements that broaden the package's surface without growing its mandatory dependency footprint.

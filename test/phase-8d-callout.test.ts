@@ -101,6 +101,48 @@ test('Phase 8D — Callout Boxes', async (t) => {
   // pushing the callout and subsequent content down by one extra gap (~12pt).
   // Fix: totalHeight = pv + titleHeight + contentHeight + pv only.
 
+  // ── Bug-fix regression: paginator places next block at height + spaceAfter (not double) ───────
+  // Before fix: callout block.height already included spaceAfter, then paginate.ts added
+  // block.spaceAfter on top — total gap was 2× the intended spacing (~24pt instead of ~12pt).
+  // Fix: height = visual geometry only; paginator adds spaceAfter exactly once.
+
+  await t.test('paginator places next block at height + spaceAfter (not double)', async () => {
+    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { paginate } = await import('../dist/paginate.js')
+
+    const calloutEl: any = {
+      type: 'callout',
+      content: 'Short callout.',
+      style: 'info',
+    }
+    const paraEl: any = {
+      type: 'paragraph',
+      text: 'Following paragraph.',
+    }
+
+    const opts = { defaultFont: 'Inter', fonts: [] }
+    const calloutBlock = await measureBlock(calloutEl, 480, opts) as any
+    const paraBlock = await measureBlock(paraEl, 480, opts) as any
+
+    const paginatedDoc = paginate(
+      [calloutBlock, paraBlock],
+      2000,
+      { minOrphanLines: 1, minWidowLines: 1 }
+    )
+
+    assert.equal(paginatedDoc.pages.length, 1, 'Both blocks should fit on one page')
+
+    const placedCallout = paginatedDoc.pages[0]!.blocks[0]!
+    const placedPara = paginatedDoc.pages[0]!.blocks[1]!
+
+    const expectedParaTop = placedCallout.yFromTop + calloutBlock.height + calloutBlock.spaceAfter
+    assert.ok(
+      Math.abs(placedPara.yFromTop - expectedParaTop) < 1,
+      `Para yFromTop (${placedPara.yFromTop.toFixed(2)}) must equal callout yFromTop + height + spaceAfter (${expectedParaTop.toFixed(2)}). ` +
+      `Pre-fix: spaceAfter was baked into height AND added again by paginator, inflating the gap by ${calloutBlock.spaceAfter}pt.`
+    )
+  })
+
   await t.test('callout block.height does not bake in spaceAfter (regression: double-counting)', async () => {
     const { measureBlock } = await import('../dist/measure-blocks.js')
 
