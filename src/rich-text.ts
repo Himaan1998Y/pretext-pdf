@@ -231,10 +231,6 @@ export async function measureRichText(
       continue
     }
 
-    // Skip leading spaces at line start
-    const isLeadingSpace = currentX === 0 && token.text.trim() === ''
-    if (isLeadingSpace) continue
-
     // Check if token overflows current line
     if (currentLineWidth + token.width > contentWidth + 0.01 && currentX > 0) {
       finalizeLine()

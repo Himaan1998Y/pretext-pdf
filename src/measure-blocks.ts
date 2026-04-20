@@ -466,7 +466,7 @@ export async function measureBlock(
       const lines = await measureText(el.content, fs, family, el.fontWeight ?? 400, Math.max(innerWidth, 1), lh, hyphenatorOpts)
       const contentTextHeight = lines.length * lh
 
-      const totalHeight = pv + titleHeight + contentTextHeight + pv + (el.spaceAfter ?? 12)
+      const totalHeight = pv + titleHeight + contentTextHeight + pv
 
       return {
         element,

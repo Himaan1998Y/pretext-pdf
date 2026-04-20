@@ -94,4 +94,42 @@ test('Phase 8D — Callout Boxes', async (t) => {
     const pdf = await render(doc)
     assert(pdf instanceof Uint8Array && pdf.length > 0)
   })
+
+  // ── Bug-fix regression: callout spaceAfter double-counting ────────────────────
+  // Before fix: measure-blocks.ts included (el.spaceAfter ?? 12) inside `totalHeight`
+  // AND stored it separately as block.spaceAfter. paginate.ts added spaceAfter twice,
+  // pushing the callout and subsequent content down by one extra gap (~12pt).
+  // Fix: totalHeight = pv + titleHeight + contentHeight + pv only.
+
+  await t.test('callout block.height does not bake in spaceAfter (regression: double-counting)', async () => {
+    const { measureBlock } = await import('../dist/measure-blocks.js')
+
+    const el: any = {
+      type: 'callout',
+      content: 'One line of content.',
+      style: 'info',
+      title: 'Title',
+    }
+    const blockDefault = await measureBlock(
+      el,
+      480, // contentWidth
+      { defaultFont: 'Inter', fonts: [] },
+    ) as any
+
+    assert.equal(blockDefault.spaceAfter, 12, 'default spaceAfter must be 12')
+
+    // Re-measure with a custom spaceAfter; the visual height must be the same
+    const elCustom: any = { ...el, spaceAfter: 50 }
+    const blockCustom = await measureBlock(
+      elCustom,
+      480,
+      { defaultFont: 'Inter', fonts: [] },
+    ) as any
+
+    assert.equal(blockCustom.spaceAfter, 50, 'custom spaceAfter must be returned in block.spaceAfter')
+    assert.ok(
+      Math.abs(blockDefault.height - blockCustom.height) < 1,
+      `block.height (${blockDefault.height.toFixed(2)}) must be independent of spaceAfter (custom: ${blockCustom.height.toFixed(2)}). Bug: spaceAfter was baked into height.`
+    )
+  })
 })

@@ -275,6 +275,32 @@ describe('rich-text — whitespace preservation (v0.8.2 fix)', () => {
     )
   })
 
+  // ─── Separator span preserved after hard break (regression for isLeadingSpace bug) ─
+  //
+  // Bug: a guard stripped any whitespace-only token when currentX === 0. This fires
+  // after a hard break (\n) resets currentX to 0 — the first token of the continuation
+  // span is whitespace (e.g. "  " from "  ·  text"), which was silently dropped.
+  // The post-overflow guard (currentX > 0 condition) only handles overflow-induced
+  // wraps, not hard breaks, so the pre-overflow guard was a redundant misfire here.
+  // Fix: removed the pre-overflow isLeadingSpace guard.
+  test('leading-space span is not stripped after a hard break', async () => {
+    // After the hard-break in span 1, span 2 starts at currentX=0.
+    // Its first token "  " must survive and push "·" to x > 0.
+    const lines = await measureRichText(
+      [
+        { text: 'Line one\n' },
+        { text: '  ·  Line two', color: '#999999' },
+      ],
+      FONT_SIZE, LINE_HEIGHT, CONTENT_WIDTH, 'left', DEFAULT_DOC
+    )
+    const dotFrag = lines.flatMap(l => l.fragments).find(f => f.text.includes('·'))
+    assert.ok(dotFrag, 'Fragment with "·" must appear in output')
+    assert.ok(
+      dotFrag.x > 0,
+      `"·" should be preceded by its leading spaces (x > 0); got x=${dotFrag.x.toFixed(2)}. isLeadingSpace guard stripped the "  " token after hard break.`
+    )
+  })
+
   test('"Founder & CEO" → "Antigravity Systems" — no fragment overlap', async () => {
     // Reproduces the resume preset case from the live demo screenshot:
     // multi-span rich-paragraph with leading whitespace in the second span +

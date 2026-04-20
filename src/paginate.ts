@@ -316,7 +316,9 @@ function splitBlock(
     // Use codePad as reservation — if it turns out this IS the last chunk, the padding fits.
     // If it's a middle chunk, we conservatively reserve it to avoid overflow, then correct below.
     const bottomPadReserve = codePad
-    const availableForLines = available - topPad - bottomPadReserve
+    const calloutTitleH = (block.element.type === 'callout' && isFirstChunk && block.calloutData?.titleHeight)
+      ? block.calloutData.titleHeight : 0
+    const availableForLines = available - topPad - bottomPadReserve - calloutTitleH
 
     // Phase 5B.4: rich-paragraph may have variable line heights (per-span fontSize)
     let linesInChunk: number
@@ -446,7 +448,10 @@ export function getCurrentY(pages: RenderedPage[]): number {
       const isLastChunk = pagedBlock.endLine === block.lines.length
       const paddingTop = isFirstChunk ? paddingV : 0
       const paddingBottom = isLastChunk ? paddingV : 0
+      const titleH = (el.type === 'callout' && isFirstChunk && block.calloutData?.titleHeight)
+        ? block.calloutData.titleHeight : 0
       blockBottom = pagedBlock.yFromTop +
+        titleH +
         lineCount * block.lineHeight +
         paddingTop + paddingBottom +
         block.spaceAfter
