@@ -212,3 +212,99 @@ describe('rich-text — edge cases', () => {
     assert.ok(lines.length >= 3, `Expected ≥3 lines for narrow width, got ${lines.length}`)
   })
 })
+
+// ─── Whitespace preservation between spans (regression for v0.8.2 bugfix) ─────
+//
+// Before v0.8.2, pretext's layoutWithLines stripped trailing whitespace from
+// the line widths it returned. Tokens like "Hello " or "  " then had their
+// space portions measured as width=0, which collapsed the gap between
+// consecutive spans/words and produced visual overlaps in the rendered PDF
+// (e.g. "Founder& CEO", "AntigravitySystems" in the resume preset). The fix
+// in src/rich-text.ts measureTokenWidth uses a sentinel-character technique
+// to recover the trailing-whitespace width.
+//
+// Note: trailing whitespace is intentionally *inside* the previous fragment's
+// width — the next fragment's x is contiguous with prev.x + prev.width. The
+// drawn text is trimEnd'd at render time, so the visual gap appears where the
+// trailing whitespace would be. These tests therefore compare fragment widths
+// for inputs that differ only by trailing whitespace.
+
+describe('rich-text — whitespace preservation (v0.8.2 fix)', () => {
+  test('trailing whitespace contributes a positive width delta (no overlap)', async () => {
+    const withSpace = await measureRichText(
+      [{ text: 'Hello ' }, { text: 'World' }],
+      FONT_SIZE, LINE_HEIGHT, CONTENT_WIDTH, 'left', DEFAULT_DOC
+    )
+    const withoutSpace = await measureRichText(
+      [{ text: 'Hello' }, { text: 'World' }],
+      FONT_SIZE, LINE_HEIGHT, CONTENT_WIDTH, 'left', DEFAULT_DOC
+    )
+    const helloWith = withSpace[0]!.fragments.find(f => f.text.startsWith('Hello'))!
+    const helloWithout = withoutSpace[0]!.fragments.find(f => f.text.startsWith('Hello'))!
+    const delta = helloWith.width - helloWithout.width
+    assert.ok(
+      delta > 0,
+      `"Hello " width (${helloWith.width.toFixed(2)}) must exceed "Hello" width (${helloWithout.width.toFixed(2)}). Pre-v0.8.2 bug: delta was 0.`
+    )
+
+    // Downstream "World" fragment must be pushed right by the same delta.
+    const worldWith = withSpace[0]!.fragments.find(f => f.text === 'World')!
+    const worldWithout = withoutSpace[0]!.fragments.find(f => f.text === 'World')!
+    const positionShift = worldWith.x - worldWithout.x
+    assert.ok(
+      Math.abs(positionShift - delta) < 0.5,
+      `"World" position should shift by the trailing-space width (${delta.toFixed(2)}); shifted by ${positionShift.toFixed(2)}.`
+    )
+  })
+
+  test('whitespace-only span between two content spans contributes a gap', async () => {
+    const withSeparator = await measureRichText(
+      [{ text: 'A' }, { text: '   ', color: '#999999' }, { text: 'B', color: '#ff0000' }],
+      FONT_SIZE, LINE_HEIGHT, CONTENT_WIDTH, 'left', DEFAULT_DOC
+    )
+    const noSeparator = await measureRichText(
+      [{ text: 'A' }, { text: 'B', color: '#ff0000' }],
+      FONT_SIZE, LINE_HEIGHT, CONTENT_WIDTH, 'left', DEFAULT_DOC
+    )
+    const bWith = withSeparator[0]!.fragments.find(f => f.text === 'B')!
+    const bWithout = noSeparator[0]!.fragments.find(f => f.text === 'B')!
+    const shift = bWith.x - bWithout.x
+    assert.ok(
+      shift > 0,
+      `Whitespace-only separator span must push downstream fragments right; expected positive shift, got ${shift.toFixed(2)}. Pre-v0.8.2 bug: shift was 0.`
+    )
+  })
+
+  test('"Founder & CEO" → "Antigravity Systems" — no fragment overlap', async () => {
+    // Reproduces the resume preset case from the live demo screenshot:
+    // multi-span rich-paragraph with leading whitespace in the second span +
+    // bold weight on the first.
+    const lines = await measureRichText(
+      [
+        { text: 'Founder & CEO', fontWeight: 700 },
+        { text: '  —  Antigravity Systems', color: '#333333' },
+      ],
+      FONT_SIZE, LINE_HEIGHT, CONTENT_WIDTH, 'left', DEFAULT_DOC
+    )
+    assert.equal(lines.length, 1)
+    const frags = lines[0]!.fragments
+
+    // Compare against the same content with the leading-whitespace stripped
+    // from span 2: the version WITH whitespace must place "Systems" further right.
+    const linesNoLeadingWs = await measureRichText(
+      [
+        { text: 'Founder & CEO', fontWeight: 700 },
+        { text: 'AntigravitySystems', color: '#333333' },
+      ],
+      FONT_SIZE, LINE_HEIGHT, CONTENT_WIDTH, 'left', DEFAULT_DOC
+    )
+    const sysWith = frags.find(f => f.text.trim() === 'Systems')!
+    const sysWithout = linesNoLeadingWs[0]!.fragments.find(f => f.text.includes('System'))!
+    assert.ok(sysWith && sysWithout, 'expected Systems-containing fragments in both inputs')
+    const shift = sysWith.x - sysWithout.x
+    assert.ok(
+      shift > 0,
+      `"Systems" should be pushed right by the leading-whitespace + separator width of span 2; expected positive shift, got ${shift.toFixed(2)}. Pre-v0.8.2 bug produced "Founder& CEO—AntigravitySystems" overlap.`
+    )
+  })
+})

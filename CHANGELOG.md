@@ -7,6 +7,19 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [0.8.2] — 2026-04-20
+
+### Fixed
+
+- **Rich-paragraph whitespace collapse** — multi-span `rich-paragraph` content rendered with adjacent words overlapping (e.g. `"Founder & CEO" + "  —  Antigravity Systems"` displayed as `"Founder& CEO—AntigravitySystems"`). Root cause: pretext's `layoutWithLines` follows CSS-like behavior and excludes trailing whitespace from line widths, so tokens like `"Hello "` or `"  "` measured to width 0 and downstream fragments overlapped the previous one. `measureTokenWidth` in [src/rich-text.ts](src/rich-text.ts) now uses a sentinel-character technique (append non-whitespace `\u2588`, measure combined string, subtract sentinel width) to recover the true rendered width whenever a token has trailing whitespace. Sentinel width is cached per font config.
+- The fast path (no trailing whitespace) is unchanged — single pretext call. Slow path adds two pretext calls per affected token, with one cached.
+
+### Tests
+
+- Added 3 regression tests in `test/rich-text.test.ts` under `whitespace preservation (v0.8.2 fix)` covering trailing whitespace inside spans, whitespace-only separator spans, and the exact `"Founder & CEO" → "Antigravity Systems"` resume-preset scenario.
+
+---
+
 ## [0.8.1] — 2026-04-20
 
 ### Fixed

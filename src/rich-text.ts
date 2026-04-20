@@ -12,9 +12,23 @@ async function getPretext() {
   return _pretext
 }
 
+/** Cache of per-fontString sentinel widths used to recover trailing-whitespace widths. */
+const _sentinelWidthCache = new Map<string, number>()
+const SENTINEL_CHAR = '\u2588' // Full block — guaranteed non-whitespace, broad font coverage
+
 /**
  * Measure the natural (pixel) width of a single text token using Pretext.
+ *
  * Uses a very large maxWidth so no wrapping occurs.
+ *
+ * Pretext's `layoutWithLines` follows CSS-like behavior and excludes trailing
+ * whitespace from line widths. That breaks our token model: a token like
+ * `"Founder "` (with trailing space) would otherwise measure the same as
+ * `"Founder"`, collapsing the inter-word gap and producing visual overlaps
+ * (e.g. "Founder& CEO" — see test/rich-text.test.ts whitespace-between-spans
+ * suite). When the token has trailing whitespace, we append a non-whitespace
+ * sentinel character, measure the combined string, and subtract the sentinel's
+ * own width to recover the actual rendered width including trailing whitespace.
  */
 async function measureTokenWidth(
   text: string,
@@ -31,11 +45,26 @@ async function measureTokenWidth(
   const stylePrefix = fontStyle === 'italic' ? 'italic ' : ''
   const fontString = `${stylePrefix}${weightPrefix}${fontSize}px ${fontFamily}`
 
-  const prepared = prepareWithSegments(text, fontString, { whiteSpace: 'pre-wrap' })
-  const result = layoutWithLines(prepared, 99999, fontSize * LINE_HEIGHT_BODY)
-  const lines: Array<{ text: string; width: number }> = result.lines ?? []
+  const measure = (input: string): number => {
+    const prepared = prepareWithSegments(input, fontString, { whiteSpace: 'pre-wrap' })
+    const result = layoutWithLines(prepared, 99999, fontSize * LINE_HEIGHT_BODY)
+    const lines: Array<{ text: string; width: number }> = result.lines ?? []
+    return lines[0]?.width ?? 0
+  }
 
-  return lines[0]?.width ?? 0
+  // Fast path: no trailing whitespace, single pretext call.
+  const trimmed = text.trimEnd()
+  if (trimmed.length === text.length) return measure(text)
+
+  // Slow path: text has trailing whitespace (or is whitespace-only).
+  // Append a sentinel and subtract its width to recover trailing-ws width.
+  let sentinelWidth = _sentinelWidthCache.get(fontString)
+  if (sentinelWidth === undefined) {
+    sentinelWidth = measure(SENTINEL_CHAR)
+    _sentinelWidthCache.set(fontString, sentinelWidth)
+  }
+  const combinedWidth = measure(text + SENTINEL_CHAR)
+  return Math.max(0, combinedWidth - sentinelWidth)
 }
 
 /**
