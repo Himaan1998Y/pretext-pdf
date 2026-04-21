@@ -24,36 +24,34 @@ import { writeFileSync, mkdirSync } from 'fs'
 
 mkdirSync('test-output', { recursive: true })
 
-// Build body text long enough to force a split. Each sentence adds ~1 line
-// at 480pt content width with 11pt font; ~25 sentences → ~25 lines, which
-// is taller than any reasonable remaining-space-on-page so the callout
-// MUST split across the page boundary.
-const longBody = Array.from({ length: 25 }, (_, i) =>
-  `Line ${i + 1} of the callout body. This sentence adds one line at the default font size and content width so the callout becomes tall enough to force a page split regardless of where on page 1 it begins.`
+// Short body — 4 lines. Combined with the tight custom page height below,
+// the split must happen RIGHT AT the title boundary. Under the pre-fix
+// bug, availableForLines did not subtract titleHeight, so the paginator
+// packed 3-4 content lines onto page 1 with no room for the title — the
+// background rect clipped the title row. Post-fix, only 1-2 content lines
+// fit on page 1 and the rest flows to page 2, keeping the title visible.
+const longBody = Array.from({ length: 8 }, (_, i) =>
+  `Line ${i + 1} of the callout body text — fills one line at the given width.`
 ).join(' ')
 
+// Tight custom page matching the regression test geometry.
+// pageContentHeight = paddingV(10) + titleH(~21) + lh(18) + paddingV(10) + 1 = 60pt
+// ─ Pre-fix paginator computes availableForLines = 60 - 10 - 10 = 40pt
+//   floor(40 / 18) = 2 content lines crammed onto page 1 → the
+//   title's reserved 21pt is consumed by body lines; background rect
+//   + content overdraw the title row.
+// ─ Post-fix paginator computes availableForLines = 40 - 21 = 19pt
+//   floor(19 / 18) = 1 content line. Title is safely reserved; the
+//   second body line flows to page 2.
+//
+// Total page height = 60pt content + 20pt top margin + 20pt bottom margin = 100pt.
 const pdf = await render({
-  pageSize: 'A4',
-  margins: { top: 60, bottom: 60, left: 60, right: 60 },
+  pageSize: [360, 100],
+  margins: { top: 20, bottom: 20, left: 30, right: 30 },
   defaultFontSize: 11,
   content: [
-    { type: 'heading', level: 1, text: 'PR #2 · Bug 3 Visual Verification', fontSize: 18, color: '#1a1a2e', spaceAfter: 6 },
-    { type: 'paragraph', text: 'A titled callout below is long enough to split across two pages. The title row on page 1 must be fully visible inside the tinted background, with content beginning on the line BELOW the title (not overlapping it).', color: '#555555', fontSize: 10, spaceAfter: 14 },
-
-    // Filler tuned so the callout starts around the middle of page 1; because
-    // the callout body alone is taller than any remaining page height, it must
-    // split across the page break.
-    ...Array.from({ length: 12 }, (_, i) => ({
-      type: 'paragraph' as const,
-      text: `Filler paragraph ${i + 1}: this line consumes vertical space so the callout below starts partway down page 1 and then overflows onto page 2.`,
-      fontSize: 10,
-      color: '#555555',
-      spaceAfter: 4,
-    })),
-
     { type: 'callout', style: 'info', title: 'Callout Title — Must NOT Be Clipped', content: longBody },
-
-    { type: 'paragraph', text: 'Post-callout trailing paragraph — confirms y-tracking on page 2 is correct so any following content sits below the continuation chunk (not inside it).', fontSize: 10, color: '#555555', spaceBefore: 10 },
+    { type: 'paragraph', text: 'Trailing paragraph — should sit BELOW the callout background, not inside it.', fontSize: 10, color: '#555555', spaceBefore: 8 },
   ],
 })
 
