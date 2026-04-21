@@ -1,5 +1,6 @@
 import type {
-  MeasuredBlock, PagedBlock, RenderedPage, PaginatedDocument
+  MeasuredBlock, MeasuredCalloutBlock, MeasuredBlockquoteBlock,
+  PagedBlock, RenderedPage, PaginatedDocument
 } from './types.js'
 import { PretextPdfError } from './errors.js'
 
@@ -7,6 +8,101 @@ const MAX_PAGES = 10_000
 /** Floating-point tolerance for height comparisons. Prevents off-by-one-pixel "spill" caused by
  *  sub-point rounding when measured heights are computed via floating-point multiplication. */
 const EPSILON = 0.01
+
+// ─── Post-measurement contract enforcement ──────────────────────────────────
+// validateMeasuredBlocks runs once at paginate() entry. It enforces the
+// producer-side invariants that downstream helpers rely on:
+//   - every callout block carries a complete, finite-valued CalloutData
+//   - every blockquote block carries complete padding/border fields
+// Any violation throws PAGINATION_FAILED so the root cause (measureBlock
+// producing a partial shape) surfaces directly, instead of later as NaN
+// arithmetic or PAGE_LIMIT_EXCEEDED.
+
+function isFiniteNumber(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v)
+}
+
+/**
+ * Assert a callout MeasuredBlock carries complete, finite CalloutData.
+ * @throws PretextPdfError('PAGINATION_FAILED') if calloutData is missing or has invalid fields.
+ */
+function assertValidCalloutBlock(block: MeasuredBlock): asserts block is MeasuredCalloutBlock {
+  const cd = block.calloutData
+  if (
+    !cd ||
+    !isFiniteNumber(cd.titleHeight) ||
+    !isFiniteNumber(cd.paddingV) ||
+    !isFiniteNumber(cd.paddingH)
+  ) {
+    throw new PretextPdfError(
+      'PAGINATION_FAILED',
+      'MeasuredBlock contract violated: callout block has missing or non-finite calloutData fields (titleHeight, paddingV, paddingH)'
+    )
+  }
+}
+
+/**
+ * Assert a blockquote MeasuredBlock carries complete padding/border fields.
+ * @throws PretextPdfError('PAGINATION_FAILED') if any field is missing or non-finite.
+ */
+function assertValidBlockquoteBlock(block: MeasuredBlock): asserts block is MeasuredBlockquoteBlock {
+  if (
+    !isFiniteNumber(block.blockquotePaddingV) ||
+    !isFiniteNumber(block.blockquotePaddingH) ||
+    !isFiniteNumber(block.blockquoteBorderWidth)
+  ) {
+    throw new PretextPdfError(
+      'PAGINATION_FAILED',
+      'MeasuredBlock contract violated: blockquote block has missing or non-finite padding/border fields'
+    )
+  }
+}
+
+/**
+ * Validate producer-side invariants on every block before pagination begins.
+ * Runs once per document in O(n). After this point, callout and blockquote
+ * blocks can be cast to their narrowed types without defensive checks.
+ * @throws PretextPdfError('PAGINATION_FAILED') on any invariant violation.
+ */
+function validateMeasuredBlocks(blocks: readonly MeasuredBlock[]): void {
+  for (const block of blocks) {
+    if (block.element.type === 'callout') {
+      assertValidCalloutBlock(block)
+    } else if (block.element.type === 'blockquote') {
+      assertValidBlockquoteBlock(block)
+    }
+  }
+}
+
+/**
+ * Return the title-row height to reserve for a callout block's first chunk.
+ * - Non-callout blocks return 0 (loop-safe when called from a shared code path).
+ * - Non-first chunks of a callout return 0 (title is only drawn on the first chunk).
+ * - Callout blocks must satisfy validateMeasuredBlocks before reaching this
+ *   helper; the cast below is safe because of that upstream invariant.
+ */
+function calloutTitleHeight(block: MeasuredBlock, isFirstChunk: boolean): number {
+  if (block.element.type !== 'callout') return 0
+  const cd = (block as MeasuredCalloutBlock).calloutData
+  return isFirstChunk ? cd.titleHeight : 0
+}
+
+/**
+ * Return the vertical padding for a blockquote or callout block.
+ * Callout padding is read directly from the validated `calloutData.paddingV`.
+ * Blockquote padding is read from the validated `blockquotePaddingV`.
+ * The `fallback` is used only for types that opt into sharing this helper
+ * without a pre-validated padding source (currently none, kept for safety).
+ */
+function verticalPadding(block: MeasuredBlock, fallback: number): number {
+  if (block.element.type === 'callout') {
+    return (block as MeasuredCalloutBlock).calloutData.paddingV
+  }
+  if (block.element.type === 'blockquote') {
+    return (block as MeasuredBlockquoteBlock).blockquotePaddingV
+  }
+  return fallback
+}
 
 interface PaginateConfig {
   minOrphanLines: number  // min lines to keep at bottom of a page
@@ -23,6 +119,15 @@ interface PaginateConfig {
  * Stage 4: Paginate — pure function.
  * Takes measured blocks + page content height → distributes blocks across pages.
  * No I/O, no side effects, fully unit-testable.
+ *
+ * @throws PretextPdfError('PAGE_TOO_SMALL') when pageContentHeight <= 0.
+ * @throws PretextPdfError('PAGINATION_FAILED') when a callout or blockquote
+ *   block violates its measurement contract (e.g. missing or non-finite fields).
+ *   This is a producer-side invariant; normal inputs produced by measureBlock
+ *   will not trigger it.
+ * @throws PretextPdfError('PAGE_LIMIT_EXCEEDED') if pagination would exceed
+ *   MAX_PAGES. Usually indicates a pagination bug or content so dense it
+ *   cannot fit.
  */
 export function paginate(
   blocks: MeasuredBlock[],
@@ -32,6 +137,10 @@ export function paginate(
   if (pageContentHeight <= 0) {
     throw new PretextPdfError('PAGE_TOO_SMALL', `pageContentHeight is ${pageContentHeight}pt — nothing can be rendered. Check margins and page size.`)
   }
+
+  // Enforce producer-side invariants once. After this call, callout and
+  // blockquote blocks can be narrowed via cast without defensive checks.
+  validateMeasuredBlocks(blocks)
 
   const pages: RenderedPage[] = [newPage(0)]
   let currentY = 0
@@ -302,11 +411,12 @@ function splitBlock(
   // Middle chunks have no padding drawn, so we don't reserve any.
   // We don't know if a chunk is "last" until we count lines, so we always reserve bottomPad
   // unless this is provably not the last chunk (remaining > linesInChunk after computation).
-  // Both code and blockquote have visual padding that must be reserved when computing line capacity.
+  // Code, blockquote, and callout all have visual padding that must be reserved.
+  // Callout padding lives under calloutData (invariant enforced by calloutTitleHeight).
   const codePad = block.element.type === 'code'
     ? (block.codePadding ?? 0)
     : (block.element.type === 'blockquote' || block.element.type === 'callout')
-      ? (block.blockquotePaddingV ?? 0)
+      ? verticalPadding(block, 0)
       : 0
 
   while (remainingLines.length > 0) {
@@ -316,9 +426,7 @@ function splitBlock(
     // Use codePad as reservation — if it turns out this IS the last chunk, the padding fits.
     // If it's a middle chunk, we conservatively reserve it to avoid overflow, then correct below.
     const bottomPadReserve = codePad
-    const calloutTitleH = (block.element.type === 'callout' && isFirstChunk && block.calloutData?.titleHeight)
-      ? block.calloutData.titleHeight : 0
-    const availableForLines = available - topPad - bottomPadReserve - calloutTitleH
+    const availableForLines = available - topPad - bottomPadReserve - calloutTitleHeight(block, isFirstChunk)
 
     // Rich paragraphs may have variable line heights when spans use different font sizes
     let linesInChunk: number
@@ -443,15 +551,13 @@ export function getCurrentY(pages: RenderedPage[]): number {
     } else if (el.type === 'blockquote' || el.type === 'callout') {
       // Blockquote/callout blocks include vertical padding in their height (same pattern as code)
       const lineCount = pagedBlock.endLine - pagedBlock.startLine
-      const paddingV = block.blockquotePaddingV ?? 10
+      const paddingV = verticalPadding(block, 10)
       const isFirstChunk = pagedBlock.startLine === 0
       const isLastChunk = pagedBlock.endLine === block.lines.length
       const paddingTop = isFirstChunk ? paddingV : 0
       const paddingBottom = isLastChunk ? paddingV : 0
-      const titleH = (el.type === 'callout' && isFirstChunk && block.calloutData?.titleHeight)
-        ? block.calloutData.titleHeight : 0
       blockBottom = pagedBlock.yFromTop +
-        titleH +
+        calloutTitleHeight(block, isFirstChunk) +
         lineCount * block.lineHeight +
         paddingTop + paddingBottom +
         block.spaceAfter
@@ -475,7 +581,6 @@ export function getCurrentY(pages: RenderedPage[]): number {
   return maxY
 }
 
-// ─── Per-line height counting for rich-paragraph ──────────────────
 /**
  * Count how many lines from richLines array fit in the available height.
  * Uses greedy accumulation of per-line heights (which may vary due to per-span fontSize).

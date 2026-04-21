@@ -6,7 +6,8 @@
 import type {
   ContentElement, MeasuredBlock, MeasuredTableData,
   MeasuredTableRow, MeasuredTableCell, MeasuredImageData, ListItemData,
-  ImageMap, ColumnDef, TableElement, PdfDocument, PretextLine
+  ImageMap, ColumnDef, TableElement, PdfDocument, PretextLine,
+  CalloutData
 } from './types.js'
 import { PretextPdfError } from './errors.js'
 import { measureRichText } from './rich-text.js'
@@ -150,9 +151,12 @@ export async function measureBlock(
         measureWidth = Math.max(10, measureWidth * avgCharWidth / (avgCharWidth + letterSpacingValue))
       }
 
-      // Measure the visual-order text (after RTL reordering) for accurate glyph metrics.
-      // smallCaps uppercases at render time — measure the same uppercase text so
-      // line-break widths match what is actually drawn.
+      // Measure post-reorder (visual-order) text because the renderer draws characters in
+      // visual order; measuring the logical string for an RTL run would pick break points
+      // that don't match what is actually drawn, producing wrong line widths.
+      //
+      // smallCaps uppercases at render time. Measure the same uppercase text so
+      // line-break widths match what the renderer actually draws.
       const measureText_ = element.smallCaps === true ? visualText.toUpperCase() : visualText
       const lines = await measureText(measureText_, effectiveFontSize, fontFamily, fontWeight, measureWidth, lineHeight, opts)
 
@@ -216,8 +220,12 @@ export async function measureBlock(
         ? Math.max(10, contentWidth * (effectiveFontSize * 0.5) / (effectiveFontSize * 0.5 + headingLetterSpacing))
         : contentWidth
 
-      // Measure the visual-order text (after RTL reordering) for accurate glyph metrics.
-      // smallCaps uppercases at render time — measure uppercase for consistent line widths.
+      // Measure post-reorder (visual-order) text because the renderer draws characters in
+      // visual order; measuring the logical string for an RTL run would pick break points
+      // that don't match what is actually drawn, producing wrong line widths.
+      //
+      // smallCaps uppercases at render time. Measure the same uppercase text so
+      // line-break widths match what the renderer actually draws.
       const headingMeasureText = element.smallCaps === true ? visualText.toUpperCase() : visualText
       const lines = await measureText(headingMeasureText, effectiveFontSize, fontFamily, fontWeight, headingMeasureWidth, lineHeight, opts)
 
@@ -420,7 +428,9 @@ export async function measureBlock(
       // Text area excludes left border + horizontal padding on both sides
       const textWidth = contentWidth - borderWidth - 2 * paddingH
 
-      // Measure the visual-order text (after RTL reordering) for accurate glyph metrics.
+      // Measure post-reorder (visual-order) text because the renderer draws characters in
+      // visual order; measuring the logical string for an RTL run would pick break points
+      // that don't match what is actually drawn, producing wrong line widths.
       const lines = await measureText(visualText, fontSize, fontFamily, fontWeight, Math.max(textWidth, 1), lineHeight, hyphenatorOpts)
 
       // height = lines * lineHeight + padding top + padding bottom
@@ -468,6 +478,14 @@ export async function measureBlock(
 
       const totalHeight = pv + titleHeight + contentTextHeight + pv
 
+      // Construct calloutData via a typed literal so TypeScript enforces the
+      // full contract at the producer site (every field present, correct type).
+      const calloutData: CalloutData = {
+        titleHeight, paddingH: ph, paddingV: pv,
+        borderColor, backgroundColor, titleColor, color,
+        ...(el.title !== undefined ? { titleText: el.title } : {}),
+      }
+
       return {
         element,
         height: totalHeight,
@@ -477,10 +495,7 @@ export async function measureBlock(
         fontKey: buildFontKey(family, el.fontWeight ?? 400, 'normal'),
         spaceAfter: el.spaceAfter ?? 12,
         spaceBefore: el.spaceBefore ?? 0,
-        blockquotePaddingV: pv,
-        blockquotePaddingH: ph,
-        blockquoteBorderWidth: 3,
-        calloutData: { titleHeight, paddingH: ph, paddingV: pv, borderColor, backgroundColor, titleColor, color, ...(el.title !== undefined ? { titleText: el.title } : {}) },
+        calloutData,
       }
     }
     case 'toc': {

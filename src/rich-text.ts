@@ -2,6 +2,9 @@ import type { InlineSpan, RichLine, RichFragment, PdfDocument } from './types.js
 import { buildFontKey } from './measure.js'
 import { LINE_HEIGHT_BODY } from './render-utils.js'
 
+/** Default link color (hex) applied to URL spans when no explicit color override is set. */
+const LINK_COLOR_DEFAULT = '#0070f3'
+
 /** Lazily-loaded Pretext module */
 let _pretext: typeof import('@chenglou/pretext') | null = null
 
@@ -115,8 +118,8 @@ export async function measureRichText(
     const fontStyle = span.fontStyle ?? 'normal'
     const color = span.color ?? '#000000'
     const spanFontSize = span.fontSize ?? fontSize
-    // URLs auto-apply blue color + underline when no explicit override
-    const effectiveColor = span.url && !span.color ? '#0070f3' : (span.color ?? '#000000')
+    // URLs auto-apply LINK_COLOR_DEFAULT + underline when no explicit color is set.
+    const effectiveColor = span.url && !span.color ? LINK_COLOR_DEFAULT : (span.color ?? '#000000')
     const underline = span.url ? true : (span.underline ?? false)
     const strikethrough = span.strikethrough ?? false
     const url = span.url
@@ -234,7 +237,11 @@ export async function measureRichText(
     // Check if token overflows current line
     if (currentLineWidth + token.width > contentWidth + 0.01 && currentX > 0) {
       finalizeLine()
-      // Skip leading space at new line start
+      // Skip leading whitespace at new line start. A zero-width whitespace token
+      // (e.g. narrow no-break space rendered with zero width) also belongs here.
+      // Do NOT skip zero-width *non-whitespace* tokens (ZWJ, combining marks) —
+      // they have no independent visual but are load-bearing for shaping and
+      // must remain in the fragment list so the renderer emits them in sequence.
       if (token.text.trim() === '') continue
     }
 
