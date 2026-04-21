@@ -352,4 +352,27 @@ describe('rich-text — whitespace preservation (v0.8.2 fix)', () => {
       `"Systems" should be pushed right by the leading-whitespace + separator width of span 2; expected positive shift, got ${shift.toFixed(2)}. Pre-v0.8.2 bug produced "Founder& CEO—AntigravitySystems" overlap.`
     )
   })
+
+  // ── Coverage gap (T2 / SF-6): zero-width non-whitespace tokens must NOT be dropped ──
+  // The guard in measureRichText at the post-soft-wrap skip site excludes only
+  // tokens where text.trim() === ''. Zero-width non-whitespace tokens (ZWJ,
+  // combining marks) are load-bearing for shaping (emoji ligatures, complex
+  // scripts) and must remain in the fragment list. A prior iteration widened
+  // the guard to also exclude `width === 0`, which would have silently dropped
+  // these; this test pins the current behavior so that regression is caught.
+
+  test('zero-width non-whitespace token (ZWJ) is preserved in fragment list', async () => {
+    const lines = await measureRichText(
+      [
+        { text: 'A‍B' }, // A + ZWJ (U+200D) + B — ZWJ has zero width but is non-whitespace
+      ],
+      FONT_SIZE, LINE_HEIGHT, CONTENT_WIDTH, 'left', DEFAULT_DOC
+    )
+    const frags = lines.flatMap(l => l.fragments)
+    const joined = frags.map(f => f.text).join('')
+    assert.ok(
+      joined.includes('‍'),
+      `ZWJ (U+200D) must survive measurement; concatenated fragments = ${JSON.stringify(joined)}. A regression widening the skip guard to cover width===0 would silently drop it, breaking emoji/CJK shaping.`
+    )
+  })
 })

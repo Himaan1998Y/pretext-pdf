@@ -1,5 +1,6 @@
 import type {
-  MeasuredBlock, PagedBlock, RenderedPage, PaginatedDocument
+  MeasuredBlock, MeasuredCalloutBlock, MeasuredBlockquoteBlock,
+  PagedBlock, RenderedPage, PaginatedDocument
 } from './types.js'
 import { PretextPdfError } from './errors.js'
 
@@ -8,42 +9,99 @@ const MAX_PAGES = 10_000
  *  sub-point rounding when measured heights are computed via floating-point multiplication. */
 const EPSILON = 0.01
 
+// ─── Post-measurement contract enforcement ──────────────────────────────────
+// validateMeasuredBlocks runs once at paginate() entry. It enforces the
+// producer-side invariants that downstream helpers rely on:
+//   - every callout block carries a complete, finite-valued CalloutData
+//   - every blockquote block carries complete padding/border fields
+// Any violation throws PAGINATION_FAILED so the root cause (measureBlock
+// producing a partial shape) surfaces directly, instead of later as NaN
+// arithmetic or PAGE_LIMIT_EXCEEDED.
+
+function isFiniteNumber(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v)
+}
+
+/**
+ * Assert a callout MeasuredBlock carries complete, finite CalloutData.
+ * @throws PretextPdfError('PAGINATION_FAILED') if calloutData is missing or has invalid fields.
+ */
+function assertValidCalloutBlock(block: MeasuredBlock): asserts block is MeasuredCalloutBlock {
+  const cd = block.calloutData
+  if (
+    !cd ||
+    !isFiniteNumber(cd.titleHeight) ||
+    !isFiniteNumber(cd.paddingV) ||
+    !isFiniteNumber(cd.paddingH)
+  ) {
+    throw new PretextPdfError(
+      'PAGINATION_FAILED',
+      'MeasuredBlock contract violated: callout block has missing or non-finite calloutData fields (titleHeight, paddingV, paddingH)'
+    )
+  }
+}
+
+/**
+ * Assert a blockquote MeasuredBlock carries complete padding/border fields.
+ * @throws PretextPdfError('PAGINATION_FAILED') if any field is missing or non-finite.
+ */
+function assertValidBlockquoteBlock(block: MeasuredBlock): asserts block is MeasuredBlockquoteBlock {
+  if (
+    !isFiniteNumber(block.blockquotePaddingV) ||
+    !isFiniteNumber(block.blockquotePaddingH) ||
+    !isFiniteNumber(block.blockquoteBorderWidth)
+  ) {
+    throw new PretextPdfError(
+      'PAGINATION_FAILED',
+      'MeasuredBlock contract violated: blockquote block has missing or non-finite padding/border fields'
+    )
+  }
+}
+
+/**
+ * Validate producer-side invariants on every block before pagination begins.
+ * Runs once per document in O(n). After this point, callout and blockquote
+ * blocks can be cast to their narrowed types without defensive checks.
+ * @throws PretextPdfError('PAGINATION_FAILED') on any invariant violation.
+ */
+function validateMeasuredBlocks(blocks: readonly MeasuredBlock[]): void {
+  for (const block of blocks) {
+    if (block.element.type === 'callout') {
+      assertValidCalloutBlock(block)
+    } else if (block.element.type === 'blockquote') {
+      assertValidBlockquoteBlock(block)
+    }
+  }
+}
+
 /**
  * Return the title-row height to reserve for a callout block's first chunk.
- * Returns 0 for any non-callout block, or for non-first chunks of a callout.
- * Throws PAGINATION_FAILED if a callout block reaches here without calloutData
- * — measureBlock always attaches calloutData, so a missing value is a producer
- * bug and must fail loudly rather than silently returning 0.
+ * - Non-callout blocks return 0 (loop-safe when called from a shared code path).
+ * - Non-first chunks of a callout return 0 (title is only drawn on the first chunk).
+ * - Callout blocks must satisfy validateMeasuredBlocks before reaching this
+ *   helper; the cast below is safe because of that upstream invariant.
  */
 function calloutTitleHeight(block: MeasuredBlock, isFirstChunk: boolean): number {
   if (block.element.type !== 'callout') return 0
-  if (!block.calloutData) {
-    throw new PretextPdfError(
-      'PAGINATION_FAILED',
-      'MeasuredBlock contract violated: callout block missing calloutData'
-    )
-  }
-  return isFirstChunk ? block.calloutData.titleHeight : 0
+  const cd = (block as MeasuredCalloutBlock).calloutData
+  return isFirstChunk ? cd.titleHeight : 0
 }
 
 /**
  * Return the vertical padding for a blockquote or callout block.
- * For callout, calloutData.paddingV is authoritative; a missing calloutData
- * is a producer bug and throws PAGINATION_FAILED (same invariant as
- * calloutTitleHeight). For blockquote, falls back to the legacy
- * blockquotePaddingV field with a safe default.
+ * Callout padding is read directly from the validated `calloutData.paddingV`.
+ * Blockquote padding is read from the validated `blockquotePaddingV`.
+ * The `fallback` is used only for types that opt into sharing this helper
+ * without a pre-validated padding source (currently none, kept for safety).
  */
 function verticalPadding(block: MeasuredBlock, fallback: number): number {
   if (block.element.type === 'callout') {
-    if (!block.calloutData) {
-      throw new PretextPdfError(
-        'PAGINATION_FAILED',
-        'MeasuredBlock contract violated: callout block missing calloutData'
-      )
-    }
-    return block.calloutData.paddingV
+    return (block as MeasuredCalloutBlock).calloutData.paddingV
   }
-  return block.blockquotePaddingV ?? fallback
+  if (block.element.type === 'blockquote') {
+    return (block as MeasuredBlockquoteBlock).blockquotePaddingV
+  }
+  return fallback
 }
 
 interface PaginateConfig {
@@ -61,6 +119,15 @@ interface PaginateConfig {
  * Stage 4: Paginate — pure function.
  * Takes measured blocks + page content height → distributes blocks across pages.
  * No I/O, no side effects, fully unit-testable.
+ *
+ * @throws PretextPdfError('PAGE_TOO_SMALL') when pageContentHeight <= 0.
+ * @throws PretextPdfError('PAGINATION_FAILED') when a callout or blockquote
+ *   block violates its measurement contract (e.g. missing or non-finite fields).
+ *   This is a producer-side invariant; normal inputs produced by measureBlock
+ *   will not trigger it.
+ * @throws PretextPdfError('PAGE_LIMIT_EXCEEDED') if pagination would exceed
+ *   MAX_PAGES. Usually indicates a pagination bug or content so dense it
+ *   cannot fit.
  */
 export function paginate(
   blocks: MeasuredBlock[],
@@ -70,6 +137,10 @@ export function paginate(
   if (pageContentHeight <= 0) {
     throw new PretextPdfError('PAGE_TOO_SMALL', `pageContentHeight is ${pageContentHeight}pt — nothing can be rendered. Check margins and page size.`)
   }
+
+  // Enforce producer-side invariants once. After this call, callout and
+  // blockquote blocks can be narrowed via cast without defensive checks.
+  validateMeasuredBlocks(blocks)
 
   const pages: RenderedPage[] = [newPage(0)]
   let currentY = 0

@@ -2,6 +2,9 @@ import type { InlineSpan, RichLine, RichFragment, PdfDocument } from './types.js
 import { buildFontKey } from './measure.js'
 import { LINE_HEIGHT_BODY } from './render-utils.js'
 
+/** Default link color (hex) applied to URL spans when no explicit color override is set. */
+const LINK_COLOR_DEFAULT = '#0070f3'
+
 /** Lazily-loaded Pretext module */
 let _pretext: typeof import('@chenglou/pretext') | null = null
 
@@ -115,9 +118,8 @@ export async function measureRichText(
     const fontStyle = span.fontStyle ?? 'normal'
     const color = span.color ?? '#000000'
     const spanFontSize = span.fontSize ?? fontSize
-    // URLs auto-apply the default link color + underline when no explicit override.
-    // The default hex is the literal on the next line; keep it there as the single source.
-    const effectiveColor = span.url && !span.color ? '#0070f3' : (span.color ?? '#000000')
+    // URLs auto-apply LINK_COLOR_DEFAULT + underline when no explicit color is set.
+    const effectiveColor = span.url && !span.color ? LINK_COLOR_DEFAULT : (span.color ?? '#000000')
     const underline = span.url ? true : (span.underline ?? false)
     const strikethrough = span.strikethrough ?? false
     const url = span.url

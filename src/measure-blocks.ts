@@ -6,7 +6,8 @@
 import type {
   ContentElement, MeasuredBlock, MeasuredTableData,
   MeasuredTableRow, MeasuredTableCell, MeasuredImageData, ListItemData,
-  ImageMap, ColumnDef, TableElement, PdfDocument, PretextLine
+  ImageMap, ColumnDef, TableElement, PdfDocument, PretextLine,
+  CalloutData
 } from './types.js'
 import { PretextPdfError } from './errors.js'
 import { measureRichText } from './rich-text.js'
@@ -477,6 +478,14 @@ export async function measureBlock(
 
       const totalHeight = pv + titleHeight + contentTextHeight + pv
 
+      // Construct calloutData via a typed literal so TypeScript enforces the
+      // full contract at the producer site (every field present, correct type).
+      const calloutData: CalloutData = {
+        titleHeight, paddingH: ph, paddingV: pv,
+        borderColor, backgroundColor, titleColor, color,
+        ...(el.title !== undefined ? { titleText: el.title } : {}),
+      }
+
       return {
         element,
         height: totalHeight,
@@ -486,7 +495,7 @@ export async function measureBlock(
         fontKey: buildFontKey(family, el.fontWeight ?? 400, 'normal'),
         spaceAfter: el.spaceAfter ?? 12,
         spaceBefore: el.spaceBefore ?? 0,
-        calloutData: { titleHeight, paddingH: ph, paddingV: pv, borderColor, backgroundColor, titleColor, color, ...(el.title !== undefined ? { titleText: el.title } : {}) },
+        calloutData,
       }
     }
     case 'toc': {

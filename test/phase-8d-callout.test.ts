@@ -3,6 +3,11 @@ import assert from 'node:assert'
 import { render, PretextPdfError } from '../dist/index.js'
 import type { PdfDocument } from '../dist/index.js'
 
+/** Assert that a measured callout block carries a populated calloutData object. */
+function assertHasCalloutData(b: any): void {
+  assert.ok(b.calloutData, 'calloutData must be populated for callout blocks')
+}
+
 test('Phase 8D — Callout Boxes', async (t) => {
   await t.test('basic callout renders without error', async () => {
     const doc: PdfDocument = {
@@ -103,8 +108,10 @@ test('Phase 8D — Callout Boxes', async (t) => {
     assert.equal(totalPlaced, blocks.length, 'Every block must be placed exactly once across all pages')
     const calloutPlacements = paginated.pages.flatMap(p => p.blocks).filter(b => b.measuredBlock.element.type === 'callout')
     assert.ok(calloutPlacements.length >= 1, 'Callout must appear on at least one page')
-    // I2: the callout is the last block — with 20 leading paragraphs consuming most of page 1,
-    // the callout must land on page 2 or later (not silently collapse onto page 1).
+    // I2: the callout is the last block. This is an arithmetic consequence of
+    // pageContentHeight = floor(totalHeight / 3) — one-third of the total height
+    // cannot fit 20 full-width paragraphs AND the callout on page 1. If the
+    // paginator ever collapses late blocks onto page 1, this assertion fires.
     const firstPageTypes = paginated.pages[0]!.blocks.map(b => b.measuredBlock.element.type)
     assert.ok(!firstPageTypes.includes('callout'), `Callout should not land on page 1 when it follows 20 paragraphs; got page 1 types: ${firstPageTypes.join(', ')}`)
   })
@@ -205,7 +212,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
     const block = await measureBlock(el, 480, { defaultFont: 'Inter', fonts: [] }) as any
 
     assert.ok(block.lines.length >= 3, `Need >= 3 lines to force a split; got ${block.lines.length}`)
-    assert.ok(block.calloutData, 'calloutData must be populated for callout blocks')
+    assertHasCalloutData(block)
     assert.ok(block.calloutData.titleHeight > 0, 'Expected positive titleHeight for titled callout')
 
     const paddingV: number = block.calloutData.paddingV
@@ -250,7 +257,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
     }
     const block = await measureBlock(el, 480, { defaultFont: 'Inter', fonts: [] }) as any
 
-    assert.ok(block.calloutData, 'calloutData must be populated for callout blocks')
+    assertHasCalloutData(block)
     assert.equal(block.calloutData.titleHeight, 0, 'Untitled callout must have titleHeight === 0')
     assert.ok(block.lines.length >= 3, `Need >= 3 lines to force a split; got ${block.lines.length}`)
 
@@ -283,7 +290,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
     }
     const block = await measureBlock(el, 480, { defaultFont: 'Inter', fonts: [] }) as any
 
-    assert.ok(block.calloutData, 'calloutData must be populated for callout blocks')
+    assertHasCalloutData(block)
     const paddingV: number = block.calloutData.paddingV
     const titleH: number = block.calloutData.titleHeight
     const lh: number = block.lineHeight
@@ -318,7 +325,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
       style: 'info',
     } as any, 480, opts) as any
 
-    assert.ok(calloutBlock.calloutData, 'calloutData must be populated for callout blocks')
+    assertHasCalloutData(calloutBlock)
     const paddingV: number = calloutBlock.calloutData.paddingV
     const titleH: number = calloutBlock.calloutData.titleHeight
     const lh: number = calloutBlock.lineHeight
@@ -366,5 +373,87 @@ test('Phase 8D — Callout Boxes', async (t) => {
         return true
       },
     )
+  })
+
+  // ── Coverage gap (SF-5): partial calloutData must fail validation, not produce NaN ──
+  // Pre-fix: a truthiness check `if (!block.calloutData)` passed for partial objects
+  // like `{ titleHeight: undefined, paddingV: undefined }`. Those fields then fed
+  // into arithmetic producing NaN, which collapsed to 0 lines per chunk and
+  // eventually threw PAGE_LIMIT_EXCEEDED — masking the true root cause.
+  // Post-fix: validateMeasuredBlocks does field-level typeof + isFinite checks.
+
+  await t.test('paginator rejects callout with partial calloutData (non-finite fields)', async () => {
+    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { paginate } = await import('../dist/paginate.js')
+
+    const block = await measureBlock(
+      { type: 'callout', content: 'Content', title: 'Title', style: 'info' } as any,
+      480,
+      { defaultFont: 'Inter', fonts: [] },
+    ) as any
+
+    // Simulate a partial producer state: object exists but a numeric field is wrong.
+    block.calloutData = { ...block.calloutData, titleHeight: undefined }
+
+    assert.throws(
+      () => paginate([block], 1000, { minOrphanLines: 1, minWidowLines: 1 }),
+      (err: any) => {
+        assert(err instanceof PretextPdfError, `Expected PretextPdfError; got ${err?.constructor?.name}`)
+        assert.equal(err.code, 'PAGINATION_FAILED', `Expected PAGINATION_FAILED; got ${err.code}`)
+        assert.match(err.message, /non-finite/i, `Message should mention non-finite fields; got: ${err.message}`)
+        return true
+      },
+    )
+  })
+
+  // ── Coverage gap (SF-5 blockquote variant): partial blockquote padding fields ──
+  // Validates that validateMeasuredBlocks enforces the blockquote contract too,
+  // not just callout. Previously blockquote reads used `?? fallback` which
+  // silently masked a missing field.
+
+  await t.test('paginator rejects blockquote with partial padding fields', async () => {
+    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { paginate } = await import('../dist/paginate.js')
+
+    const block = await measureBlock(
+      { type: 'blockquote', text: 'Quoted content goes here.' } as any,
+      480,
+      { defaultFont: 'Inter', fonts: [] },
+    ) as any
+
+    // Simulate a producer regression that drops one padding field.
+    delete block.blockquotePaddingV
+
+    assert.throws(
+      () => paginate([block], 1000, { minOrphanLines: 1, minWidowLines: 1 }),
+      (err: any) => {
+        assert(err instanceof PretextPdfError, `Expected PretextPdfError; got ${err?.constructor?.name}`)
+        assert.equal(err.code, 'PAGINATION_FAILED', `Expected PAGINATION_FAILED; got ${err.code}`)
+        return true
+      },
+    )
+  })
+
+  // ── Coverage gap (T1): calloutTitleHeight early-returns 0 for non-callout blocks ──
+  // The early-return protects the shared pagination loop from mis-dispatching a
+  // non-callout into the callout-specific helper. No test previously covered it.
+  // This exercises it indirectly via a valid paragraph-only document: if
+  // calloutTitleHeight were regressed to throw for non-callout, paginate() would
+  // throw and the document would fail to render.
+
+  await t.test('paginate accepts a non-callout-only document (calloutTitleHeight non-callout path)', async () => {
+    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { paginate } = await import('../dist/paginate.js')
+
+    const opts = { defaultFont: 'Inter', fonts: [] }
+    const paraBlock = await measureBlock(
+      { type: 'paragraph', text: 'A lone paragraph with no callout in sight.' } as any,
+      480,
+      opts,
+    ) as any
+
+    const paginated = paginate([paraBlock], 1000, { minOrphanLines: 1, minWidowLines: 1 })
+    assert.equal(paginated.pages.length, 1, 'Single paragraph must fit on one page')
+    assert.equal(paginated.pages[0]!.blocks.length, 1, 'Page should hold the paragraph')
   })
 })
