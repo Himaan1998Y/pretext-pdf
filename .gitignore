@@ -11,8 +11,9 @@ dist/
 coverage/
 .nyc_output/
 
-# Example output
+# Example & test output
 output/
+test-output/
 *.pdf
 
 # IDE

@@ -2,6 +2,9 @@ import type { InlineSpan, RichLine, RichFragment, PdfDocument } from './types.js
 import { buildFontKey } from './measure.js'
 import { LINE_HEIGHT_BODY } from './render-utils.js'
 
+/** Default link color (hex) applied to URL spans when no explicit color override is set. */
+const LINK_COLOR_DEFAULT = '#0070f3'
+
 /** Lazily-loaded Pretext module */
 let _pretext: typeof import('@chenglou/pretext') | null = null
 
@@ -114,15 +117,15 @@ export async function measureRichText(
     const fontWeight = span.fontWeight ?? 400
     const fontStyle = span.fontStyle ?? 'normal'
     const color = span.color ?? '#000000'
-    const spanFontSize = span.fontSize ?? fontSize  // Phase 5B.4: per-span font size
-    // Phase 6B: urls auto-apply blue color + underline when no explicit override
-    const effectiveColor = span.url && !span.color ? '#0070f3' : (span.color ?? '#000000')
+    const spanFontSize = span.fontSize ?? fontSize
+    // URLs auto-apply LINK_COLOR_DEFAULT + underline when no explicit color is set.
+    const effectiveColor = span.url && !span.color ? LINK_COLOR_DEFAULT : (span.color ?? '#000000')
     const underline = span.url ? true : (span.underline ?? false)
     const strikethrough = span.strikethrough ?? false
     const url = span.url
     const fontKey = buildFontKey(fontFamily, fontWeight, fontStyle)
 
-    // Phase 8H: verticalAlign (superscript/subscript) → yOffset + smaller fontSize
+    // verticalAlign (superscript/subscript) → yOffset + smaller fontSize
     let spanEffectiveFontSize = spanFontSize
     let yOffset: number | undefined
     if (span.verticalAlign === 'superscript') {
@@ -133,7 +136,7 @@ export async function measureRichText(
       spanEffectiveFontSize = spanEffectiveFontSize * 0.65
     }
 
-    // Phase 3: smallCaps — render uppercase text at 80% font size
+    // smallCaps — render uppercase text at 80% font size
     const smallCaps = span.smallCaps === true
     if (smallCaps) spanEffectiveFontSize = spanEffectiveFontSize * 0.8
     const spanLetterSpacing = span.letterSpacing ?? 0
@@ -202,7 +205,7 @@ export async function measureRichText(
     const trimmedFragment = { ...last, text: trimmedText, width: trimmedWidth }
     const fragments = [...currentFragments.slice(0, -1), trimmedFragment]
 
-    // Phase 5B.4: Compute per-line lineHeight = max(fragment.fontSize) * lineHeightRatio
+    // Per-line lineHeight = max(fragment.fontSize) * lineHeightRatio
     const maxFontSize = fragments.length > 0
       ? Math.max(...fragments.map(f => f.fontSize))
       : fontSize
@@ -231,14 +234,14 @@ export async function measureRichText(
       continue
     }
 
-    // Skip leading spaces at line start
-    const isLeadingSpace = currentX === 0 && token.text.trim() === ''
-    if (isLeadingSpace) continue
-
     // Check if token overflows current line
     if (currentLineWidth + token.width > contentWidth + 0.01 && currentX > 0) {
       finalizeLine()
-      // Skip leading space at new line start
+      // Skip leading whitespace at new line start. A zero-width whitespace token
+      // (e.g. narrow no-break space rendered with zero width) also belongs here.
+      // Do NOT skip zero-width *non-whitespace* tokens (ZWJ, combining marks) —
+      // they have no independent visual but are load-bearing for shaping and
+      // must remain in the fragment list so the renderer emits them in sequence.
       if (token.text.trim() === '') continue
     }
 

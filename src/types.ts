@@ -880,7 +880,7 @@ export interface RichLine {
   fragments: RichFragment[]
   /** Total line content width in pt */
   totalWidth: number
-  /** Height of this line in pt. Computed as max(fragment.fontSize) * lineHeightRatio (Phase 5B.4) */
+  /** Height of this line in pt. Computed as max(fragment.fontSize) * lineHeightRatio */
   lineHeight: number
 }
 
@@ -1066,6 +1066,22 @@ export interface TocEntryElement {
 
 // ─── Internal Types (not exported from index.ts) ─────────────────────────────
 
+/**
+ * Resolved geometry for a `callout` block. Always attached to MeasuredBlock when
+ * element.type === 'callout'; the invariant is enforced by validateMeasuredBlocks
+ * in paginate.ts.
+ */
+export interface CalloutData {
+  titleHeight: number
+  paddingH: number
+  paddingV: number
+  borderColor: string
+  backgroundColor: string
+  titleColor: string
+  color: string
+  titleText?: string
+}
+
 /** Resolved per-element measurement result from Stage 3 */
 export interface MeasuredBlock {
   element: ContentElement
@@ -1083,40 +1099,37 @@ export interface MeasuredBlock {
   spaceAfter: number
   /** Resolved space before in pt (headings, lists, tables, images) */
   spaceBefore: number
-  // ─── Phase 2: optional payload fields ────────────────────────────────────
+  // ─── optional payload fields ────────────────────────────────────
   /** Only set when element.type === 'table' */
   tableData?: MeasuredTableData
   /** Only set when element.type === 'image' */
   imageData?: MeasuredImageData
   /** Only set for list item blocks (flattened from ListElement) */
   listItemData?: ListItemData
-  // ─── Phase 3: optional payload fields ────────────────────────────────────
+  // ─── optional payload fields ────────────────────────────────────
   /** Only set when element.type === 'code'. Resolved padding in pt. */
   codePadding?: number
   /** Only set when element.type === 'code' and language is set. Per-line colored tokens. */
   codeHighlightTokens?: Array<Array<{ text: string; color: string }>>
   /** Only set when element.type === 'rich-paragraph'. Mixed-font composed lines. */
   richLines?: RichLine[]
-  // ─── Phase 5: optional payload fields ────────────────────────────────────
+  // ─── Blockquote ────────────────────────────────────────────────
   /** Only set when element.type === 'blockquote'. Resolved vertical padding in pt. */
   blockquotePaddingV?: number
   /** Only set when element.type === 'blockquote'. Resolved horizontal padding in pt. */
   blockquotePaddingH?: number
   /** Only set when element.type === 'blockquote'. Resolved left border width in pt. */
   blockquoteBorderWidth?: number
-  // ─── Phase 8D: Callout ────────────────────────────────────────────────────
-  /** Only set when element.type === 'callout'. Resolved styling metadata. */
-  calloutData?: {
-    titleHeight: number
-    paddingH: number
-    paddingV: number
-    borderColor: string
-    backgroundColor: string
-    titleColor: string
-    color: string
-    titleText?: string
-  }
-  // ─── Phase 5B: optional payload fields ───────────────────────────────────
+  // ─── Callout ────────────────────────────────────────────────────
+  /**
+   * Set by measureBlock for every element.type === 'callout'. Consumers must treat this
+   * as required when the element type is callout; `validateMeasuredBlocks` in paginate.ts
+   * enforces the invariant (including that every numeric field is a finite number) before
+   * any helper reads it. Internal code should prefer the narrowed `MeasuredCalloutBlock`
+   * type alias below.
+   */
+  calloutData?: CalloutData
+  // ─── optional payload fields ───────────────────────────────────
   /** Only set when element has columns > 1. Multi-column layout metadata. */
   columnData?: {
     columnCount: number
@@ -1124,7 +1137,7 @@ export interface MeasuredBlock {
     columnWidth: number
     linesPerColumn: number
   }
-  // ─── Phase 5 (Image Float): optional payload ────────────────────────────────
+  // ─── Image float data ───────────────────────────────────────────────────────
   /** Only set when element.type === 'image' and element.float is set. */
   floatData?: {
     imageKey: string
@@ -1141,7 +1154,7 @@ export interface MeasuredBlock {
     textLineHeight: number
     textColor: string
   }
-  // ─── Phase 9B (Float Group): optional payload ────────────────────────────────
+  // ─── Float group data ───────────────────────────────────────────────────────
   /** Only set when element.type === 'float-group'. Multi-paragraph float layout. */
   floatGroupData?: {
     imageKey: string
@@ -1162,17 +1175,36 @@ export interface MeasuredBlock {
     }>
     totalTextHeight: number
   }
-  // ─── Phase 7F: RTL support ────────────────────────────────────────────
+  // ─── RTL support ────────────────────────────────────────────
   /** Set to true if this block is RTL (right-to-left text). Used to apply right-align default in render.ts. */
   isRTL?: boolean
   /** Original logical-order text (for debugging / reference). Only set when isRTL=true. */
   logicalText?: string
-  // ─── Phase 7D: Table of Contents ────────────────────────────────────────
+  // ─── Table of Contents ────────────────────────────────────────
   /** Only set when element.type === 'toc-entry'. Rendering metadata for TOC entries. */
   tocEntryData?: { entryX: number; pageStr: string; leaderChar: string }
-  // ─── Phase 8B: Form Fields ────────────────────────────────────────────
+  // ─── Form Fields ────────────────────────────────────────────
   /** Only set when element.type === 'form-field'. Layout metadata. */
   formFieldData?: { labelHeight: number; fieldHeight: number }
+}
+
+// ─── Post-validation contract types ─────────────────────────────────────────
+// The narrowed shapes below are produced by validateMeasuredBlocks in paginate.ts.
+// Internal helpers that have verified the invariant hold a narrowed value safely
+// without needing defensive runtime checks.
+
+/** A MeasuredBlock whose element is a callout and whose calloutData is guaranteed populated and finite. */
+export type MeasuredCalloutBlock = MeasuredBlock & {
+  element: CalloutElement
+  calloutData: CalloutData
+}
+
+/** A MeasuredBlock whose element is a blockquote and whose padding/border fields are guaranteed populated. */
+export type MeasuredBlockquoteBlock = MeasuredBlock & {
+  element: BlockquoteElement
+  blockquotePaddingV: number
+  blockquotePaddingH: number
+  blockquoteBorderWidth: number
 }
 
 /** A single line from Pretext's layoutWithLines() */

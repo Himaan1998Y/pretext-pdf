@@ -275,6 +275,51 @@ describe('rich-text — whitespace preservation (v0.8.2 fix)', () => {
     )
   })
 
+  // ─── isLeadingSpace guard: first token of block ──────────────────────────────────
+  //
+  // The same guard (currentX === 0 && token.text.trim() === '') also fires at the
+  // absolute start of a block before any token has been placed. A span whose first
+  // characters are spaces (e.g. indented text) would have the leading-whitespace token
+  // silently dropped, causing the first word to snap to x=0 instead of being indented.
+  test('leading whitespace as the very first token of a block is preserved', async () => {
+    const lines = await measureRichText(
+      [{ text: '    indented' }],
+      FONT_SIZE, LINE_HEIGHT, CONTENT_WIDTH, 'left', DEFAULT_DOC
+    )
+    const indentedFrag = lines.flatMap(l => l.fragments).find(f => f.text.includes('indented'))
+    assert.ok(indentedFrag, 'Expected a fragment containing "indented"')
+    assert.ok(
+      indentedFrag.x > 0,
+      `"indented" should be pushed right by its leading spaces; got x=${indentedFrag.x.toFixed(2)}. Pre-fix: isLeadingSpace guard dropped the leading "    " token.`
+    )
+  })
+
+  // ─── Separator span preserved after hard break (regression for isLeadingSpace bug) ─
+  //
+  // Bug: a guard stripped any whitespace-only token when currentX === 0. This fires
+  // after a hard break (\n) resets currentX to 0 — the first token of the continuation
+  // span is whitespace (e.g. "  " from "  ·  text"), which was silently dropped.
+  // The post-overflow guard (currentX > 0 condition) only handles overflow-induced
+  // wraps, not hard breaks, so the pre-overflow guard was a redundant misfire here.
+  // Fix: removed the pre-overflow isLeadingSpace guard.
+  test('leading-space span is not stripped after a hard break', async () => {
+    // After the hard-break in span 1, span 2 starts at currentX=0.
+    // Its first token "  " must survive and push "·" to x > 0.
+    const lines = await measureRichText(
+      [
+        { text: 'Line one\n' },
+        { text: '  ·  Line two', color: '#999999' },
+      ],
+      FONT_SIZE, LINE_HEIGHT, CONTENT_WIDTH, 'left', DEFAULT_DOC
+    )
+    const dotFrag = lines.flatMap(l => l.fragments).find(f => f.text.includes('·'))
+    assert.ok(dotFrag, 'Fragment with "·" must appear in output')
+    assert.ok(
+      dotFrag.x > 0,
+      `"·" should be preceded by its leading spaces (x > 0); got x=${dotFrag.x.toFixed(2)}. isLeadingSpace guard stripped the "  " token after hard break.`
+    )
+  })
+
   test('"Founder & CEO" → "Antigravity Systems" — no fragment overlap', async () => {
     // Reproduces the resume preset case from the live demo screenshot:
     // multi-span rich-paragraph with leading whitespace in the second span +
@@ -305,6 +350,29 @@ describe('rich-text — whitespace preservation (v0.8.2 fix)', () => {
     assert.ok(
       shift > 0,
       `"Systems" should be pushed right by the leading-whitespace + separator width of span 2; expected positive shift, got ${shift.toFixed(2)}. Pre-v0.8.2 bug produced "Founder& CEO—AntigravitySystems" overlap.`
+    )
+  })
+
+  // ── Coverage gap (T2 / SF-6): zero-width non-whitespace tokens must NOT be dropped ──
+  // The guard in measureRichText at the post-soft-wrap skip site excludes only
+  // tokens where text.trim() === ''. Zero-width non-whitespace tokens (ZWJ,
+  // combining marks) are load-bearing for shaping (emoji ligatures, complex
+  // scripts) and must remain in the fragment list. A prior iteration widened
+  // the guard to also exclude `width === 0`, which would have silently dropped
+  // these; this test pins the current behavior so that regression is caught.
+
+  test('zero-width non-whitespace token (ZWJ) is preserved in fragment list', async () => {
+    const lines = await measureRichText(
+      [
+        { text: 'A‍B' }, // A + ZWJ (U+200D) + B — ZWJ has zero width but is non-whitespace
+      ],
+      FONT_SIZE, LINE_HEIGHT, CONTENT_WIDTH, 'left', DEFAULT_DOC
+    )
+    const frags = lines.flatMap(l => l.fragments)
+    const joined = frags.map(f => f.text).join('')
+    assert.ok(
+      joined.includes('‍'),
+      `ZWJ (U+200D) must survive measurement; concatenated fragments = ${JSON.stringify(joined)}. A regression widening the skip guard to cover width===0 would silently drop it, breaking emoji/CJK shaping.`
     )
   })
 })

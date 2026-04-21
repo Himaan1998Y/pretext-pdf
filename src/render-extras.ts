@@ -104,7 +104,7 @@ export function buildOutlineTree(
   pdfDoc.catalog.set(PDFName.of('PageMode'), PDFName.of('UseOutlines'))
 }
 
-// ─── TOC Entry Rendering (Phase 7D) ────────────────────────────────────────────
+// ─── TOC Entry Rendering ────────────────────────────────────────────
 
 export function renderTocEntry(
   pdfPage: ReturnType<PDFDocument['addPage']>,
@@ -163,9 +163,9 @@ export function renderTocEntry(
   }
 }
 
-// ─── Phase 8B: Form Fields ────────────────────────────────────────────────────
+// ─── Form Fields ────────────────────────────────────────────────────
 
-/** Phase 8B: Render an interactive AcroForm field. */
+/** Render an interactive AcroForm field. */
 export function renderFormField(
   block: PagedBlock,
   pdfPage: ReturnType<PDFDocument['addPage']>,
@@ -274,9 +274,9 @@ export function renderFormField(
   }
 }
 
-// ─── Phase 8E: Signature Placeholder ──────────────────────────────────────────
+// ─── Signature Placeholder ──────────────────────────────────────────
 
-/** Phase 8E: Draw a visual signature placeholder box on the specified page. */
+/** Draw a visual signature placeholder box on the specified page. */
 export function renderSignaturePlaceholder(
   sig: import('./types.js').SignatureSpec,
   pdfDoc: PDFDocument,
