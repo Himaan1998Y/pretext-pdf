@@ -83,16 +83,26 @@ test('Phase 8D — Callout Boxes', async (t) => {
   })
 
   await t.test('callout in multi-page document paginates correctly', async () => {
-    const content: any[] = [
-      { type: 'heading', level: 1, text: 'Report' },
-    ]
+    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { paginate } = await import('../dist/paginate.js')
+
+    const opts = { defaultFont: 'Inter', fonts: [] }
+    const blocks: any[] = []
     for (let i = 0; i < 20; i++) {
-      content.push({ type: 'paragraph', text: `Paragraph ${i + 1} with some content.` })
+      blocks.push(await measureBlock({ type: 'paragraph', text: `Paragraph ${i + 1} with some content that takes a full line.` } as any, 480, opts))
     }
-    content.push({ type: 'callout', content: 'This callout appears after many paragraphs.', style: 'info', title: 'Summary' })
-    const doc: PdfDocument = { content }
-    const pdf = await render(doc)
-    assert(pdf instanceof Uint8Array && pdf.length > 0)
+    blocks.push(await measureBlock({ type: 'callout', content: 'This callout appears after many paragraphs.', style: 'info', title: 'Summary' } as any, 480, opts))
+
+    // Tight page height forces pagination of 21 blocks across multiple pages.
+    const totalHeight = blocks.reduce((sum, b) => sum + b.height + b.spaceAfter, 0)
+    const pageContentHeight = Math.floor(totalHeight / 3)
+    const paginated = paginate(blocks, pageContentHeight, { minOrphanLines: 1, minWidowLines: 1 })
+
+    assert.ok(paginated.pages.length >= 2, `Expected pagination across >= 2 pages; got ${paginated.pages.length}`)
+    const totalPlaced = paginated.pages.reduce((sum, p) => sum + p.blocks.length, 0)
+    assert.equal(totalPlaced, blocks.length, 'Every block must be placed exactly once across all pages')
+    const calloutPlacements = paginated.pages.flatMap(p => p.blocks).filter(b => b.measuredBlock.element.type === 'callout')
+    assert.ok(calloutPlacements.length >= 1, 'Callout must appear on at least one page')
   })
 
   // ── Bug-fix regression: callout spaceAfter was counted twice ─────────────────
@@ -193,7 +203,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
     assert.ok(block.lines.length >= 3, `Need >= 3 lines to force a split; got ${block.lines.length}`)
     assert.ok(block.calloutData?.titleHeight > 0, 'Expected positive titleHeight for titled callout')
 
-    const paddingV: number = block.blockquotePaddingV ?? 10
+    const paddingV: number = block.calloutData.paddingV
     const titleH: number = block.calloutData.titleHeight
     const lh: number = block.lineHeight
 
@@ -217,5 +227,107 @@ test('Phase 8D — Callout Boxes', async (t) => {
       linesInFirstChunk, 1,
       `First chunk must have exactly 1 content line (title takes the reserved space). Got ${linesInFirstChunk}. Pre-fix: titleH not subtracted from availableForLines — extra lines were placed, clipping the title row.`
     )
+  })
+
+  // ── Coverage gap (T1): untitled callout split must still honor orphan/widow logic ──
+  // The titleH===0 branch of availableForLines in splitBlock was not previously exercised;
+  // a regression that made calloutTitleH always-positive would not be caught by the titled test.
+
+  await t.test('untitled callout splits without titleHeight reservation', async () => {
+    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { paginate } = await import('../dist/paginate.js')
+
+    const el: any = {
+      type: 'callout',
+      // no `title` — titleHeight must be 0
+      content: Array(8).fill('This is a line of callout content.').join(' '),
+      style: 'info',
+    }
+    const block = await measureBlock(el, 480, { defaultFont: 'Inter', fonts: [] }) as any
+
+    assert.equal(block.calloutData.titleHeight, 0, 'Untitled callout must have titleHeight === 0')
+    assert.ok(block.lines.length >= 3, `Need >= 3 lines to force a split; got ${block.lines.length}`)
+
+    const paddingV: number = block.calloutData.paddingV
+    const lh: number = block.lineHeight
+    // Page room for exactly 1 content line with no title reservation.
+    const pageContentHeight = paddingV + lh + paddingV + 1
+
+    const paginated = paginate([block], pageContentHeight, { minOrphanLines: 1, minWidowLines: 1 })
+
+    assert.ok(paginated.pages.length >= 2, `Expected split across >= 2 pages; got ${paginated.pages.length}`)
+    const firstChunk = paginated.pages[0]!.blocks[0]!
+    const linesInFirstChunk = firstChunk.endLine - firstChunk.startLine
+    assert.equal(linesInFirstChunk, 1, `First chunk should fit exactly 1 line when no title is reserved; got ${linesInFirstChunk}`)
+  })
+
+  // ── Coverage gap (T2): after a callout splits, the continuation chunk must start at y=0 ──
+  // Validates that splitBlock resets currentPageY on page boundary and records startLine === 0 nowhere on page 2.
+
+  await t.test('split callout: continuation chunk starts at yFromTop === 0 on next page', async () => {
+    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { paginate } = await import('../dist/paginate.js')
+
+    const el: any = {
+      type: 'callout',
+      title: 'Title',
+      content: Array(10).fill('A line of content goes here.').join(' '),
+      style: 'info',
+    }
+    const block = await measureBlock(el, 480, { defaultFont: 'Inter', fonts: [] }) as any
+
+    const paddingV: number = block.calloutData.paddingV
+    const titleH: number = block.calloutData.titleHeight
+    const lh: number = block.lineHeight
+    // Room for title + 2 lines on page 1 — forces the rest to overflow.
+    const pageContentHeight = paddingV + titleH + lh * 2 + paddingV + 1
+
+    const paginated = paginate([block], pageContentHeight, { minOrphanLines: 1, minWidowLines: 1 })
+
+    assert.ok(paginated.pages.length >= 2, `Expected >= 2 pages; got ${paginated.pages.length}`)
+    const continuation = paginated.pages[1]!.blocks[0]!
+    assert.ok(
+      Math.abs(continuation.yFromTop - 0) < 0.01,
+      `Continuation chunk must start at yFromTop === 0; got ${continuation.yFromTop.toFixed(2)}`
+    )
+    assert.ok(continuation.startLine > 0, `Continuation startLine must be > 0; got ${continuation.startLine}`)
+  })
+
+  // ── Coverage gap (T3): callout that enters splitBlock at non-zero currentY ──
+  // A preceding paragraph consumes vertical space; the callout must split correctly
+  // from the middle of a page, not just from the top.
+
+  await t.test('callout entering splitBlock mid-page (non-zero currentY) splits correctly', async () => {
+    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { paginate } = await import('../dist/paginate.js')
+
+    const opts = { defaultFont: 'Inter', fonts: [] }
+    const paraBlock = await measureBlock({ type: 'paragraph', text: 'A leading paragraph that consumes vertical space on page 1.' } as any, 480, opts) as any
+    const calloutBlock = await measureBlock({
+      type: 'callout',
+      title: 'Mid-page Title',
+      content: Array(8).fill('A line of content goes here.').join(' '),
+      style: 'info',
+    } as any, 480, opts) as any
+
+    const paddingV: number = calloutBlock.calloutData.paddingV
+    const titleH: number = calloutBlock.calloutData.titleHeight
+    const lh: number = calloutBlock.lineHeight
+    // Page holds: paragraph + callout-first-chunk (title + 1 line).
+    const pageContentHeight = paraBlock.height + paraBlock.spaceAfter + paddingV + titleH + lh + paddingV + 1
+
+    const paginated = paginate([paraBlock, calloutBlock], pageContentHeight, { minOrphanLines: 1, minWidowLines: 1 })
+
+    assert.ok(paginated.pages.length >= 2, `Expected >= 2 pages; got ${paginated.pages.length}`)
+    const firstPageBlocks = paginated.pages[0]!.blocks
+    assert.equal(firstPageBlocks.length, 2, `Page 1 must hold paragraph + callout first chunk; got ${firstPageBlocks.length}`)
+    const placedCallout = firstPageBlocks[1]!
+    assert.ok(
+      placedCallout.yFromTop > 0,
+      `Callout must start mid-page (yFromTop > 0); got ${placedCallout.yFromTop.toFixed(2)}`
+    )
+    // First chunk should hold exactly 1 content line given the tight fit.
+    const linesInFirstChunk = placedCallout.endLine - placedCallout.startLine
+    assert.equal(linesInFirstChunk, 1, `Mid-page first chunk should fit 1 line; got ${linesInFirstChunk}`)
   })
 })
