@@ -7,7 +7,9 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
-## [Unreleased]
+## [0.9.1] — 2026-04-21
+
+Bug-fix + hardening release. Ships the callout + rich-text rendering fixes from PR #2 together with PR #3's producer-validator contract around measured blocks.
 
 ### Fixed
 
@@ -15,13 +17,27 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 - **Callout: `spaceAfter` double-applied by paginator** ([src/measure-blocks.ts](src/measure-blocks.ts)). `callout` block measurement included `el.spaceAfter ?? 12` inside `totalHeight` *and* returned the same value as `block.spaceAfter`. `paginate.ts` added `block.spaceAfter` on top of `block.height`, counting it twice and pushing callout content ~12 pt below its intended position. Fixed by removing `spaceAfter` from the `totalHeight` formula; the value is still returned in `block.spaceAfter` for the paginator.
 - **Callout with title: background rect clips title row when split across pages** ([src/paginate.ts](src/paginate.ts)). `splitBlock` did not subtract `calloutData.titleHeight` from `availableForLines` for the first chunk, allowing `floor((titleH + lh) / lh)` extra lines to be placed, leaving no room for the title row. `getCurrentY` also omitted `titleHeight` from `blockBottom`, producing incorrect Y tracking after a split callout. Both fixed: `titleH` is now subtracted from available space on the first chunk only, and added to `blockBottom` when computing the cursor position after the first chunk renders.
 
+### Added / hardened
+
+- **Producer-validator contract for measured blocks** ([src/paginate.ts](src/paginate.ts)). `validateMeasuredBlocks()` runs at `paginate()` entry in O(n) and throws `PretextPdfError('PAGINATION_FAILED')` if a callout `MeasuredBlock` is missing `calloutData` or any of `titleHeight` / `paddingV` / `paddingH` is non-finite — same for blockquote padding/border fields. Surfaces producer bugs directly instead of as downstream NaN arithmetic or `PAGE_LIMIT_EXCEEDED`.
+- **Narrowed internal types** `MeasuredCalloutBlock` / `MeasuredBlockquoteBlock` (intersection types in [src/types.ts](src/types.ts)) consumed by `calloutTitleHeight` + `verticalPadding` helpers in `paginate.ts`. No defensive runtime checks downstream.
+- **Extracted `CalloutData` interface** from the previously-inline shape on `MeasuredBlock.calloutData`. Measurer constructs it as a typed literal, so TypeScript enforces the full contract at the producer site.
+- **Zero-width non-whitespace tokens preserved**: the rich-text post-soft-wrap guard only skips tokens where `text.trim() === ''`. ZWJ (U+200D), combining marks, and other zero-width non-whitespace characters pass through so emoji / CJK shaping stays intact — pinned by a regression test.
+- **Extracted `LINK_COLOR_DEFAULT`** constant in `src/rich-text.ts`.
+
 ### Tests
 
-- Regression: `leading whitespace as the very first token of a block is preserved` — verifies first-position leading-space tokens are retained after guard removal.
-- Regression: `leading-space span is not stripped after a hard break` — the primary regression scenario: `\n` resets `currentX`; continuation span with `'  ·  text'` must place `·` at `x > 0`.
-- Regression: `callout block.height does not bake in spaceAfter` — measures two blocks with differing `spaceAfter`; asserts `block.height` is independent and `block.spaceAfter` carries the correct value.
-- Regression: `titled callout split across pages: first chunk line count accounts for titleHeight` — constructs a page height exactly `paddingV + titleH + lh + paddingV + 1` and asserts the first chunk holds exactly 1 content line.
-- Regression: `paginator places next block at height + spaceAfter (not double)` — calls `paginate()` with `[callout, paragraph]` and asserts the paragraph's `yFromTop` equals `calloutHeight + spaceAfter`, not `calloutHeight + 2 × spaceAfter`.
+- `test/rich-text.test.ts` 20 → 23 (+3): block-start leading whitespace preserved; leading whitespace after hard break preserved; ZWJ preservation.
+- `test/phase-8d-callout.test.ts` 12 → 19 (+7): callout `spaceAfter` double-count regression, titled split line count, untitled split, continuation chunk `yFromTop === 0`, mid-page split entry, validator rejection on missing `calloutData`, validator rejection on partial `calloutData` (non-finite fields), validator rejection on partial blockquote padding, non-callout-document early-return.
+- Full suite: 624 tests, 100% pass.
+
+### Chore / docs
+
+- Removed `brain/learnings/*.md`, `docs/PLAN-v0.6-v1.0.md`, `test/paginate.test.ts.archive` — internal dev artifacts not for the public repo.
+- Stripped `Phase N:` nomenclature from `src/` comments (pure rename — no logic delta).
+- Added `demo/stackblitz/.stackblitzrc`, `docs/articles/pretext-pdf-vs-pdfmake-2026.md` (draft).
+- Added `examples/visual-pr2-bug1-separator.ts` + `examples/visual-pr2-bug3-callout-split.ts` plus 4 reference PNGs under `docs/visuals/pr2/` for bug-reproduction demonstrations.
+- README test badge corrected `650+ → 600+` (verified: 624 tests total).
 
 ---
 
