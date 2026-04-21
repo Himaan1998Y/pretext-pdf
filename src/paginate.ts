@@ -490,7 +490,6 @@ export function getCurrentY(pages: RenderedPage[]): number {
   return maxY
 }
 
-// ─── Per-line height counting for rich-paragraph ──────────────────
 /**
  * Count how many lines from richLines array fit in the available height.
  * Uses greedy accumulation of per-line heights (which may vary due to per-span fontSize).

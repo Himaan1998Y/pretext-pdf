@@ -95,16 +95,12 @@ test('Phase 8D — Callout Boxes', async (t) => {
     assert(pdf instanceof Uint8Array && pdf.length > 0)
   })
 
-  // ── Bug-fix regression: callout spaceAfter double-counting ────────────────────
-  // Before fix: measure-blocks.ts included (el.spaceAfter ?? 12) inside `totalHeight`
-  // AND stored it separately as block.spaceAfter. paginate.ts added spaceAfter twice,
-  // pushing the callout and subsequent content down by one extra gap (~12pt).
-  // Fix: totalHeight = pv + titleHeight + contentHeight + pv only.
-
-  // ── Bug-fix regression: paginator places next block at height + spaceAfter (not double) ───────
-  // Before fix: callout block.height already included spaceAfter, then paginate.ts added
-  // block.spaceAfter on top — total gap was 2× the intended spacing (~24pt instead of ~12pt).
-  // Fix: height = visual geometry only; paginator adds spaceAfter exactly once.
+  // ── Bug-fix regression: callout spaceAfter was counted twice ─────────────────
+  // Pre-fix: measure-blocks baked (el.spaceAfter ?? 12) into `totalHeight` AND also
+  // returned it as block.spaceAfter, which paginate.ts added on top → double gap.
+  // Fix: height carries visual geometry only; paginator adds spaceAfter exactly once.
+  // Two tests below cover this: the paginator integration (downstream) and the
+  // measurer-level isolation (upstream).
 
   await t.test('paginator places next block at height + spaceAfter (not double)', async () => {
     const { measureBlock } = await import('../dist/measure-blocks.js')

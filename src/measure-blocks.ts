@@ -150,7 +150,9 @@ export async function measureBlock(
         measureWidth = Math.max(10, measureWidth * avgCharWidth / (avgCharWidth + letterSpacingValue))
       }
 
-      // Measure the visual-order text (after RTL reordering) for accurate glyph metrics.
+      // Measure post-reorder (visual-order) text because the renderer draws characters in
+      // visual order; measuring the logical string for an RTL run would pick break points
+      // that don't match what is actually drawn, producing wrong line widths.
       // smallCaps uppercases at render time — measure the same uppercase text so
       // line-break widths match what is actually drawn.
       const measureText_ = element.smallCaps === true ? visualText.toUpperCase() : visualText
@@ -216,7 +218,9 @@ export async function measureBlock(
         ? Math.max(10, contentWidth * (effectiveFontSize * 0.5) / (effectiveFontSize * 0.5 + headingLetterSpacing))
         : contentWidth
 
-      // Measure the visual-order text (after RTL reordering) for accurate glyph metrics.
+      // Measure post-reorder (visual-order) text because the renderer draws characters in
+      // visual order; measuring the logical string for an RTL run would pick break points
+      // that don't match what is actually drawn, producing wrong line widths.
       // smallCaps uppercases at render time — measure uppercase for consistent line widths.
       const headingMeasureText = element.smallCaps === true ? visualText.toUpperCase() : visualText
       const lines = await measureText(headingMeasureText, effectiveFontSize, fontFamily, fontWeight, headingMeasureWidth, lineHeight, opts)
@@ -420,7 +424,9 @@ export async function measureBlock(
       // Text area excludes left border + horizontal padding on both sides
       const textWidth = contentWidth - borderWidth - 2 * paddingH
 
-      // Measure the visual-order text (after RTL reordering) for accurate glyph metrics.
+      // Measure post-reorder (visual-order) text because the renderer draws characters in
+      // visual order; measuring the logical string for an RTL run would pick break points
+      // that don't match what is actually drawn, producing wrong line widths.
       const lines = await measureText(visualText, fontSize, fontFamily, fontWeight, Math.max(textWidth, 1), lineHeight, hyphenatorOpts)
 
       // height = lines * lineHeight + padding top + padding bottom
