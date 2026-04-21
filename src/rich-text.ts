@@ -115,7 +115,8 @@ export async function measureRichText(
     const fontStyle = span.fontStyle ?? 'normal'
     const color = span.color ?? '#000000'
     const spanFontSize = span.fontSize ?? fontSize
-    // URLs auto-apply blue color (default #0070f3) + underline when no explicit override
+    // URLs auto-apply the default link color + underline when no explicit override.
+    // The default hex is the literal on the next line; keep it there as the single source.
     const effectiveColor = span.url && !span.color ? '#0070f3' : (span.color ?? '#000000')
     const underline = span.url ? true : (span.underline ?? false)
     const strikethrough = span.strikethrough ?? false
@@ -234,9 +235,12 @@ export async function measureRichText(
     // Check if token overflows current line
     if (currentLineWidth + token.width > contentWidth + 0.01 && currentX > 0) {
       finalizeLine()
-      // Skip leading space or zero-width token at new line start — they contribute
-      // no visual and emit a fragment at the same x as the next token otherwise.
-      if (token.text.trim() === '' || token.width === 0) continue
+      // Skip leading whitespace at new line start. A zero-width whitespace token
+      // (e.g. narrow no-break space rendered with zero width) also belongs here.
+      // Do NOT skip zero-width *non-whitespace* tokens (ZWJ, combining marks) —
+      // they have no independent visual but are load-bearing for shaping and
+      // must remain in the fragment list so the renderer emits them in sequence.
+      if (token.text.trim() === '') continue
     }
 
     currentFragments.push({

@@ -10,15 +10,40 @@ const EPSILON = 0.01
 
 /**
  * Return the title-row height to reserve for a callout block's first chunk.
- * measureBlock always attaches calloutData for callout elements; a missing value
- * indicates a producer bug, so fail loudly rather than silently returning 0.
+ * Returns 0 for any non-callout block, or for non-first chunks of a callout.
+ * Throws PAGINATION_FAILED if a callout block reaches here without calloutData
+ * — measureBlock always attaches calloutData, so a missing value is a producer
+ * bug and must fail loudly rather than silently returning 0.
  */
 function calloutTitleHeight(block: MeasuredBlock, isFirstChunk: boolean): number {
-  if (!isFirstChunk || block.element.type !== 'callout') return 0
+  if (block.element.type !== 'callout') return 0
   if (!block.calloutData) {
-    throw new Error('MeasuredBlock contract violated: callout block missing calloutData')
+    throw new PretextPdfError(
+      'PAGINATION_FAILED',
+      'MeasuredBlock contract violated: callout block missing calloutData'
+    )
   }
-  return block.calloutData.titleHeight
+  return isFirstChunk ? block.calloutData.titleHeight : 0
+}
+
+/**
+ * Return the vertical padding for a blockquote or callout block.
+ * For callout, calloutData.paddingV is authoritative; a missing calloutData
+ * is a producer bug and throws PAGINATION_FAILED (same invariant as
+ * calloutTitleHeight). For blockquote, falls back to the legacy
+ * blockquotePaddingV field with a safe default.
+ */
+function verticalPadding(block: MeasuredBlock, fallback: number): number {
+  if (block.element.type === 'callout') {
+    if (!block.calloutData) {
+      throw new PretextPdfError(
+        'PAGINATION_FAILED',
+        'MeasuredBlock contract violated: callout block missing calloutData'
+      )
+    }
+    return block.calloutData.paddingV
+  }
+  return block.blockquotePaddingV ?? fallback
 }
 
 interface PaginateConfig {
@@ -315,16 +340,13 @@ function splitBlock(
   // Middle chunks have no padding drawn, so we don't reserve any.
   // We don't know if a chunk is "last" until we count lines, so we always reserve bottomPad
   // unless this is provably not the last chunk (remaining > linesInChunk after computation).
-  // Both code and blockquote have visual padding that must be reserved when computing line capacity.
-  // Callout blocks measure their own paddingV under calloutData; prefer that over
-  // the shared blockquotePaddingV field so removing the legacy write is safe.
+  // Code, blockquote, and callout all have visual padding that must be reserved.
+  // Callout padding lives under calloutData (invariant enforced by calloutTitleHeight).
   const codePad = block.element.type === 'code'
     ? (block.codePadding ?? 0)
-    : block.element.type === 'callout'
-      ? (block.calloutData?.paddingV ?? block.blockquotePaddingV ?? 0)
-      : block.element.type === 'blockquote'
-        ? (block.blockquotePaddingV ?? 0)
-        : 0
+    : (block.element.type === 'blockquote' || block.element.type === 'callout')
+      ? verticalPadding(block, 0)
+      : 0
 
   while (remainingLines.length > 0) {
     const available = pageContentHeight - currentPageY
@@ -458,9 +480,7 @@ export function getCurrentY(pages: RenderedPage[]): number {
     } else if (el.type === 'blockquote' || el.type === 'callout') {
       // Blockquote/callout blocks include vertical padding in their height (same pattern as code)
       const lineCount = pagedBlock.endLine - pagedBlock.startLine
-      const paddingV = el.type === 'callout'
-        ? (block.calloutData?.paddingV ?? block.blockquotePaddingV ?? 10)
-        : (block.blockquotePaddingV ?? 10)
+      const paddingV = verticalPadding(block, 10)
       const isFirstChunk = pagedBlock.startLine === 0
       const isLastChunk = pagedBlock.endLine === block.lines.length
       const paddingTop = isFirstChunk ? paddingV : 0

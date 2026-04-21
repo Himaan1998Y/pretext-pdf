@@ -103,6 +103,10 @@ test('Phase 8D — Callout Boxes', async (t) => {
     assert.equal(totalPlaced, blocks.length, 'Every block must be placed exactly once across all pages')
     const calloutPlacements = paginated.pages.flatMap(p => p.blocks).filter(b => b.measuredBlock.element.type === 'callout')
     assert.ok(calloutPlacements.length >= 1, 'Callout must appear on at least one page')
+    // I2: the callout is the last block — with 20 leading paragraphs consuming most of page 1,
+    // the callout must land on page 2 or later (not silently collapse onto page 1).
+    const firstPageTypes = paginated.pages[0]!.blocks.map(b => b.measuredBlock.element.type)
+    assert.ok(!firstPageTypes.includes('callout'), `Callout should not land on page 1 when it follows 20 paragraphs; got page 1 types: ${firstPageTypes.join(', ')}`)
   })
 
   // ── Bug-fix regression: callout spaceAfter was counted twice ─────────────────
@@ -201,7 +205,8 @@ test('Phase 8D — Callout Boxes', async (t) => {
     const block = await measureBlock(el, 480, { defaultFont: 'Inter', fonts: [] }) as any
 
     assert.ok(block.lines.length >= 3, `Need >= 3 lines to force a split; got ${block.lines.length}`)
-    assert.ok(block.calloutData?.titleHeight > 0, 'Expected positive titleHeight for titled callout')
+    assert.ok(block.calloutData, 'calloutData must be populated for callout blocks')
+    assert.ok(block.calloutData.titleHeight > 0, 'Expected positive titleHeight for titled callout')
 
     const paddingV: number = block.calloutData.paddingV
     const titleH: number = block.calloutData.titleHeight
@@ -245,6 +250,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
     }
     const block = await measureBlock(el, 480, { defaultFont: 'Inter', fonts: [] }) as any
 
+    assert.ok(block.calloutData, 'calloutData must be populated for callout blocks')
     assert.equal(block.calloutData.titleHeight, 0, 'Untitled callout must have titleHeight === 0')
     assert.ok(block.lines.length >= 3, `Need >= 3 lines to force a split; got ${block.lines.length}`)
 
@@ -262,7 +268,8 @@ test('Phase 8D — Callout Boxes', async (t) => {
   })
 
   // ── Coverage gap (T2): after a callout splits, the continuation chunk must start at y=0 ──
-  // Validates that splitBlock resets currentPageY on page boundary and records startLine === 0 nowhere on page 2.
+  // Validates that splitBlock resets currentPageY on the page boundary; a regression
+  // that forgets to reset currentPageY would show continuation.yFromTop > 0.
 
   await t.test('split callout: continuation chunk starts at yFromTop === 0 on next page', async () => {
     const { measureBlock } = await import('../dist/measure-blocks.js')
@@ -276,6 +283,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
     }
     const block = await measureBlock(el, 480, { defaultFont: 'Inter', fonts: [] }) as any
 
+    assert.ok(block.calloutData, 'calloutData must be populated for callout blocks')
     const paddingV: number = block.calloutData.paddingV
     const titleH: number = block.calloutData.titleHeight
     const lh: number = block.lineHeight
@@ -310,6 +318,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
       style: 'info',
     } as any, 480, opts) as any
 
+    assert.ok(calloutBlock.calloutData, 'calloutData must be populated for callout blocks')
     const paddingV: number = calloutBlock.calloutData.paddingV
     const titleH: number = calloutBlock.calloutData.titleHeight
     const lh: number = calloutBlock.lineHeight
@@ -329,5 +338,33 @@ test('Phase 8D — Callout Boxes', async (t) => {
     // First chunk should hold exactly 1 content line given the tight fit.
     const linesInFirstChunk = placedCallout.endLine - placedCallout.startLine
     assert.equal(linesInFirstChunk, 1, `Mid-page first chunk should fit 1 line; got ${linesInFirstChunk}`)
+  })
+
+  // ── Coverage gap (I1): producer-side contract violation must fail loudly ──
+  // calloutTitleHeight in paginate.ts throws PAGINATION_FAILED when a callout
+  // block reaches the paginator without calloutData. This test injects the
+  // invalid state directly so the throw path has explicit coverage.
+
+  await t.test('paginator throws PAGINATION_FAILED when callout block is missing calloutData', async () => {
+    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { paginate } = await import('../dist/paginate.js')
+
+    const block = await measureBlock(
+      { type: 'callout', content: 'Content', title: 'Title', style: 'info' } as any,
+      480,
+      { defaultFont: 'Inter', fonts: [] },
+    ) as any
+
+    // Simulate a producer bug: strip calloutData after measurement.
+    delete block.calloutData
+
+    assert.throws(
+      () => paginate([block], 1000, { minOrphanLines: 1, minWidowLines: 1 }),
+      (err: any) => {
+        assert(err instanceof PretextPdfError, `Expected PretextPdfError; got ${err?.constructor?.name}`)
+        assert.equal(err.code, 'PAGINATION_FAILED', `Expected code PAGINATION_FAILED; got ${err.code}`)
+        return true
+      },
+    )
   })
 })

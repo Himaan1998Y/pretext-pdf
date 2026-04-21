@@ -153,8 +153,9 @@ export async function measureBlock(
       // Measure post-reorder (visual-order) text because the renderer draws characters in
       // visual order; measuring the logical string for an RTL run would pick break points
       // that don't match what is actually drawn, producing wrong line widths.
-      // smallCaps uppercases at render time — measure the same uppercase text so
-      // line-break widths match what is actually drawn.
+      //
+      // smallCaps uppercases at render time. Measure the same uppercase text so
+      // line-break widths match what the renderer actually draws.
       const measureText_ = element.smallCaps === true ? visualText.toUpperCase() : visualText
       const lines = await measureText(measureText_, effectiveFontSize, fontFamily, fontWeight, measureWidth, lineHeight, opts)
 
@@ -221,7 +222,9 @@ export async function measureBlock(
       // Measure post-reorder (visual-order) text because the renderer draws characters in
       // visual order; measuring the logical string for an RTL run would pick break points
       // that don't match what is actually drawn, producing wrong line widths.
-      // smallCaps uppercases at render time — measure uppercase for consistent line widths.
+      //
+      // smallCaps uppercases at render time. Measure the same uppercase text so
+      // line-break widths match what the renderer actually draws.
       const headingMeasureText = element.smallCaps === true ? visualText.toUpperCase() : visualText
       const lines = await measureText(headingMeasureText, effectiveFontSize, fontFamily, fontWeight, headingMeasureWidth, lineHeight, opts)
 
