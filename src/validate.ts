@@ -1,6 +1,7 @@
 import type { PdfDocument, ContentElement, FontSpec, CommentElement } from './types.js'
 import { PretextPdfError } from './errors.js'
 import { resolvePageDimensions } from './page-sizes.js'
+import { ALLOWED_PROPS, ALLOWED_PROPS_SUB } from './allowed-props.js'
 
 /**
  * RTL strong bidi characters — Bidi_Class=R or AL per UAX #9.
@@ -45,6 +46,67 @@ const SAFE_URL_SCHEME = /^(https?|mailto|ftp|#)/i
 /** BCP47 language tag pattern for hyphenation.language — prevents dynamic-import path injection */
 const LANGUAGE_TAG_REGEX = /^[a-zA-Z]{2,8}(-[a-zA-Z0-9]{2,8})*$/
 
+/** Levenshtein distance with early exit at distance > 2 */
+function levenshteinDist(a: string, b: string): number {
+  if (a === b) return 0
+  if (Math.abs(a.length - b.length) > 2) return 999
+  const m = a.length
+  const n = b.length
+  const prev = Array(n + 1)
+    .fill(0)
+    .map((_, j) => j)
+  const curr = Array(n + 1).fill(0)
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      curr[j] = Math.min(prev[j]! + 1, curr[j - 1]! + 1, prev[j - 1]! + cost)
+      if (curr[j]! > 2) return 999
+    }
+    for (let j = 0; j <= n; j++) prev[j] = curr[j]
+  }
+  return prev[n]!
+}
+
+/** Find closest match with edit distance <= 2 */
+function closestMatch(prop: string, allowed: Iterable<string>): string | null {
+  let best: string | null = null
+  let bestDist = 999
+  for (const candidate of allowed) {
+    const d = levenshteinDist(prop, candidate)
+    if (d > 0 && d <= 2 && d < bestDist) {
+      best = candidate
+      bestDist = d
+    }
+  }
+  return best
+}
+
+/** Accumulate unknown property errors for an object */
+function assertUnknownProps(
+  obj: any,
+  allowed: Set<string>,
+  path: string,
+  errors: string[]
+): void {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return
+  for (const key of Object.keys(obj)) {
+    if (!allowed.has(key)) {
+      const suggestion = closestMatch(key, allowed)
+      const hint = suggestion ? ` Did you mean '${suggestion}'?` : ''
+      errors.push(`${path}.${key}: unknown property.${hint}`)
+    }
+  }
+}
+
+/** Format accumulated errors into a single message (cap at 20 errors) */
+function formatErrors(errors: string[]): string {
+  if (errors.length === 0) return ''
+  const msgs = errors.slice(0, 20)
+  const suffix = errors.length > 20 ? `\n... and ${errors.length - 20} more error(s)` : ''
+  return msgs.join('\n') + suffix
+}
+
 /** Validate a hyperlink URL — throws VALIDATION_ERROR for unsafe schemes */
 function validateUrl(url: string, prefix: string): void {
   if (!SAFE_URL_SCHEME.test(url)) {
@@ -74,7 +136,15 @@ const BUNDLED_FAMILIES = new Set(['Inter'])
 /** Font variants (family-weight-style) always available without explicit doc.fonts entry */
 const BUNDLED_VARIANTS = new Set(['Inter-400-normal', 'Inter-700-normal'])
 
-export function validate(doc: PdfDocument): void {
+export function validate(doc: PdfDocument, options?: { strict?: boolean }): void {
+  const strict = options?.strict ?? false
+  const errors: string[] = []
+
+  // Strict: check doc-level properties
+  if (strict) {
+    assertUnknownProps(doc, ALLOWED_PROPS_SUB['document'], 'document', errors)
+  }
+
   // content must be a non-empty array
   if (!Array.isArray(doc.content) || doc.content.length === 0) {
     throw new PretextPdfError('VALIDATION_ERROR', 'document.content must be a non-empty array')
@@ -375,7 +445,7 @@ export function validate(doc: PdfDocument): void {
   }
 
   for (let i = 0; i < doc.content.length; i++) {
-    validateElement(doc.content[i]!, i, loadedFamilies)
+    validateElement(doc.content[i]!, i, loadedFamilies, strict, errors)
   }
 
   // ── Footnote ref/def cross-validation ─────────────────────────────────────
@@ -423,6 +493,12 @@ export function validate(doc: PdfDocument): void {
 
   // validate all font references are loadable
   validateFontReferences(doc, loadedFamilies)
+
+  // Throw collected strict validation errors
+  if (errors.length > 0) {
+    const msg = formatErrors(errors)
+    throw new PretextPdfError('VALIDATION_ERROR', msg)
+  }
 }
 
 /**
@@ -563,11 +639,25 @@ function validateFontReferences(doc: PdfDocument, loadedFamilies: Set<string>): 
   }
 }
 
-function validateElement(el: ContentElement, index: number, loadedFamilies: Set<string>): void {
+function validateElement(
+  el: ContentElement,
+  index: number,
+  loadedFamilies: Set<string>,
+  strict: boolean,
+  errors: string[]
+): void {
   const prefix = `content[${index}]`
 
   if (!el || typeof el !== 'object' || !('type' in el)) {
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: each element must have a 'type' field`)
+  }
+
+  // Strict: check element properties match allowed set for type
+  if (strict) {
+    const allowed = ALLOWED_PROPS[el.type as keyof typeof ALLOWED_PROPS]
+    if (allowed) {
+      assertUnknownProps(el, allowed, prefix, errors)
+    }
   }
 
   switch (el.type) {
@@ -621,6 +711,10 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (paragraph): 'letterSpacing' must be a non-negative finite number and <= 200`)
       }
       if (el.annotation) {
+        // Strict: validate annotation properties
+        if (strict) {
+          assertUnknownProps(el.annotation, ALLOWED_PROPS_SUB['annotation'], `${prefix} (paragraph).annotation`, errors)
+        }
         if (!el.annotation.contents || el.annotation.contents.trim() === '') {
           throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (paragraph): annotation.contents is required and must be non-empty`)
         }
@@ -722,6 +816,10 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
       const colCount = el.columns.length
       for (let ci = 0; ci < el.columns.length; ci++) {
         const col = el.columns[ci]!
+        // Strict: validate column def properties
+        if (strict) {
+          assertUnknownProps(col, ALLOWED_PROPS_SUB['column-def'], `${prefix} (table).columns[${ci}]`, errors)
+        }
         if (typeof col.width === 'number') {
           if (col.width <= 0 || !isFinite(col.width)) {
             throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): columns[${ci}].width must be a positive number. Got: ${col.width}`)
@@ -800,8 +898,17 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
           throw new PretextPdfError('COLSPAN_OVERFLOW', `${prefix} (table): rows[${ri}] colspan sum is ${colspanSum} but expected ${colCount - occupiedCols} (${colCount} columns minus ${occupiedCols} occupied by rowspan). Sum of explicit cell colspans must cover only unoccupied columns.`)
         }
 
+        // Strict: validate row and column defs
+        if (strict) {
+          assertUnknownProps(row, ALLOWED_PROPS_SUB['table-row'], `${prefix} (table).rows[${ri}]`, errors)
+        }
+
         for (let cellI = 0; cellI < row.cells.length; cellI++) {
           const cell = row.cells[cellI]!
+          // Strict: validate cell properties
+          if (strict) {
+            assertUnknownProps(cell, ALLOWED_PROPS_SUB['table-cell'], `${prefix} (table).rows[${ri}].cells[${cellI}]`, errors)
+          }
           if (typeof cell.text !== 'string') {
             throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].text must be a string`)
           }
@@ -1043,6 +1150,10 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
       }
       for (let ii = 0; ii < el.items.length; ii++) {
         const item = el.items[ii]!
+        // Strict: validate list item properties
+        if (strict) {
+          assertUnknownProps(item, ALLOWED_PROPS_SUB['list-item'], `${prefix} (list).items[${ii}]`, errors)
+        }
         if (typeof item.text !== 'string' || item.text.trim() === '') {
           throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].text must be a non-empty string`)
         }
@@ -1060,6 +1171,10 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
           }
           for (let ni = 0; ni < item.items.length; ni++) {
             const nested = item.items[ni]!
+            // Strict: validate nested list item properties
+            if (strict) {
+              assertUnknownProps(nested, ALLOWED_PROPS_SUB['list-item'], `${prefix} (list).items[${ii}].items[${ni}]`, errors)
+            }
             if (typeof nested.text !== 'string' || nested.text.trim() === '') {
               throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].items[${ni}].text must be a non-empty string`)
             }
@@ -1114,6 +1229,10 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
       }
       for (let si = 0; si < el.spans.length; si++) {
         const span = el.spans[si]!
+        // Strict: validate span properties
+        if (strict) {
+          assertUnknownProps(span, ALLOWED_PROPS_SUB['inline-span'], `${prefix} (rich-paragraph).spans[${si}]`, errors)
+        }
         if (typeof span.text !== 'string') {
           throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].text must be a string`)
         }
@@ -1437,6 +1556,13 @@ function validateElement(el: ContentElement, index: number, loadedFamilies: Set<
         const item = fg.content[i]!
         if (!['paragraph', 'heading', 'rich-paragraph'].includes(item.type)) {
           throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group).content[${i}]: only 'paragraph', 'heading', and 'rich-paragraph' elements are allowed in float groups`)
+        }
+        // Strict: validate nested content element properties
+        if (strict) {
+          const allowed = ALLOWED_PROPS[item.type as keyof typeof ALLOWED_PROPS]
+          if (allowed) {
+            assertUnknownProps(item, allowed, `${prefix} (float-group).content[${i}]`, errors)
+          }
         }
       }
       // Validate spacing

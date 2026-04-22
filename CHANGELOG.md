@@ -7,6 +7,32 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [0.9.3] — 2026-04-23
+
+Strict validation release. Opt-in property validation to catch unknown properties on elements and sub-structures via typo detection and precise JSONPath error reporting.
+
+### Added
+
+- **Strict validation mode**: Pass `{ strict: true }` to `render(doc, options)` to reject unknown properties. Non-strict mode (default) remains permissive for backwards compatibility.
+- **`render()` options parameter**: Updated signature to `render(doc: PdfDocument, options?: RenderOptions)` where `RenderOptions = { strict?: boolean }`.
+- **`validate()` public export**: `validate()` is now exported from `pretext-pdf` for standalone validation and testing.
+- **Validation error details**:
+  - Unknown properties reported with Levenshtein edit-distance suggestions (distance ≤2) for typo correction.
+  - Errors include JSONPath-like paths (`content[3].table.rows[0].cells[1].align`) for precise location reporting.
+  - Error accumulation: all violations collected before throwing a single VALIDATION_ERROR with formatted multi-line message.
+  - First 20 errors shown; overflow indicator present.
+- **Compile-time drift guards**: `src/allowed-props.ts` uses `Exact<T, Keys>` TypeScript type assertions to catch property definition drift at type-check time. If element types change, `tsc --noEmit` will error if allowed-props lists don't match.
+- **Property allowlists**:
+  - `ALLOWED_PROPS`: 22 element types (paragraph, heading, table, image, code, list, etc.)
+  - `ALLOWED_PROPS_SUB`: 8 sub-structures (document, metadata, table-row, table-cell, list-item, inline-span, column-def, annotation)
+
+### Internal
+
+- `src/allowed-props.ts` (new): Central configuration for allowed properties with compile-time assertions.
+- `src/validate.ts` (enhanced): Added `levenshteinDist()`, `closestMatch()`, `assertUnknownProps()`, and `formatErrors()` helpers; threading strict flag through `validateElement()` for nested structure validation (tables, lists, rich-paragraphs, float-groups, annotations).
+
+---
+
 ## [0.9.2] — 2026-04-22
 
 Maintenance release. Engine refresh + repo-hygiene automation. No runtime behavior changes beyond the `@chenglou/pretext` bump.

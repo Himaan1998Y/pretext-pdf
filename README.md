@@ -34,6 +34,7 @@
 - [Element catalog](#element-catalog)
 - [Document features](#document-level-features)
 - [API reference](#api-reference)
+- [Strict validation](#strict-validation)
 - [India / GST invoicing](#india--gst-invoicing)
 - [Custom fonts](#custom-fonts)
 - [Rich text](#rich-text)
@@ -429,6 +430,47 @@ const pdf = await createPdf({ pageSize: 'A4' })
 ### `createInvoice / createGstInvoice / createReport` *(from `pretext-pdf/templates`)*
 
 ### `fromPdfmake(doc, opts?)` *(from `pretext-pdf/compat`)*
+
+---
+
+## Strict validation
+
+By default, `render()` uses permissive validation — unknown properties are silently ignored. Enable strict mode to catch typos and ensure property names match the schema exactly:
+
+```typescript
+import { render } from 'pretext-pdf'
+
+const pdf = await render(doc, { strict: true })
+```
+
+In strict mode:
+
+- **Unknown properties are rejected** with a `VALIDATION_ERROR` that includes:
+  - Property name and location (JSONPath-like: `content[3].table.rows[0].cells[1].align`)
+  - Typo suggestions via Levenshtein distance (edit distance ≤2)
+  - All violations collected before throwing, with a 20-error cap + overflow indicator
+
+Example error:
+
+```
+VALIDATION_ERROR:
+  unknown property 'fontSizee' at content[0].fontSizee (did you mean fontsize, fontSize?)
+  unknown property 'colorr' at content[1].inline.colorr (did you mean color?)
+```
+
+Strict validation is useful for:
+- **AI agent self-correction**: LLMs can parse error messages and fix typos
+- **Template development**: catch copy-paste errors in large documents
+- **Type safety**: ensure your generator is emitting well-formed documents
+
+You can also call `validate()` standalone for testing:
+
+```typescript
+import { validate } from 'pretext-pdf'
+
+// Throws PretextPdfError('VALIDATION_ERROR', ...) if strict check fails
+validate(doc, { strict: true })
+```
 
 ---
 

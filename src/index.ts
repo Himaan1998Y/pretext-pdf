@@ -61,6 +61,12 @@ export type { ErrorCode } from './errors.js'
 export type { NamedPageSize } from './page-sizes.js'
 export { createPdf } from './builder.js'
 export type { PdfBuilderOptions } from './builder.js'
+export { validate } from './validate.js'
+
+export type RenderOptions = {
+  /** Enable strict validation: reject unknown properties on elements and sub-structures */
+  strict?: boolean
+}
 
 let _fnSetCounter = 0
 
@@ -133,7 +139,7 @@ function resolveHeaderFooter(doc: PdfDocument, pageNumber: number): {
  * fs.writeFileSync('output.pdf', pdf)
  * ```
  */
-export async function render(doc: PdfDocument): Promise<Uint8Array> {
+export async function render(doc: PdfDocument, options?: RenderOptions): Promise<Uint8Array> {
   // ── Install Node.js canvas polyfill FIRST, before any Pretext import ─────────
   // This MUST happen before measure.ts lazily imports @chenglou/pretext.
   if (typeof OffscreenCanvas === 'undefined' && typeof window === 'undefined') {
@@ -142,7 +148,7 @@ export async function render(doc: PdfDocument): Promise<Uint8Array> {
   }
 
   // ── Stage 1: Validate ─────────────────────────────────────────────────────────
-  validate(doc)
+  validate(doc, options)
 
   // ── Resolve page geometry ──────────────────────────────────────────────────────
   const [pageWidth, pageHeight] = resolvePageDimensions(doc.pageSize)
