@@ -1,6 +1,6 @@
 # pretext-pdf — Roadmap
 
-**Last updated:** 2026-04-22 · **Current version:** 0.9.2
+**Last updated:** 2026-04-23 · **Current version:** 0.9.3
 
 This is a **living document**. See [Update discipline](#update-discipline) at the bottom for how and when this file is touched.
 
@@ -10,7 +10,8 @@ This is a **living document**. See [Update discipline](#update-discipline) at th
 
 Active work. Each item should have a tracking PR or issue.
 
-- **MCP sync release — `pretext-pdf-mcp@1.2.0`** — Bump pinned `pretext-pdf` from `^0.8.0` → `^0.9.2`, remove redundant `version` field from `smithery.yaml`, add renovate config. *Why:* Smithery users were getting 2-version-old bugs.
+- **Tier 0 remediation pass** — Post-release audit findings and hardening. PR #2 in progress (renovate config fix, CHANGELOG consistency, strict validator promotion).
+- **Tier 1 planning** — Inventory structural debt and sequence delivery.
 
 ---
 
@@ -24,7 +25,6 @@ Structural debt that pays compounding interest once fixed.
 
 | Item | Why | Effort |
 |---|---|---|
-| **Strict validator** — `validate.ts` must reject unknown properties on every element type | Closes the false-positive test class permanently. A paragraph with `{footnote: {...}}` currently passes validation silently, which is how `smoke-staging.test.ts` "passed" for months on a non-existent API. | M |
 | **Split `types.ts`** into `types-public.ts` (41 schema types) + `types-internal.ts` (pipeline types `MeasuredBlock`, `RenderedPage`, etc.) | 1,347-line file mixes two audiences with different change rates. Public schema should not churn when internals refactor. | M |
 | **Extract pipeline from `index.ts`** into new `src/pipeline.ts` | `index.ts` is 537 lines of two-pass TOC/footnote orchestration masquerading as the public entry. Contributors can't reason about the pipeline as one unit. | M |
 | **MCP: deduplicate `qrcode` + `marked` with core** | Both are bundled in the MCP wrapper AND used by core (via `qr-code` element and `/markdown` entry). Drift risk, version skew. | M |
@@ -81,6 +81,7 @@ The authoritative record is [CHANGELOG.md](../CHANGELOG.md). This section is a *
 
 | Milestone | Version | Date | Theme |
 |---|---|---|---|
+| Strict validation + Tier 0 remediation | 0.9.3 | 2026-04-23 | Opt-in strict mode with Levenshtein typo detection, compile-time drift guards, error accumulation, public validate() export, MCP 1.2.1 sync |
 | Engine refresh + repo-hygiene automation | 0.9.2 | 2026-04-22 | `@chenglou/pretext@0.0.6` bump (CJK bracket wrap, native letterSpacing), badge-verify CI, release-on-tag automation, renovate watchdog, rewritten ROADMAP |
 | Rendering-bug hardening + producer-validator contract | 0.9.1 | 2026-04-21 | Callout title split fix, rich-text leading-space preservation, narrowed internal types |
 | Feature completeness pass | 0.9.0 | 2026-04-20 | Measurement precision, validator tightening |
