@@ -37,7 +37,7 @@ jobs:
         run: npm run build
 
       - name: Verify README badges match reality
-        run: npm run verify:badges
+        run: npm run verify:badges:full
 
       - name: Contract tests
         run: npm run test:contract
@@ -68,6 +68,12 @@ jobs:
           npm run example:forms
           npm run example:callout
 
+  ci-ok:
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "All CI checks passed"
+
   publish:
     needs: test
     runs-on: ubuntu-latest
@@ -91,3 +97,46 @@ jobs:
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  release:
+    needs: [publish]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Extract CHANGELOG section
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          NOTES=$(awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { flag=1; next }
+            flag && /^## \[/ { exit }
+            flag { print }
+          ' CHANGELOG.md)
+
+          if [ -z "$NOTES" ]; then
+            NOTES="Release $VERSION. See [CHANGELOG.md](CHANGELOG.md) for details."
+          fi
+
+          echo "$NOTES" > /tmp/release-notes.md
+          echo "notes_path=/tmp/release-notes.md" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --title "${{ steps.version.outputs.tag }}" \
+            --notes-file "${{ steps.changelog.outputs.notes_path }}" \
+            --verify-tag

@@ -85,10 +85,12 @@ The authoritative record is [CHANGELOG.md](../CHANGELOG.md). This section is a *
 | Rendering-bug hardening + producer-validator contract | 0.9.1 | 2026-04-21 | Callout title split fix, rich-text leading-space preservation, narrowed internal types |
 | Feature completeness pass | 0.9.0 | 2026-04-20 | Measurement precision, validator tightening |
 | Security hardening | 0.8.3 | 2026-04-20 | SSRF guard on image URLs, markdown nesting cap, amount-in-words fix |
+| Rich-paragraph whitespace fix | 0.8.2 | 2026-04-20 | Sentinel-char measurement technique, adjacent-word overlap regression |
 | Browser support | 0.8.1 | 2026-04-20 | Clean import in browsers, esm.sh demo works end-to-end |
 | Content ecosystem | 0.8.0 | 2026-04-19 | QR codes, barcodes, Vega charts, Markdown entry, GST India templates |
 | Annotations + forms + signatures | 0.7.x | 2026-04-17 | PKCS#7 signing, form fields, PDF annotations |
 | Internationalization | 0.5.3 | 2026-04-16 | RTL (Arabic, Hebrew), CJK, hyphenation |
+| Image error control | 0.5.2 | 2026-04-13 | `onImageLoadError` callback — skip or throw on image load failures |
 | Documents core | 0.4.0 | 2026-04-08 | Tables, lists, images, SVG, TOC, bookmarks, hyperlinks, encryption |
 | Foundation | 0.1.0 | 2026-04-07 | Paragraphs, headings, page-sizes, declarative JSON schema, pretext engine binding |
 
