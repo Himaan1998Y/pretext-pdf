@@ -7,6 +7,35 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [0.9.2] — 2026-04-22
+
+Maintenance release. Engine refresh + repo-hygiene automation. No runtime behavior changes beyond the `@chenglou/pretext` bump.
+
+### Changed
+
+- **Bumped `@chenglou/pretext` to 0.0.6** (from 0.0.5). Brings two upstream improvements: (a) CJK text followed by opening-bracket annotations now wraps like browsers instead of leaving the opening bracket on the previous line (upstream PR #148), (b) native numeric `letterSpacing` support on `prepare()` and `prepareWithSegments()` (upstream PRs #108/#156). Our manual letterSpacing compensation in `src/measure-blocks.ts` and `src/rich-text.ts` continues to work unchanged — delegating to pretext's native path is tracked as Tier 1 follow-up in `docs/ROADMAP.md`. All 624 tests green, all 5 visual regression baselines green.
+
+### Fixed
+
+- **README badges matched to reality**: `runtime-deps-7` → `runtime-deps-8` (there are 8 direct `dependencies`, not 7), `tests-600+` → `tests-624` (the full `npm test` chain runs 624 tests across 5 subsuites). Drift guarded by a new CI step; see below.
+
+### Added
+
+- `scripts/verify-badges.js` + CI step — compares README shields.io badge values against `package.json` dep count and `npm test` total. Fails CI on drift. Fast path via `SKIP_TEST_RUN=1` for pre-commit use.
+- `.github/workflows/release-on-tag.yml` — on `v*` tag push, auto-extracts the matching `## [X.Y.Z]` section from this file and creates the GitHub release. Closes the "tag exists but no release page" gap that affected v0.9.1.
+- `renovate.json` — watches dependencies, auto-merges devDependency bumps that pass CI, opens PRs (without auto-merge) for runtime, peer, and `@chenglou/pretext` engine bumps. Closes the gap that left us one release behind upstream.
+
+### Removed
+
+- `test/smoke-staging.test.ts` — exercised a non-existent `{ type: 'paragraph', footnote: {...} }` shape that the permissive validator silently accepted. False coverage. A strict validator rollout (rejecting unknown element properties) is the root fix and is tracked as a Tier 1 item in the rewritten `docs/ROADMAP.md`.
+- `src/brain/` — inert auto-logger artifact (34 blank-body entries, no active writer). Never published to npm.
+
+### Docs
+
+- `docs/ROADMAP.md` — complete rewrite as a living document (Now / Next / Under consideration / Shipped / History + Update discipline). The previous "master remediation plan" with phase-numbered sections was dropped: phases 0–5 all shipped by v0.9.1, and the document had rotted to the point of contradicting `package.json` on dependency pinning and `CHANGELOG.md` on what was live. History section preserves the prior plan's origin date and scope for reference.
+
+---
+
 ## [0.9.1] — 2026-04-21
 
 Bug-fix + hardening release. Ships the callout + rich-text rendering fixes from PR #2 together with PR #3's producer-validator contract around measured blocks.

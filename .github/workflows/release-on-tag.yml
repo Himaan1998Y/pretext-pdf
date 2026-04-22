@@ -1,0 +1,59 @@
+name: Release on tag
+
+# Auto-create a GitHub release when a v* tag is pushed.
+# Pulls release notes from the matching ## [X.Y.Z] section of CHANGELOG.md.
+#
+# Manual fallback: `gh release create vX.Y.Z --notes-file <slice>`
+# See docs/ROADMAP.md "Shipped" section for the release discipline.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Extract CHANGELOG section
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # Grab lines between "## [VERSION]" and the next "## [" (exclusive).
+          # If no section found, fall back to a minimal message.
+          NOTES=$(awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { flag=1; next }
+            flag && /^## \[/ { exit }
+            flag { print }
+          ' CHANGELOG.md)
+
+          if [ -z "$NOTES" ]; then
+            NOTES="Release $VERSION. See [CHANGELOG.md](CHANGELOG.md) for details."
+          fi
+
+          # Write to a file to handle multi-line/special chars safely
+          echo "$NOTES" > /tmp/release-notes.md
+          echo "notes_path=/tmp/release-notes.md" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --title "${{ steps.version.outputs.tag }}" \
+            --notes-file "${{ steps.changelog.outputs.notes_path }}" \
+            --verify-tag
