@@ -36,6 +36,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verify README badges match reality
+        run: npm run verify:badges
+
       - name: Contract tests
         run: npm run test:contract
 

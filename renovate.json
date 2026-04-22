@@ -1,0 +1,51 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommitTypeAll(chore)",
+    ":separateMajorReleases",
+    ":prImmediately",
+    ":timezone(Asia/Kolkata)"
+  ],
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "rangeStrategy": "bump",
+  "packageRules": [
+    {
+      "description": "Group all devDependencies — safe to batch",
+      "matchDepTypes": ["devDependencies"],
+      "groupName": "devDependencies",
+      "automerge": true,
+      "automergeType": "branch",
+      "requiredStatusChecks": ["CI"]
+    },
+    {
+      "description": "@chenglou/pretext — engine dep, never auto-merge, eyeball every bump",
+      "matchPackageNames": ["@chenglou/pretext"],
+      "automerge": false,
+      "labels": ["dependencies", "engine-bump", "needs-visual-check"]
+    },
+    {
+      "description": "Runtime deps — open PR but do NOT auto-merge",
+      "matchDepTypes": ["dependencies"],
+      "automerge": false,
+      "labels": ["dependencies", "runtime"]
+    },
+    {
+      "description": "Peer deps — informational only, PR but never merge automatically",
+      "matchDepTypes": ["peerDependencies"],
+      "automerge": false,
+      "labels": ["dependencies", "peer"]
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"]
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"],
+    "automerge": true
+  }
+}
