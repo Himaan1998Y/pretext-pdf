@@ -1,6 +1,6 @@
 # pretext-pdf — Roadmap
 
-**Last updated:** 2026-04-22 · **Current version:** 0.9.1 (0.9.2 in flight)
+**Last updated:** 2026-04-22 · **Current version:** 0.9.2
 
 This is a **living document**. See [Update discipline](#update-discipline) at the bottom for how and when this file is touched.
 
@@ -10,8 +10,7 @@ This is a **living document**. See [Update discipline](#update-discipline) at th
 
 Active work. Each item should have a tracking PR or issue.
 
-- **Tier 0 cleanup release — `pretext-pdf@0.9.2`** — Engine bump to `@chenglou/pretext@0.0.6` (free CJK bracket wrap fix + native letterSpacing), repo hygiene (dead folders, false-positive test deleted, badges correct), and release-process automation (renovate + release-on-tag). *Why:* truth-in-docs + prevent this class of drift recurring.
-- **MCP sync release — `pretext-pdf-mcp@1.2.0`** — Bump pinned `pretext-pdf` from `^0.8.0` → `^0.9.2`, remove redundant `version` field from `smithery.yaml`. *Why:* Smithery users were getting 2-version-old bugs.
+- **MCP sync release — `pretext-pdf-mcp@1.2.0`** — Bump pinned `pretext-pdf` from `^0.8.0` → `^0.9.2`, remove redundant `version` field from `smithery.yaml`, add renovate config. *Why:* Smithery users were getting 2-version-old bugs.
 
 ---
 
@@ -82,6 +81,7 @@ The authoritative record is [CHANGELOG.md](../CHANGELOG.md). This section is a *
 
 | Milestone | Version | Date | Theme |
 |---|---|---|---|
+| Engine refresh + repo-hygiene automation | 0.9.2 | 2026-04-22 | `@chenglou/pretext@0.0.6` bump (CJK bracket wrap, native letterSpacing), badge-verify CI, release-on-tag automation, renovate watchdog, rewritten ROADMAP |
 | Rendering-bug hardening + producer-validator contract | 0.9.1 | 2026-04-21 | Callout title split fix, rich-text leading-space preservation, narrowed internal types |
 | Feature completeness pass | 0.9.0 | 2026-04-20 | Measurement precision, validator tightening |
 | Security hardening | 0.8.3 | 2026-04-20 | SSRF guard on image URLs, markdown nesting cap, amount-in-words fix |
