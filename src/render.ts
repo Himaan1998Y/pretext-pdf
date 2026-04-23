@@ -1,8 +1,11 @@
 import { PDFDocument, PDFName, PDFString, PDFNull } from '@cantoo/pdf-lib'
 import type {
-  PdfDocument, PaginatedDocument, PagedBlock,
-  FontMap, ImageMap, PageGeometry
+  PdfDocument
 } from './types.js'
+import type {
+  PaginatedDocument, PagedBlock,
+  FontMap, ImageMap, PageGeometry
+} from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 import {
   renderTextBlock,

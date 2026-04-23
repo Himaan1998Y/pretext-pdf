@@ -1,5 +1,6 @@
 import { PDFDocument } from '@cantoo/pdf-lib'
-import type { PdfDocument, ImageElement, SvgElement, QrCodeElement, BarcodeElement, ChartElement, ImageMap } from './types.js'
+import type { PdfDocument, ImageElement, SvgElement, QrCodeElement, BarcodeElement, ChartElement } from './types.js'
+import type { ImageMap } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 
 // ─── Security helpers ─────────────────────────────────────────────────────────

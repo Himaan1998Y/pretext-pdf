@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { PDFDocument, PDFName, PDFString } from '@cantoo/pdf-lib'
-import type { PdfDocument, PageGeometry, Margins, ImageMap, EncryptionSpec, FootnoteDefElement, MeasuredBlock, ContentElement } from './types.js'
+import type { PdfDocument, Margins, EncryptionSpec, FootnoteDefElement, ContentElement } from './types.js'
+import type { PageGeometry, ImageMap, MeasuredBlock } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 import { resolvePageDimensions } from './page-sizes.js'
 import { validate } from './validate.js'
@@ -276,7 +277,7 @@ export async function render(doc: PdfDocument, options?: RenderOptions): Promise
     el => el.type === 'footnote-def'
   ) as FootnoteDefElement[]
 
-  let paginatedDoc: import('./types.js').PaginatedDocument
+  let paginatedDoc: import('./types-internal.js').PaginatedDocument
 
   if (footnoteDefElements.length === 0) {
     // No footnotes — single pass, normal flow

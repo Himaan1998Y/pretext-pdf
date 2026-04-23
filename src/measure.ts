@@ -4,8 +4,11 @@
  */
 
 import type {
-  PdfDocument, ContentElement, MeasuredBlock, ImageMap
+  PdfDocument, ContentElement
 } from './types.js'
+import type {
+  MeasuredBlock, ImageMap
+} from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 import { measureBlock } from './measure-blocks.js'
 import { getPretext, HyphenatorOpts, getHyphenator } from './measure-text.js'

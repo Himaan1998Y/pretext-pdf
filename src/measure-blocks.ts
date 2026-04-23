@@ -4,11 +4,13 @@
  */
 
 import type {
-  ContentElement, MeasuredBlock, MeasuredTableData,
-  MeasuredTableRow, MeasuredTableCell, MeasuredImageData, ListItemData,
-  ImageMap, ColumnDef, TableElement, PdfDocument, PretextLine,
-  CalloutData
+  ContentElement, ColumnDef, TableElement, PdfDocument
 } from './types.js'
+import type {
+  MeasuredBlock, MeasuredTableData,
+  MeasuredTableRow, MeasuredTableCell, MeasuredImageData, ListItemData,
+  ImageMap, PretextLine, CalloutData
+} from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 import { measureRichText } from './rich-text.js'
 import { buildFontKey } from './measure.js'
@@ -509,7 +511,7 @@ export async function measureBlock(
         fontKey: '',
         spaceAfter: element.spaceAfter ?? 0,
         spaceBefore: element.spaceBefore ?? 0,
-      } satisfies import('./types.js').MeasuredBlock
+      } satisfies import('./types-internal.js').MeasuredBlock
     }
     case 'toc-entry': {
       // Internal type - should never be measured directly by user input
@@ -680,8 +682,8 @@ export async function measureFloatImageBlock(
   const fontFamily = element.floatFontFamily ?? doc.defaultFont ?? 'Inter'
   const fontKey = buildFontKey(fontFamily, 400, 'normal')
 
-  let textLines: import('./types.js').PretextLine[] = []
-  let richFloatLines: import('./types.js').RichLine[] | undefined
+  let textLines: import('./types-internal.js').PretextLine[] = []
+  let richFloatLines: import('./types-internal.js').RichLine[] | undefined
 
   if (element.floatSpans) {
     richFloatLines = await measureRichText(element.floatSpans, fontSize, lineHeight, textColWidth, 'left', doc)
@@ -770,7 +772,7 @@ export async function measureFloatGroup(
   const baseFontSize = doc.defaultFontSize ?? 12
   const textItems: Array<{
     lines: PretextLine[]
-    richLines?: import('./types.js').RichLine[]
+    richLines?: import('./types-internal.js').RichLine[]
     fontSize: number
     lineHeight: number
     fontKey: string
@@ -791,7 +793,7 @@ export async function measureFloatGroup(
       const lineHeight = block.lineHeight || (fontSize * LINE_HEIGHT_BODY)
 
       // Extract text from lines or rich-lines
-      let lines: import('./types.js').PretextLine[] = []
+      let lines: import('./types-internal.js').PretextLine[] = []
       if (block.richLines && block.richLines.length > 0) {
         // Rich paragraph: extract plain text from rich lines (plain-text fallback)
         lines = block.richLines.map(rl => ({
@@ -1128,7 +1130,7 @@ async function measureTable(
 
   // Step 3: Reassemble into measuredRows with rowspan support
   // Build lookup: (rowIdx, colStart) → (meta, result)
-  type CellAtCol = { meta: CellMeta; result: { cellIsRTL: boolean; lines: import('./types.js').PretextLine[] } }
+  type CellAtCol = { meta: CellMeta; result: { cellIsRTL: boolean; lines: import('./types-internal.js').PretextLine[] } }
   const cellByKey = new Map<string, CellAtCol>()
   for (let i = 0; i < allCellMeta.length; i++) {
     const m = allCellMeta[i]!

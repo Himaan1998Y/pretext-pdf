@@ -1,7 +1,7 @@
 import type {
   MeasuredBlock, MeasuredCalloutBlock, MeasuredBlockquoteBlock,
   PagedBlock, RenderedPage, PaginatedDocument
-} from './types.js'
+} from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 
 const MAX_PAGES = 10_000
@@ -586,7 +586,7 @@ export function getCurrentY(pages: RenderedPage[]): number {
  * Uses greedy accumulation of per-line heights (which may vary due to per-span fontSize).
  */
 function countRichLinesInHeight(
-  richLines: import('./types.js').RichLine[],
+  richLines: import('./types-internal.js').RichLine[],
   startIdx: number,
   available: number
 ): number {
