@@ -68,6 +68,10 @@ jobs:
           npm run example:forms
           npm run example:callout
 
+      - name: Visual regression (non-blocking)
+        run: npm run test:visual
+        continue-on-error: true
+
   ci-ok:
     needs: [test]
     runs-on: ubuntu-latest

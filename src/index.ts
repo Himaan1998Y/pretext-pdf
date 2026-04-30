@@ -248,3 +248,15 @@ async function applyEncryption(pdfBytes: Uint8Array, enc: NonNullable<PdfDocumen
   })
   return encDoc.save({ useObjectStreams: false })
 }
+
+// ─── Schema reflection ────────────────────────────────────────────────────────
+
+/** All element type strings that can appear in a PdfDocument's content array. */
+export const ELEMENT_TYPES = [
+  'paragraph', 'heading', 'spacer', 'table', 'image', 'svg',
+  'qr-code', 'barcode', 'chart', 'list', 'hr', 'page-break',
+  'code', 'rich-paragraph', 'blockquote', 'toc', 'toc-entry',
+  'comment', 'form-field', 'callout', 'footnote-def', 'float-group',
+] as const
+
+export type ElementType = typeof ELEMENT_TYPES[number]
