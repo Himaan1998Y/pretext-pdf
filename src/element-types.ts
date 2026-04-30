@@ -1,12 +1,12 @@
-/** Single source of truth for all element type strings.
+/**
+ * All supported element type strings — single source of truth.
  *
- * Imported by: index.ts (re-export), validate.ts (error messages),
- * and eventually plugin-registry.ts (built-in set).
+ * Use this array to enumerate valid element types without string literals.
+ * Imported by validate.ts for error messages and by the MCP server for the
+ * drift guard. Do NOT import from index.ts here (circular dep risk).
  *
- * Do NOT import from index.ts here — this file must be importable
- * by validate.ts without creating a circular dependency.
+ * @public
  */
-
 export const ELEMENT_TYPES = [
   'paragraph', 'heading', 'spacer', 'table', 'image', 'svg',
   'qr-code', 'barcode', 'chart', 'list', 'hr', 'page-break',
@@ -14,4 +14,8 @@ export const ELEMENT_TYPES = [
   'comment', 'form-field', 'callout', 'footnote-def', 'float-group',
 ] as const
 
+/**
+ * Union of all valid element type strings.
+ * @public
+ */
 export type ElementType = typeof ELEMENT_TYPES[number]

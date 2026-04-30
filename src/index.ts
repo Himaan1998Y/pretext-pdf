@@ -66,6 +66,10 @@ let _fnSetCounter = 0
  * - `id`: unique string for use as `InlineSpan.footnoteRef`
  * - `def`: a `FootnoteDefElement` ready to push into `doc.content`
  *
+ * @remarks
+ * IDs are generated using a module-level counter and are unique within a process.
+ * They are not stable across separate module loads.
+ *
  * @example
  * ```ts
  * const fns = createFootnoteSet([
@@ -73,9 +77,10 @@ let _fnSetCounter = 0
  *   { text: 'Ibid., p. 42.' },
  * ])
  * // In content:
- * // { type: 'rich-paragraph', spans: [{ text: 'Text', footnoteRef: fns[0].id }] }
+ * // \{ type: 'rich-paragraph', spans: [\{ text: 'Text', footnoteRef: fns[0].id \}] \}
  * // ...fns.map(f => f.def)
  * ```
+ * @beta
  */
 export function createFootnoteSet(
   items: Array<{ text: string; fontSize?: number; fontFamily?: string; spaceAfter?: number }>
@@ -90,22 +95,21 @@ export function createFootnoteSet(
 /**
  * Render a PdfDocument to PDF bytes.
  *
- * Works in Node.js (requires @napi-rs/canvas peer dep) and in the browser.
+ * Works in Node.js (requires `@napi-rs/canvas` peer dep) and in the browser.
  *
  * @example
  * ```ts
  * import { render } from 'pretext-pdf'
  *
- * const pdf = await render({
+ * const pdf = await render(\{
  *   content: [
- *     { type: 'heading', level: 1, text: 'Hello World' },
- *     { type: 'paragraph', text: 'This is a paragraph.' },
- *     { type: 'hr' },
- *     { type: 'list', style: 'unordered', items: [{ text: 'Item one' }, { text: 'Item two' }] },
+ *     \{ type: 'heading', level: 1, text: 'Hello World' \},
+ *     \{ type: 'paragraph', text: 'This is a paragraph.' \},
  *   ]
- * })
+ * \})
  * fs.writeFileSync('output.pdf', pdf)
  * ```
+ * @public
  */
 export async function render(doc: PdfDocument, options?: RenderOptions): Promise<Uint8Array> {
   const rawBytes = await runPipeline(doc, options)
@@ -114,8 +118,9 @@ export async function render(doc: PdfDocument, options?: RenderOptions): Promise
 
 /**
  * Merge multiple pre-rendered PDFs into a single PDF.
- * @param pdfs Array of Uint8Array PDF bytes to combine
+ * @param pdfs - Array of Uint8Array PDF bytes to combine
  * @returns Combined PDF bytes
+ * @public
  */
 export async function merge(pdfs: Uint8Array[]): Promise<Uint8Array> {
   if (!pdfs || pdfs.length === 0) {
@@ -137,8 +142,9 @@ export async function merge(pdfs: Uint8Array[]): Promise<Uint8Array> {
 
 /**
  * Assemble a PDF from a mix of new documents and pre-rendered PDF parts.
- * @param parts Array of AssemblyPart — each is either a doc to render or raw PDF bytes
+ * @param parts - Array of AssemblyPart — each is either a doc to render or raw PDF bytes
  * @returns Combined PDF bytes
+ * @public
  */
 export async function assemble(parts: import('./types.js').AssemblyPart[]): Promise<Uint8Array> {
   if (!parts || parts.length === 0) {

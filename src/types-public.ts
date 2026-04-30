@@ -9,7 +9,10 @@ import type { NamedPageSize } from './page-sizes.js'
 
 // ─── Public Input Types ───────────────────────────────────────────────────────
 
-/** Top-level document descriptor. Named PdfDocument to avoid clash with browser window.Document */
+/**
+ * Top-level document descriptor. Named PdfDocument to avoid clash with browser window.Document
+ * @public
+ */
 export interface PdfDocument {
   /** Page size. Default: 'A4' (595×842 pt). Custom: [width, height] in pt. */
   pageSize?: NamedPageSize | [number, number]
@@ -23,9 +26,9 @@ export interface PdfDocument {
   defaultLineHeight?: number
   /** Custom fonts to load and embed. Inter 400 is always available without specifying. */
   fonts?: FontSpec[]
-  /** Header rendered at top of every page. Supports {{pageNumber}} and {{totalPages}}. */
+  /** Header rendered at top of every page. Supports \{\{pageNumber\}\} and \{\{totalPages\}\}. */
   header?: HeaderFooterSpec
-  /** Footer rendered at bottom of every page. Supports {{pageNumber}} and {{totalPages}}. */
+  /** Footer rendered at bottom of every page. Supports \{\{pageNumber\}\} and \{\{totalPages\}\}. */
   footer?: HeaderFooterSpec
   /** Watermark overlay rendered on every page behind content. Text or image. */
   watermark?: WatermarkSpec
@@ -100,6 +103,7 @@ export interface PdfDocument {
   allowedFileDirs?: string[]
 }
 
+/** @public */
 export interface DocumentMetadata {
   /** Document title shown in PDF viewer title bar. */
   title?: string
@@ -117,6 +121,7 @@ export interface DocumentMetadata {
   producer?: string
 }
 
+/** @public */
 export interface Margins {
   top: number
   bottom: number
@@ -124,6 +129,7 @@ export interface Margins {
   right: number
 }
 
+/** @public */
 export interface FontSpec {
   /** Font family name, e.g. 'Roboto'. Used in fontFamily fields. */
   family: string
@@ -135,8 +141,9 @@ export interface FontSpec {
   src: string | Uint8Array
 }
 
+/** @public */
 export interface HeaderFooterSpec {
-  /** Text content. Use {{pageNumber}} and {{totalPages}} as tokens. */
+  /** Text content. Use \{\{pageNumber\}\} and \{\{totalPages\}\} as tokens. */
   text: string
   /** Font size in pt. Default: 10 */
   fontSize?: number
@@ -150,6 +157,7 @@ export interface HeaderFooterSpec {
   color?: string
 }
 
+/** @public */
 export interface WatermarkSpec {
   /** Text to render as watermark. Either text or image required. */
   text?: string
@@ -169,6 +177,7 @@ export interface WatermarkSpec {
   rotation?: number
 }
 
+/** @public */
 export interface EncryptionSpec {
   /** Password required to OPEN the document. If omitted, document opens without a password
    *  but permissions still apply. */
@@ -190,6 +199,7 @@ export interface EncryptionSpec {
   }
 }
 
+/** @public */
 export interface SignatureSpec {
   /** Name shown as "Signed by: X" inside the box. Optional. */
   signerName?: string
@@ -225,6 +235,7 @@ export interface SignatureSpec {
   invisible?: boolean
 }
 
+/** @public */
 export interface BookmarkConfig {
   /** Minimum heading level to include in outline. Default: 1 */
   minLevel?: 1 | 2 | 3 | 4
@@ -232,6 +243,7 @@ export interface BookmarkConfig {
   maxLevel?: 1 | 2 | 3 | 4
 }
 
+/** @public */
 export interface HyphenationConfig {
   /** Language code matching the `hyphenation.XX` npm package. e.g. 'en-us', 'de', 'fr'. Required. */
   language: string
@@ -243,6 +255,7 @@ export interface HyphenationConfig {
   rightMin?: number
 }
 
+/** @public */
 export interface AnnotationSpec {
   /** Text content shown in the popup. Required. */
   contents: string
@@ -254,6 +267,7 @@ export interface AnnotationSpec {
   open?: boolean
 }
 
+/** @public */
 export interface CommentElement {
   type: 'comment'
   /** Popup text content. Required. */
@@ -268,6 +282,7 @@ export interface CommentElement {
   spaceAfter?: number
 }
 
+/** @public */
 export interface AssemblyPart {
   /** Render this document and include its pages */
   doc?: PdfDocument
@@ -277,6 +292,7 @@ export interface AssemblyPart {
 
 // ─── Form Field ───────────────────────────────────────────────────────────────
 
+/** @public */
 export interface FormFieldElement {
   type: 'form-field'
   /** AcroForm field type. */
@@ -321,6 +337,7 @@ export interface FormFieldElement {
   keepTogether?: boolean
 }
 
+/** @public */
 export type ContentElement =
   | ParagraphElement
   | HeadingElement
@@ -345,6 +362,7 @@ export type ContentElement =
   | FootnoteDefElement
   | FloatGroupElement
 
+/** @public */
 export interface ParagraphElement {
   type: 'paragraph'
   text: string
@@ -395,6 +413,7 @@ export interface ParagraphElement {
   annotation?: AnnotationSpec
 }
 
+/** @public */
 export interface HeadingElement {
   type: 'heading'
   level: 1 | 2 | 3 | 4
@@ -446,6 +465,7 @@ export interface HeadingElement {
   annotation?: AnnotationSpec
 }
 
+/** @public */
 export interface SpacerElement {
   type: 'spacer'
   /** Height in pt */
@@ -454,6 +474,7 @@ export interface SpacerElement {
 
 // ─── Table ────────────────────────────────────────────────────────────────────
 
+/** @public */
 export interface TableElement {
   type: 'table'
   columns: ColumnDef[]
@@ -480,6 +501,7 @@ export interface TableElement {
   spaceBefore?: number
 }
 
+/** @public */
 export interface ColumnDef {
   /** Fixed pt (e.g. 80), proportional fraction (e.g. '2*' or '*'), or 'auto' (shrink-to-content). */
   width: number | string
@@ -487,12 +509,14 @@ export interface ColumnDef {
   align?: 'left' | 'center' | 'right'
 }
 
+/** @public */
 export interface TableRow {
   cells: TableCell[]
   /** Mark row as a header (styled + repeated on continuation pages). Default: false */
   isHeader?: boolean
 }
 
+/** @public */
 export interface TableCell {
   text: string
   /** Text direction: 'ltr', 'rtl', or 'auto'. Default: 'auto' */
@@ -521,6 +545,7 @@ export interface TableCell {
 
 // ─── Image ────────────────────────────────────────────────────────────────────
 
+/** @public */
 export interface ImageElement {
   type: 'image'
   /** Absolute file path (Node.js) or raw bytes (browser/Node) */
@@ -561,6 +586,7 @@ export interface ImageElement {
 
 // ─── Float Group ──────────────────────────────────────────────────────────────
 
+/** @public */
 export interface FloatGroupElement {
   type: 'float-group'
   /** The image to float left or right. */
@@ -585,6 +611,7 @@ export interface FloatGroupElement {
 
 // ─── SVG ──────────────────────────────────────────────────────────────────────
 
+/** @public */
 export interface SvgElement {
   type: 'svg'
   /** Inline SVG markup string. Either `svg` or `src` is required. */
@@ -610,6 +637,7 @@ export interface SvgElement {
 
 // ─── QR Code ──────────────────────────────────────────────────────────────────
 
+/** @public */
 export interface QrCodeElement {
   type: 'qr-code'
   /** The data to encode (URL, text, UPI string, etc.). Required. Max 2953 chars at error-correction L. */
@@ -634,6 +662,7 @@ export interface QrCodeElement {
 
 // ─── Barcode ──────────────────────────────────────────────────────────────────
 
+/** @public */
 export interface BarcodeElement {
   type: 'barcode'
   /**
@@ -660,6 +689,7 @@ export interface BarcodeElement {
 
 // ─── Chart ────────────────────────────────────────────────────────────────────
 
+/** @public */
 export interface ChartElement {
   type: 'chart'
   /**
@@ -684,6 +714,7 @@ export interface ChartElement {
 
 // ─── List ─────────────────────────────────────────────────────────────────────
 
+/** @public */
 export interface ListElement {
   type: 'list'
   /** 'ordered' = "1. 2. 3.", 'unordered' = bullet point */
@@ -716,6 +747,7 @@ export interface ListElement {
   nestedNumberingStyle?: 'continue' | 'restart'
 }
 
+/** @public */
 export interface ListItem {
   text: string
   /** Text direction: 'ltr', 'rtl', or 'auto'. Default: 'auto' */
@@ -728,6 +760,7 @@ export interface ListItem {
 
 // ─── Horizontal Rule ──────────────────────────────────────────────────────────
 
+/** @public */
 export interface HorizontalRuleElement {
   type: 'hr'
   /** Line thickness in pt. Default: 0.5 */
@@ -746,13 +779,17 @@ export interface HorizontalRuleElement {
 
 // ─── Page Break ───────────────────────────────────────────────────────────────
 
-/** Forces a page break at this position. No-op if already at the top of a page. */
+/**
+ * Forces a page break at this position. No-op if already at the top of a page.
+ * @public
+ */
 export interface PageBreakElement {
   type: 'page-break'
 }
 
 // ─── Code Block ───────────────────────────────────────────────────────────────
 
+/** @public */
 export interface CodeBlockElement {
   type: 'code'
   /** Preformatted source code. Newlines and indentation are preserved. */
@@ -809,6 +846,7 @@ export interface CodeBlockElement {
 
 /**
  * A paragraph composed of inline spans with mixed formatting (bold, italic, color, per-span fontSize).
+ * @public
  */
 export interface RichParagraphElement {
   type: 'rich-paragraph'
@@ -844,6 +882,7 @@ export interface RichParagraphElement {
   tabularNumbers?: boolean
 }
 
+/** @public */
 export interface InlineSpan {
   text: string
   /** Text direction for this span: 'ltr', 'rtl', or 'auto'. Default: 'auto' */
@@ -879,7 +918,10 @@ export interface InlineSpan {
   footnoteRef?: string
 }
 
-/** A composed line from the rich-text compositor — contains multiple styled fragments */
+/**
+ * A composed line from the rich-text compositor — contains multiple styled fragments
+ * @public
+ */
 export interface RichLine {
   fragments: RichFragment[]
   /** Total line content width in pt */
@@ -888,7 +930,10 @@ export interface RichLine {
   lineHeight: number
 }
 
-/** A single styled run within a RichLine */
+/**
+ * A single styled run within a RichLine
+ * @public
+ */
 export interface RichFragment {
   text: string
   fontKey: string
@@ -912,6 +957,7 @@ export interface RichFragment {
 
 // ─── Blockquote ───────────────────────────────────────────────────────────────
 
+/** @public */
 export interface BlockquoteElement {
   type: 'blockquote'
   text: string
@@ -960,6 +1006,7 @@ export interface BlockquoteElement {
 /**
  * A highlighted callout box with an optional title and preset color schemes.
  * Useful for info panels, warnings, tips, and notes.
+ * @public
  */
 export interface CalloutElement {
   type: 'callout'
@@ -1013,6 +1060,7 @@ export interface CalloutElement {
 /**
  * Defines a footnote. Placed anywhere in doc.content — order doesn't matter.
  * Rendered at the bottom of the page that contains the matching footnoteRef span.
+ * @public
  */
 export interface FootnoteDefElement {
   type: 'footnote-def'
@@ -1028,6 +1076,7 @@ export interface FootnoteDefElement {
   spaceAfter?: number
 }
 
+/** @public */
 export interface TocElement {
   type: 'toc'
   /** TOC title. Default: 'Table of Contents' */
@@ -1056,7 +1105,7 @@ export interface TocElement {
   spaceAfter?: number
 }
 
-/** Internal: used as element type for measured TOC entry rows */
+/** @internal */
 export interface TocEntryElement {
   type: 'toc-entry'
   text: string
@@ -1070,6 +1119,7 @@ export interface TocEntryElement {
 
 // ─── Render options ───────────────────────────────────────────────────────────
 
+/** @public */
 export type RenderOptions = {
   /** Enable strict validation: reject unknown properties on elements and sub-structures */
   strict?: boolean

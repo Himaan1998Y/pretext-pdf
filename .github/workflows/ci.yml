@@ -39,6 +39,9 @@ jobs:
       - name: Verify README badges match reality
         run: npm run verify:badges:full
 
+      - name: API surface check
+        run: npm run api:check
+
       - name: Contract tests
         run: npm run test:contract
 

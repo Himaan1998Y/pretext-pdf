@@ -137,6 +137,10 @@ const BUNDLED_FAMILIES = new Set(['Inter'])
 /** Font variants (family-weight-style) always available without explicit doc.fonts entry */
 const BUNDLED_VARIANTS = new Set(['Inter-400-normal', 'Inter-700-normal'])
 
+/**
+ * Validate a PdfDocument and throw a {@link PretextPdfError} if any errors are found.
+ * @public
+ */
 export function validate(doc: PdfDocument, options?: { strict?: boolean }): void {
   const strict = options?.strict ?? false
   const errors: string[] = []

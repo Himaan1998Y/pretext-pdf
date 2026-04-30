@@ -36,6 +36,7 @@ import type {
 /**
  * Options for initializing the PDF builder.
  * Includes all PdfDocument fields except 'content' (which is managed by the builder).
+ * @public
  */
 export interface PdfBuilderOptions {
   pageSize?: PdfDocument['pageSize']
@@ -51,6 +52,10 @@ export interface PdfBuilderOptions {
   sections?: PdfDocument['sections']
 }
 
+/**
+ * Fluent builder returned by {@link createPdf}.
+ * @public
+ */
 export interface PdfBuilder {
   addText(text: string, opts?: Partial<Omit<ParagraphElement, 'type' | 'text'>>): PdfBuilder
   addHeading(text: string, opts?: Partial<Omit<HeadingElement, 'type' | 'text' | 'level'>> & { level?: number }): PdfBuilder
@@ -84,7 +89,7 @@ export interface PdfBuilder {
 }
 
 /**
- * Create a new PDF document using the builder API.
+ * Create a new PDF document using the fluent builder API.
  *
  * @example
  * ```ts
@@ -94,6 +99,7 @@ export interface PdfBuilder {
  *   .addHr()
  *   .build()
  * ```
+ * @public
  */
 export function createPdf(options: PdfBuilderOptions = {}): PdfBuilder {
   const content: ContentElement[] = []

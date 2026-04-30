@@ -4,6 +4,7 @@
  * Adding a new size here automatically works in both places.
  */
 
+/** @public */
 export type NamedPageSize = 'A4' | 'Letter' | 'Legal' | 'A3' | 'A5' | 'Tabloid'
 
 /** All named page sizes in [width, height] points (72pt = 1 inch) */
