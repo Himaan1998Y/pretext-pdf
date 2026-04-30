@@ -2,6 +2,7 @@ import { PDFDocument } from '@cantoo/pdf-lib'
 import type { PdfDocument } from './types-public.js'
 import type { MeasuredBlock, PaginatedDocument, PageGeometry, FontMap, ImageMap } from './types-internal.js'
 import { stageValidate, stageInit, stageLoadAssets, stageFinalizeGeo, stageMeasure, stagePaginate } from './pipeline.js'
+import { PretextPdfError } from './errors.js'
 
 export interface LayoutState {
   doc: PdfDocument
@@ -25,8 +26,12 @@ export interface LayoutTrace {
  */
 export async function prepareLayoutState(doc: PdfDocument): Promise<LayoutState> {
   if (typeof OffscreenCanvas === 'undefined' && typeof window === 'undefined') {
-    const { installNodePolyfill } = await import('./node-polyfill.js')
-    await installNodePolyfill()
+    try {
+      const { installNodePolyfill } = await import('./node-polyfill.js')
+      await installNodePolyfill()
+    } catch (e) {
+      throw new PretextPdfError('CANVAS_UNAVAILABLE', `Failed to initialize Node.js canvas polyfill: ${e instanceof Error ? e.message : String(e)}`)
+    }
   }
 
   stageValidate(doc)

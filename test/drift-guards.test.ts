@@ -7,6 +7,12 @@ import { ALLOWED_PROPS } from '../src/allowed-props.js'
 
 const ROOT = join(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1'), '..', '..')
 
+// Types that exist in ELEMENT_TYPES but are legitimately absent from render.ts because
+// they are converted to other types by pre-render pipeline passes.
+const RENDER_PIPELINE_ONLY_TYPES = new Set([
+  'toc', // converted to 'toc-entry' elements by the TOC two-pass processor
+])
+
 describe('element type drift guards', () => {
   test('ELEMENT_TYPES matches ALLOWED_PROPS keys exactly', () => {
     const fromTypes = [...ELEMENT_TYPES].sort()
@@ -29,8 +35,7 @@ describe('element type drift guards', () => {
   })
 
   test('render.ts has a case arm for every renderable element type', () => {
-    // 'toc' is converted to 'toc-entry' by the two-pass processor before render
-    const renderTypes = ELEMENT_TYPES.filter(t => t !== 'toc')
+    const renderTypes = ELEMENT_TYPES.filter(t => !RENDER_PIPELINE_ONLY_TYPES.has(t))
     const source = readFileSync(join(ROOT, 'src', 'render.ts'), 'utf8')
     const missing = renderTypes.filter(type => !source.includes(`case '${type}':`) && !source.includes(`case "${type}":`))
     assert.deepEqual(
