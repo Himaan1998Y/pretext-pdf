@@ -5,7 +5,8 @@
  * Accumulates ContentElement[] and delegates final rendering to render().
  */
 
-import { render } from './index.js'
+import { runPipeline } from './pipeline.js'
+import { applyPostProcessing } from './post-process.js'
 import { validate } from './validate.js'
 import type {
   PdfDocument,
@@ -254,10 +255,11 @@ export function createPdf(options: PdfBuilderOptions = {}): PdfBuilder {
 
     /**
      * Build the PDF and return the bytes.
-     * Delegates to render() with the accumulated document.
      */
     async build(): Promise<Uint8Array> {
-      return render(this.toDocument())
+      const doc = this.toDocument()
+      const rawBytes = await runPipeline(doc)
+      return applyPostProcessing(rawBytes, doc)
     },
   }
 }

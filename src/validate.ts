@@ -2,6 +2,7 @@ import type { PdfDocument, ContentElement, FontSpec, CommentElement } from './ty
 import { PretextPdfError } from './errors.js'
 import { resolvePageDimensions } from './page-sizes.js'
 import { ALLOWED_PROPS, ALLOWED_PROPS_SUB } from './allowed-props.js'
+import { ELEMENT_TYPES } from './element-types.js'
 
 /**
  * RTL strong bidi characters — Bidi_Class=R or AL per UAX #9.
@@ -1577,7 +1578,8 @@ function validateElement(
 
     default: {
       const type = (el as { type: unknown }).type
-      throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: unknown element type '${String(type)}'. Valid types: 'paragraph', 'heading', 'spacer', 'table', 'image', 'svg', 'list', 'hr', 'page-break', 'code', 'rich-paragraph', 'blockquote', 'callout', 'toc', 'comment', 'form-field', 'footnote-def', 'float-group'`)
+      const validList = ELEMENT_TYPES.map(t => `'${t}'`).join(', ')
+      throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: unknown element type '${String(type)}'. Valid types: ${validList}`)
     }
   }
 }

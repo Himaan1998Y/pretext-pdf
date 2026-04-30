@@ -235,5 +235,15 @@ function renderBlock(
 
     case 'footnote-def':
       return // footnote defs are rendered via renderFootnoteZone, not inline
+
+    default: {
+      // Unrecognized element types reaching render are a producer bug — validate()
+      // should have caught them. Throw so the failure is visible, not silent.
+      const unknownType = (element as { type: unknown }).type
+      throw new PretextPdfError(
+        'RENDER_FAILED',
+        `renderBlock: unhandled element type '${String(unknownType)}'. This is a bug — validate() should have rejected it.`
+      )
+    }
   }
 }

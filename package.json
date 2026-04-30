@@ -66,7 +66,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "test:unit": "cross-env NODE_OPTIONS=--max-old-space-size=4096 tsx --test test/validate.test.ts test/builder.test.ts test/rich-text.test.ts",
+    "test:unit": "cross-env NODE_OPTIONS=--max-old-space-size=4096 tsx --test test/validate.test.ts test/builder.test.ts test/rich-text.test.ts test/layout-contract.test.ts test/hard-text-contract.test.ts",
     "test:validate": "cross-env NODE_OPTIONS=--max-old-space-size=4096 tsx --test test/validate.test.ts test/builder.test.ts",
     "test:e2e": "tsx --test test/e2e.test.ts",
     "test:phase-3": "tsx --test test/signatures-validation.test.ts",
@@ -83,7 +83,7 @@
     "test:8f": "tsx --test test/metadata.test.ts",
     "test:8e": "tsx --test test/signatures-visual.test.ts",
     "test:8b": "tsx --test test/forms.test.ts",
-    "test:contract": "tsx --test test/pretext-api-contract.test.ts",
+    "test:contract": "tsx --test test/pretext-api-contract.test.ts test/benchmark-baseline.test.ts test/drift-guards.test.ts",
     "test:2f": "cross-env NODE_OPTIONS=--max-old-space-size=4096 tsx --test test/stress.test.ts",
     "test": "npm run test:contract && npm run test:unit && npm run test:e2e && npm run test:phases && npm run test:2f",
     "verify:badges": "cross-env SKIP_TEST_RUN=1 node scripts/verify-badges.js",

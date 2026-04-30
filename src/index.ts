@@ -1,8 +1,8 @@
-import path from 'node:path'
 import { PDFDocument } from '@cantoo/pdf-lib'
 import type { PdfDocument, FootnoteDefElement, RenderOptions } from './types.js'
 import { PretextPdfError } from './errors.js'
 import { runPipeline } from './pipeline.js'
+import { applyPostProcessing } from './post-process.js'
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -109,8 +109,7 @@ export function createFootnoteSet(
  */
 export async function render(doc: PdfDocument, options?: RenderOptions): Promise<Uint8Array> {
   const rawBytes = await runPipeline(doc, options)
-  const signedBytes = (doc.signature?.p12) ? await applySignature(rawBytes, doc.signature) : rawBytes
-  return doc.encryption ? await applyEncryption(signedBytes, doc.encryption) : signedBytes
+  return applyPostProcessing(rawBytes, doc)
 }
 
 /**
@@ -163,96 +162,6 @@ export async function assemble(parts: import('./types.js').AssemblyPart[]): Prom
   return target.save()
 }
 
-// ─── Post-processing (sign + encrypt) ────────────────────────────────────────
-
-async function applySignature(
-  pdfBytes: Uint8Array,
-  sig: NonNullable<PdfDocument['signature']>
-): Promise<Uint8Array> {
-  type SignpdfModule = {
-    SignPdf: any
-    pdflibAddPlaceholder: (opts: { pdfDoc: PDFDocument; reason?: string; location?: string; contactInfo?: string; name?: string }) => void
-  }
-  let signpdfMod: SignpdfModule
-  try {
-    signpdfMod = await import('@signpdf/signpdf' as string) as SignpdfModule
-  } catch {
-    throw new PretextPdfError(
-      'SIGNATURE_DEP_MISSING',
-      'Cryptographic signing requires the @signpdf/signpdf package. Install it: npm install @signpdf/signpdf'
-    )
-  }
-
-  const { SignPdf, pdflibAddPlaceholder } = signpdfMod
-
-  let p12Buffer: Buffer
-  try {
-    if (sig.p12 instanceof Uint8Array) {
-      p12Buffer = Buffer.from(sig.p12)
-    } else {
-      const p12Path = sig.p12 as string
-      if (!path.isAbsolute(p12Path)) {
-        throw new PretextPdfError('SIGNATURE_P12_LOAD_FAILED', 'P12 path must be absolute')
-      }
-      const { promises: fs } = await import('node:fs')
-      p12Buffer = await fs.readFile(p12Path)
-    }
-  } catch (e) {
-    if (e instanceof PretextPdfError) throw e
-    throw new PretextPdfError('SIGNATURE_P12_LOAD_FAILED', 'Failed to load P12 certificate')
-  }
-
-  const pdfDoc = await PDFDocument.load(pdfBytes)
-  pdflibAddPlaceholder({
-    pdfDoc,
-    reason:      sig.reason      ?? 'Signed',
-    contactInfo: sig.contactInfo ?? '',
-    name:        sig.signerName  ?? '',
-    location:    sig.location    ?? '',
-  })
-
-  const pdfWithPlaceholder = await pdfDoc.save({ useObjectStreams: false })
-  const signer = new SignPdf()
-  let signedBuffer: Buffer
-  try {
-    signedBuffer = await signer.sign(
-      Buffer.from(pdfWithPlaceholder),
-      p12Buffer,
-      sig.passphrase !== undefined ? { passphrase: sig.passphrase } : undefined
-    )
-  } catch (e) {
-    throw new PretextPdfError(
-      'SIGNATURE_FAILED',
-      `PDF signing failed: ${e instanceof Error ? e.message : String(e)}`
-    )
-  }
-
-  return new Uint8Array(signedBuffer)
-}
-
-async function applyEncryption(pdfBytes: Uint8Array, enc: NonNullable<PdfDocument['encryption']>): Promise<Uint8Array> {
-  const encDoc = await PDFDocument.load(pdfBytes)
-  encDoc.encrypt({
-    userPassword: enc.userPassword ?? '',
-    ownerPassword: enc.ownerPassword ?? (await import('node:crypto')).randomUUID(),
-    permissions: {
-      printing: enc.permissions?.printing ?? true,
-      copying: enc.permissions?.copying ?? true,
-      modifying: enc.permissions?.modifying ?? false,
-      annotating: enc.permissions?.annotating ?? true,
-    },
-  })
-  return encDoc.save({ useObjectStreams: false })
-}
-
 // ─── Schema reflection ────────────────────────────────────────────────────────
 
-/** All element type strings that can appear in a PdfDocument's content array. */
-export const ELEMENT_TYPES = [
-  'paragraph', 'heading', 'spacer', 'table', 'image', 'svg',
-  'qr-code', 'barcode', 'chart', 'list', 'hr', 'page-break',
-  'code', 'rich-paragraph', 'blockquote', 'toc', 'toc-entry',
-  'comment', 'form-field', 'callout', 'footnote-def', 'float-group',
-] as const
-
-export type ElementType = typeof ELEMENT_TYPES[number]
+export { ELEMENT_TYPES, type ElementType } from './element-types.js'
