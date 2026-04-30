@@ -44,6 +44,7 @@
 - [Troubleshooting](#troubleshooting)
 - [Non-goals](#non-goals)
 - [Runtime footprint](#runtime-footprint)
+- [Compatibility matrix](#compatibility-matrix)
 - [Performance](#performance)
 - [Tests](#tests)
 - [Security](#security)
@@ -692,6 +693,22 @@ Mandatory runtime dependencies:
 All other capabilities (SVG, charts, QR, barcodes, markdown, signing) are optional peer deps — install only what you use.
 
 **Browser:** the library imports cleanly from any non-`file://` URL (esm.sh, Vite dev server, browser bundles) since v0.8.1. Bring your own Inter font via `doc.fonts` and register it with `document.fonts.add(...)` for accurate measurement.
+
+---
+
+## Compatibility matrix
+
+| Environment | Status | Notes |
+| ----------- | ------ | ----- |
+| **Node.js 18 / 20 / 22** | ✅ Confirmed | CI tests all three. Requires `@napi-rs/canvas` peer dep for SVG / chart / QR elements. |
+| **Browser (Vite, webpack, esm.sh)** | ✅ Confirmed | Uses native `OffscreenCanvas`. No canvas peer dep needed. Bring your own font bytes via `doc.fonts` — the bundled Inter loader is Node-only. |
+| **Bun** | ⚠️ Untested | Bun has Node.js compat mode. `@napi-rs/canvas` provides Bun builds but is untested end-to-end. |
+| **Deno** | ⚠️ Untested | Deno's Node compat layer may work. `@napi-rs/canvas` native bindings are the unknown variable. |
+| **AWS Lambda / serverless (Node runtime)** | ⚠️ Likely works | Node.js runtime, ESM supported. Cold-start impact from `@napi-rs/canvas` native addon if used. Elements that don't need canvas (paragraph, heading, table, list) have no native dep. |
+| **Cloudflare Workers** | ❌ Not supported | No Node.js runtime, no native addons, no `OffscreenCanvas`. Neither the Node polyfill nor the browser path can run. |
+| **Next.js (server components / API routes)** | ✅ Confirmed (Node path) | Runs on Node.js server side. Client-side rendering follows the browser path above. |
+
+**Legend:** ✅ Confirmed in CI or end-to-end testing · ⚠️ Untested / likely works · ❌ Known not supported
 
 ---
 
