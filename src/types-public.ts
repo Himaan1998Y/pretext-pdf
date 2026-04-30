@@ -1067,3 +1067,10 @@ export interface TocEntryElement {
   fontFamily: string
   fontWeight: number
 }
+
+// ─── Render options ───────────────────────────────────────────────────────────
+
+export type RenderOptions = {
+  /** Enable strict validation: reject unknown properties on elements and sub-structures */
+  strict?: boolean
+}

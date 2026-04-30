@@ -1,5 +1,5 @@
 import { PDFDocument, PDFName, PDFString } from '@cantoo/pdf-lib'
-import type { PdfDocument, Margins } from './types-public.js'
+import type { PdfDocument, Margins, RenderOptions } from './types-public.js'
 import type { PageGeometry, FontMap, ImageMap, MeasuredBlock } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 import { resolvePageDimensions } from './page-sizes.js'
@@ -11,7 +11,6 @@ import { LINE_HEIGHT_COMPACT } from './render-utils.js'
 import { renderDocument } from './render.js'
 import { runTocTwoPass } from './pipeline-toc.js'
 import { runFootnoteTwoPass } from './pipeline-footnotes.js'
-import type { RenderOptions } from './index.js'
 
 // ─── Stage 1: Validate ────────────────────────────────────────────────────────
 

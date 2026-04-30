@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { PDFDocument } from '@cantoo/pdf-lib'
-import type { PdfDocument, FootnoteDefElement } from './types.js'
+import type { PdfDocument, FootnoteDefElement, RenderOptions } from './types.js'
 import { PretextPdfError } from './errors.js'
 import { runPipeline } from './pipeline.js'
 
@@ -48,6 +48,7 @@ export type {
   TocElement,
   FootnoteDefElement,
   FloatGroupElement,
+  RenderOptions,
 } from './types.js'
 export { PretextPdfError } from './errors.js'
 export type { ErrorCode } from './errors.js'
@@ -55,11 +56,6 @@ export type { NamedPageSize } from './page-sizes.js'
 export { createPdf } from './builder.js'
 export type { PdfBuilderOptions } from './builder.js'
 export { validate } from './validate.js'
-
-export type RenderOptions = {
-  /** Enable strict validation: reject unknown properties on elements and sub-structures */
-  strict?: boolean
-}
 
 let _fnSetCounter = 0
 

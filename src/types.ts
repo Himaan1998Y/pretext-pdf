@@ -49,4 +49,5 @@ export type {
   FootnoteDefElement,
   TocElement,
   TocEntryElement,
+  RenderOptions,
 } from './types-public.js'
