@@ -179,7 +179,10 @@ export async function measureAllBlocks(
         spaceBefore: el.spaceBefore ?? 8,
       }
       const block = await measureImageWithKey(syntheticImage, svgKey, imageMap, contentWidth, pageContentHeight)
-      // Preserve the original element type so render.ts can route correctly
+      // measureImageWithKey returns a block with element = syntheticImage. We overwrite it with
+      // the original element (svg/qr-code/barcode/chart) so render.ts routes to the right renderer.
+      // The cast bypasses MeasuredBlock.element's readonly constraint — safe because this is the
+      // single construction site and the field is never mutated elsewhere.
       ;(block as any).element = el
       results.push(block)
     } else if (el.type === 'float-group') {

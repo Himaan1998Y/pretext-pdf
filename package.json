@@ -40,7 +40,7 @@
   "files": [
     "dist/",
     "fonts/",
-    "docs/screenshots/",
+
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
