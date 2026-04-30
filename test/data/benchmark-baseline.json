@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "generatedAt": "2026-04-10T14:59:13.443Z",
+  "warmupRuns": 1,
+  "measuredRuns": 2,
+  "corpora": [
+    {
+      "id": "rich-text-mixed-spans",
+      "title": "Rich text mixed spans",
+      "category": "rich-text",
+      "pages": 1,
+      "bytes": 17271,
+      "stages": {
+        "setupMs": 1.1019499999993059,
+        "fontMs": 166.1850999999997,
+        "imageMs": 0.015600000000631553,
+        "measureMs": 6.641650000000482,
+        "paginateMs": 0.8898000000008324,
+        "renderMs": 98.77075000000059,
+        "totalMs": 273.69614999999976
+      }
+    },
+    {
+      "id": "table-stress",
+      "title": "Table stress",
+      "category": "tables",
+      "pages": 1,
+      "bytes": 21319,
+      "stages": {
+        "setupMs": 1.2147500000000946,
+        "fontMs": 229.41370000000006,
+        "imageMs": 0.1202000000002954,
+        "measureMs": 26.215799999999945,
+        "paginateMs": 0.07510000000002037,
+        "renderMs": 258.76850000000013,
+        "totalMs": 515.912049999999
+      }
+    },
+    {
+      "id": "cjk-layout",
+      "title": "CJK layout",
+      "category": "hard-text",
+      "pages": 1,
+      "bytes": 13526,
+      "stages": {
+        "setupMs": 0.39690000000155123,
+        "fontMs": 137.13090000000193,
+        "imageMs": 0.009799999999813735,
+        "measureMs": 2.72400000000016,
+        "paginateMs": 0.0433999999986554,
+        "renderMs": 55.330049999998664,
+        "totalMs": 195.69240000000173
+      }
+    },
+    {
+      "id": "rtl-layout",
+      "title": "RTL layout",
+      "category": "hard-text",
+      "pages": 1,
+      "bytes": 13651,
+      "stages": {
+        "setupMs": 0.24575000000004366,
+        "fontMs": 185.46985000000132,
+        "imageMs": 0.008850000000165892,
+        "measureMs": 30.334350000000995,
+        "paginateMs": 0.04260000000067521,
+        "renderMs": 78.76989999999932,
+        "totalMs": 294.92645000000084
+      }
+    },
+    {
+      "id": "punctuation-heavy",
+      "title": "Punctuation heavy",
+      "category": "hard-text",
+      "pages": 1,
+      "bytes": 14922,
+      "stages": {
+        "setupMs": 0.1653999999998632,
+        "fontMs": 216.38790000000154,
+        "imageMs": 0.009899999999106512,
+        "measureMs": 5.683250000000044,
+        "paginateMs": 0.039099999999962165,
+        "renderMs": 84.29344999999921,
+        "totalMs": 306.6032000000014
+      }
+    },
+    {
+      "id": "invoice-showcase",
+      "title": "Invoice showcase",
+      "category": "documents",
+      "pages": 1,
+      "bytes": 18015,
+      "stages": {
+        "setupMs": 0.2062999999980093,
+        "fontMs": 143.10694999999942,
+        "imageMs": 0.010449999999764259,
+        "measureMs": 3.8299500000011903,
+        "paginateMs": 0.04979999999886786,
+        "renderMs": 100.28880000000208,
+        "totalMs": 247.54059999999845
+      }
+    },
+    {
+      "id": "report-showcase",
+      "title": "Report showcase",
+      "category": "documents",
+      "pages": 2,
+      "bytes": 33436,
+      "stages": {
+        "setupMs": 0.5272500000010041,
+        "fontMs": 168.3402499999993,
+        "imageMs": 0.013949999998658313,
+        "measureMs": 15.401149999999689,
+        "paginateMs": 0.04739999999947031,
+        "renderMs": 156.8819999999996,
+        "totalMs": 341.3001000000004
+      }
+    }
+  ]
+}
