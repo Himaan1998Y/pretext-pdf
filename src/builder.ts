@@ -243,6 +243,10 @@ export function createPdf(options: PdfBuilderOptions = {}): PdfBuilder {
     /**
      * Get the underlying declarative document.
      * Useful for inspection, serialization, or reusing with render().
+     *
+     * **Note:** Plugins are a rendering concern and are NOT included in the returned document.
+     * If you pass this document to `render()` directly, supply plugins separately via
+     * `RenderOptions.plugins`. Use `build()` if you want plugins applied automatically.
      */
     toDocument(): PdfDocument {
       const doc = {

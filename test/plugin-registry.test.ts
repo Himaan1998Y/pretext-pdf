@@ -15,6 +15,7 @@ import assert from 'node:assert/strict'
 import type { PluginDefinition, PluginMeasureContext, PluginMeasureResult, PluginRenderContext } from '../src/plugin-types.js'
 import { validate } from '../src/validate.js'
 import { render } from '../src/index.js'
+import { prepareLayoutState } from '../src/layout-state.js'
 import type { PdfDocument, RenderOptions } from '../src/index.js'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -85,6 +86,37 @@ describe('PluginDefinition interface', () => {
       loadAsset: async (_el, _pdfDoc, _w) => undefined,
     })
     assert.strictEqual(typeof plugin.loadAsset, 'function')
+  })
+})
+
+// ─── prepareLayoutState plugin threading (H-1) ───────────────────────────────
+
+describe('prepareLayoutState — plugin threading (H-1)', () => {
+  test('prepareLayoutState with plugin measures the element correctly', async () => {
+    const plugin = makeBoxPlugin()
+    const doc: PdfDocument = {
+      content: [{ type: 'custom-box' } as unknown as PdfDocument['content'][0]],
+    }
+    const state = await prepareLayoutState(doc, { plugins: [plugin] })
+    const pluginBlock = state.measuredBlocks.find(b => (b.element as unknown as { type: string }).type === 'custom-box')
+    assert.ok(pluginBlock !== undefined, 'plugin block should exist in measuredBlocks')
+    assert.strictEqual(pluginBlock!.height, 40)
+    assert.strictEqual(pluginBlock!.spaceBefore, 4)
+    assert.strictEqual(pluginBlock!.spaceAfter, 4)
+  })
+
+  test('prepareLayoutState without plugins rejects unknown type', async () => {
+    const doc: PdfDocument = {
+      content: [{ type: 'custom-box' } as unknown as PdfDocument['content'][0]],
+    }
+    await assert.rejects(
+      () => prepareLayoutState(doc),
+      (err: unknown) => {
+        assert.ok(err instanceof Error)
+        assert.ok(err.message.includes("unknown element type 'custom-box'"))
+        return true
+      }
+    )
   })
 })
 
@@ -230,6 +262,33 @@ describe('Plugin pipeline integration', () => {
     assert.ok(typeof capturedRenderCtx!.width === 'number')
     assert.ok(capturedRenderCtx!.width > 0)
     assert.strictEqual(capturedRenderCtx!.height, 50)
+  })
+
+  test('render hook receives pageWidth/pageHeight/margins (H-6)', async () => {
+    let capturedRenderCtx: PluginRenderContext | undefined
+    const plugin: PluginDefinition = {
+      type: 'custom-box',
+      measure: async () => ({ height: 40 }),
+      render: (ctx) => { capturedRenderCtx = ctx },
+    }
+    const doc: PdfDocument = {
+      pageSize: 'A4',
+      margins: { top: 72, bottom: 72, left: 72, right: 72 },
+      content: [{ type: 'custom-box' } as unknown as PdfDocument['content'][0]],
+    }
+    await render(doc, { plugins: [plugin] })
+    assert.ok(capturedRenderCtx !== undefined)
+    assert.ok(capturedRenderCtx!.pageWidth > 0)
+    assert.ok(capturedRenderCtx!.pageHeight > 0)
+    assert.ok(capturedRenderCtx!.margins !== null && typeof capturedRenderCtx!.margins === 'object')
+    assert.ok(typeof capturedRenderCtx!.margins.top === 'number')
+    assert.ok(typeof capturedRenderCtx!.margins.bottom === 'number')
+    assert.ok(typeof capturedRenderCtx!.margins.left === 'number')
+    assert.ok(typeof capturedRenderCtx!.margins.right === 'number')
+    // A4 is 595.28 x 841.89 pt
+    assert.ok(capturedRenderCtx!.pageWidth > 500 && capturedRenderCtx!.pageWidth < 650)
+    assert.ok(capturedRenderCtx!.pageHeight > 800 && capturedRenderCtx!.pageHeight < 900)
+    assert.strictEqual(capturedRenderCtx!.margins.top, 72)
   })
 
   test('render hook receives element and pdfDoc', async () => {
@@ -514,7 +573,7 @@ describe('loadAsset error paths', () => {
   test('loadAsset that throws a non-PretextPdfError is silently logged', async () => {
     const logWarnCalls: string[] = []
     const originalWarn = console.warn
-    console.warn = (msg: string) => { logWarnCalls.push(msg) }
+    console.warn = (...args: unknown[]) => { logWarnCalls.push(args.map(String).join(' ')) }
     try {
       const plugin: PluginDefinition = {
         type: 'bad-loader',

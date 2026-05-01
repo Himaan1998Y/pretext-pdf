@@ -29,13 +29,13 @@ export interface MeasuredBlock {
   element: ContentElement
   /** Total height in pt (lineCount * lineHeight, spacer.height, table sum, image height, hr height) */
   height: number
-  /** Lines from Pretext layoutWithLines(). Empty array for spacers, tables, images, hr. */
+  /** Lines from Pretext layoutWithLines(). Empty array for spacers, tables, images, hr, and plugin blocks. */
   lines: PretextLine[]
-  /** Resolved font size in pt. 0 for non-text elements. */
+  /** Resolved font size in pt. 0 for non-text elements and plugin blocks. */
   fontSize: number
-  /** Resolved line height in pt. 0 for non-text elements. */
+  /** Resolved line height in pt. 0 for non-text elements and plugin blocks. */
   lineHeight: number
-  /** Key into FontMap, e.g. "Inter-400-normal". '' for non-text elements. */
+  /** Key into FontMap, e.g. "Inter-400-normal". '' for non-text elements and plugin blocks. */
   fontKey: string
   /** Resolved space after in pt */
   spaceAfter: number

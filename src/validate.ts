@@ -1587,7 +1587,12 @@ function validateElement(
       const plugins = options?.plugins ?? []
       const plugin = findPlugin(plugins, String(type))
       if (plugin) {
-        const rejection = runPluginValidate(plugin, el as Record<string, unknown>)
+        let rejection: string | undefined
+        try {
+          rejection = runPluginValidate(plugin, el as Record<string, unknown>)
+        } catch (err) {
+          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (${String(type)}): plugin validate hook threw: ${err instanceof Error ? err.message : String(err)}`)
+        }
         if (rejection) {
           throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (${String(type)}): ${rejection}`)
         }

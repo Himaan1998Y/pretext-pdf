@@ -34,7 +34,8 @@ export function runPluginValidate(
 ): string | undefined {
   if (!plugin.validate) return undefined
   const result = plugin.validate(element)
-  return typeof result === 'string' ? result : undefined
+  // Normalize: only non-empty strings are rejections; '' and void are acceptance
+  return typeof result === 'string' && result.length > 0 ? result : undefined
 }
 
 // ─── Stage 2b: load assets ────────────────────────────────────────────────────
@@ -106,6 +107,7 @@ export async function runPluginMeasure(
 
 /**
  * Run a plugin's `render` hook with the fully-assembled render context.
+ * Wraps thrown errors in RENDER_FAILED so callers see a consistent error type.
  */
 export function runPluginRender(
   plugin: PluginDefinition,

@@ -24,7 +24,7 @@
  * @beta
  */
 
-import type { PdfDocument } from './types-public.js'
+import type { PdfDocument, Margins } from './types-public.js'
 
 // ─── Context types ────────────────────────────────────────────────────────────
 
@@ -75,7 +75,7 @@ export interface PluginRenderContext {
   /** Page height in pt */
   pageHeight: number
   /** Page margins in pt */
-  margins: import('./types-internal.js').PageGeometry['margins']
+  margins: Margins
   /** Left edge of the block's bounding box in pt (from page left) */
   x: number
   /**
@@ -86,10 +86,14 @@ export interface PluginRenderContext {
    * ```ts
    * pdfPage.drawRectangle({ x, y: y - height, width, height })
    * ```
-   * To draw text at the top of the block:
+   * To draw text starting at the top of the block:
    * ```ts
-   * pdfPage.drawText(text, { x, y: y - fontSize })
+   * pdfPage.drawText(line1, { x, y: y - fontSize })
+   * pdfPage.drawText(line2, { x, y: y - fontSize - lineHeight })
+   * // For subsequent lines: y - fontSize - (n * lineHeight)
    * ```
+   * `y - fontSize` places the baseline of the first line flush against the block top.
+   * For wrapped or multi-line text, subtract `lineHeight` per additional line.
    */
   y: number
   /** Block width in pt */
