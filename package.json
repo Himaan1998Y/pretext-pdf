@@ -89,7 +89,7 @@
     "test:8e": "tsx --test test/signatures-visual.test.ts",
     "test:8b": "tsx --test test/forms.test.ts",
     "test:plugin": "tsx --test test/plugin-registry.test.ts",
-    "test:contract": "tsx --test test/pretext-api-contract.test.ts test/benchmark-baseline.test.ts test/drift-guards.test.ts test/plugin-registry.test.ts",
+    "test:contract": "tsx --test test/pretext-api-contract.test.ts test/benchmark-baseline.test.ts test/drift-guards.test.ts test/plugin-registry.test.ts test/benchmark-corpora.test.ts test/smoke-staging.test.ts",
     "test:2f": "cross-env NODE_OPTIONS=--max-old-space-size=4096 tsx --test test/stress.test.ts",
     "test": "npm run test:contract && npm run test:unit && npm run test:e2e && npm run test:phases && npm run test:2f",
     "verify:badges": "cross-env SKIP_TEST_RUN=1 node scripts/verify-badges.js",

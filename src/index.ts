@@ -46,6 +46,7 @@ export type {
   AssemblyPart,
   FormFieldElement,
   TocElement,
+  TocEntryElement,
   FootnoteDefElement,
   FloatGroupElement,
   RenderOptions,
@@ -112,6 +113,9 @@ export function createFootnoteSet(
  * @public
  */
 export async function render(doc: PdfDocument, options?: RenderOptions): Promise<Uint8Array> {
+  if (typeof Intl?.Segmenter !== 'function') {
+    throw new PretextPdfError('RENDER_FAILED', 'Intl.Segmenter is not available in this runtime. Upgrade to Node.js 16+ or set NODE_ICU_DATA to a full-icu data file.')
+  }
   const rawBytes = await runPipeline(doc, options)
   return applyPostProcessing(rawBytes, doc)
 }
