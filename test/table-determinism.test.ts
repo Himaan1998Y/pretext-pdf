@@ -50,6 +50,6 @@ describe('table determinism', () => {
 
     assert.deepStrictEqual(second, first, 'table pagination should be deterministic for the same input')
     assert.ok(first.pages.length > 1, 'table fixture should actually paginate to exercise continuation logic')
-    assert.ok(first.pages.some(page => page.blocks.some(block => block.type === 'table')))
+    assert.ok(first.measuredBlocks.some(block => block.type === 'table'), 'fixture must contain table blocks')
   })
 })

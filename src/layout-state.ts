@@ -1,3 +1,7 @@
+/**
+ * Layout inspection API — run the pipeline up to pagination without rendering.
+ * @internal Not part of the stable public API. Subject to change without a semver bump.
+ */
 import { PDFDocument } from '@cantoo/pdf-lib'
 import type { PdfDocument, RenderOptions } from './types-public.js'
 import type { MeasuredBlock, PaginatedDocument, PageGeometry, FontMap, ImageMap } from './types-internal.js'

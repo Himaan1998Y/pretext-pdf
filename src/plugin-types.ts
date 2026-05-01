@@ -195,6 +195,9 @@ export interface PluginDefinition {
    * Called once per page-slice of the element during rendering.
    * Draw directly onto `context.pdfPage` using pdf-lib's drawing API.
    *
+   * This hook must be synchronous. If you need async work (e.g. font loading),
+   * do it in `measure` and pass the result via `PluginMeasureResult.pluginData`.
+   *
    * @param context - Page, geometry, embedded image, and plugin data
    */
   render: (context: PluginRenderContext) => void
