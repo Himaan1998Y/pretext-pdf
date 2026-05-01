@@ -71,26 +71,38 @@ and ships a fully verified public surface with zero breaking changes from 0.9.x.
 
 ## [0.9.4] — 2026-05-02
 
-Hotfix omnibus + API surface snapshot. No new features; cleans up residual issues
-from the 0.9.x series before the v1.0 release freeze.
-
-### Fixed
-
-- **`fromPdfmake()` crash on `fillColor` arrays** — `fillColor: [r, g, b]` arrays (pdfmake
-  RGB shorthand) now convert correctly instead of throwing `TypeError: color.map is not a function`.
-- **`fromPdfmake()` crash on `ul`/`ol` with string items** — plain string list items (not
-  wrapped in `{ text: '...' }`) are now normalised to `ListItem` objects.
-- **`fromPdfmake()` crash on `columns` with `width: 'auto'`** — `'auto'` width is now mapped
-  to `'*'` (star/flex) to match the closest supported equivalent.
-- **Heading level clamp** — `{ type: 'heading', level: 5 }` (and 6, 7, …) no longer silently
-  produces broken layout; levels above 4 are clamped to 4 at validation time with a warning.
-- **Empty `content` array** — `render({ content: [] })` now returns a valid single-page PDF
-  instead of throwing `PAGINATION_FAILED`.
+Architecture hardening + API surface snapshot. No public API changes; internal
+restructuring to eliminate circular dependencies and add drift guards before v1.0 freeze.
 
 ### Added
 
-- API surface snapshot (`etc/pretext-pdf.api.md`) checked into source control as a v1.0
-  baseline. CI `api:check` step will fail on unintentional public-API drift from this point.
+- **API surface snapshot** (`etc/pretext-pdf.api.md`) checked into source control as
+  the v1.0 baseline. The `api:check` CI step will fail on unintentional public-API drift.
+- **`src/layout-state.ts`** — `prepareLayoutState()` and `summarizeLayoutState()` extracted
+  from the pipeline for testability; `layout-contract` and `hard-text-contract` tests
+  wired into `test:unit`.
+- **`src/benchmarks/corpora.ts`** — benchmark corpus manifest (`getBenchmarkCorpora()`)
+  restored from git history; `benchmark-baseline.test.ts` wired into `test:contract`.
+- **Drift guards** (`test/drift-guards.test.ts`) — asserts that `ELEMENT_TYPES`,
+  `ALLOWED_PROPS`, `validate.ts` cases, and `render.ts` cases all agree at test time.
+  Catches any future element-type addition that isn't plumbed through all four places.
+- **`render.ts` default arm** — unknown element types now throw immediately instead of
+  silently producing a blank block.
+
+### Refactored
+
+- **Circular dependency broken**: `src/post-process.ts` extracted so `builder.ts` and
+  `index.ts` no longer form a cycle through each other.
+- **`ELEMENT_TYPES` extracted** to `src/element-types.ts` as single source of truth;
+  re-exported from `index.ts`, imported by `validate.ts` — eliminates the previous
+  per-file string-literal duplication.
+
+### Fixed
+
+- `post-process.ts`: drop raw signing library error message from `SIGNATURE_FAILED`
+  to avoid leaking certificate or passphrase details in error output.
+- `layout-state.ts`: polyfill install wrapped in try/catch; throws `CANVAS_UNAVAILABLE`
+  on failure instead of an untyped exception.
 
 ---
 
