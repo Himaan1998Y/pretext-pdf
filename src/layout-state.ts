@@ -25,6 +25,9 @@ export interface LayoutTrace {
  * without rendering. Returns intermediate state for inspection and testing.
  */
 export async function prepareLayoutState(doc: PdfDocument, options?: RenderOptions): Promise<LayoutState> {
+  if (typeof Intl?.Segmenter !== 'function') {
+    throw new PretextPdfError('RENDER_FAILED', 'Intl.Segmenter is not available in this runtime. Upgrade to Node.js 18+ or set NODE_ICU_DATA to a full-icu data file.')
+  }
   if (typeof OffscreenCanvas === 'undefined' && typeof window === 'undefined') {
     try {
       const { installNodePolyfill } = await import('./node-polyfill.js')

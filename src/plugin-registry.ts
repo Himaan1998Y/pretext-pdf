@@ -3,6 +3,8 @@
  *
  * All functions are pure (no module-level state). The plugin list is
  * threaded through the pipeline via RenderOptions and passed explicitly.
+ *
+ * @internal Not part of the public API. Import PluginDefinition from plugin-types.ts.
  */
 
 import type { PluginDefinition, PluginMeasureContext, PluginMeasureResult, PluginRenderContext } from './plugin-types.js'
@@ -13,7 +15,7 @@ import { PretextPdfError } from './errors.js'
 
 /**
  * Return the first plugin whose `type` matches `elementType`, or `undefined`.
- * @public
+ * @internal
  */
 export function findPlugin(
   plugins: PluginDefinition[],

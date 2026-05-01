@@ -146,6 +146,16 @@ export function validate(doc: PdfDocument, options?: RenderOptions): void {
   const strict = options?.strict ?? false
   const errors: string[] = []
 
+  // Plugin pre-flight: enforce type string safety and no collision with built-ins
+  for (const plugin of options?.plugins ?? []) {
+    if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(plugin.type)) {
+      throw new PretextPdfError('VALIDATION_ERROR', `Plugin type '${plugin.type}' is invalid. Must start with a letter and contain only letters, digits, hyphens, or underscores.`)
+    }
+    if ((ELEMENT_TYPES as readonly string[]).includes(plugin.type)) {
+      throw new PretextPdfError('VALIDATION_ERROR', `Plugin type '${plugin.type}' collides with a built-in element type. Choose a different type string.`)
+    }
+  }
+
   // Strict: check doc-level properties
   if (strict) {
     assertUnknownProps(doc, ALLOWED_PROPS_SUB['document'], 'document', errors)

@@ -154,6 +154,16 @@ export interface PluginDefinition {
    *
    * The image key used in the imageMap is `${plugin.type}-${contentIndex}`.
    *
+   * **Error handling:** Errors thrown here are handled differently from `measure`/`render`.
+   * If this hook throws a `PretextPdfError`, it propagates and aborts the render.
+   * If it throws any other error, the error is logged via `console.warn` and asset loading
+   * is silently skipped for this element (the render continues without `pdfImage`).
+   * This asymmetry means non-critical asset failures don't abort the whole document.
+   *
+   * **File safety:** If you load files based on element data, validate the path against
+   * `doc.allowedFileDirs` yourself. The framework does not apply its PATH_TRAVERSAL guard
+   * to files loaded inside this hook.
+   *
    * @param element - The raw element object
    * @param pdfDoc - The pdf-lib PDFDocument (use pdfDoc.embedPng / embedJpg)
    * @param contentWidth - Available width in pt (for sizing decisions)
