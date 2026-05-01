@@ -32,6 +32,7 @@ import type {
   HeaderFooterSpec,
   DocumentMetadata,
 } from './types.js'
+import type { PluginDefinition } from './plugin-types.js'
 
 /**
  * Options for initializing the PDF builder.
@@ -50,6 +51,7 @@ export interface PdfBuilderOptions {
   metadata?: DocumentMetadata
   defaultParagraphStyle?: PdfDocument['defaultParagraphStyle']
   sections?: PdfDocument['sections']
+  plugins?: PluginDefinition[]
 }
 
 /**
@@ -105,6 +107,7 @@ export function createPdf(options: PdfBuilderOptions = {}): PdfBuilder {
   const content: ContentElement[] = []
   let defaultParagraphStyle: PdfDocument['defaultParagraphStyle'] = options.defaultParagraphStyle
   const sections: NonNullable<PdfDocument['sections']> = options.sections ? [...options.sections] : []
+  const plugins = options.plugins
 
   return {
     /**
@@ -264,7 +267,7 @@ export function createPdf(options: PdfBuilderOptions = {}): PdfBuilder {
      */
     async build(): Promise<Uint8Array> {
       const doc = this.toDocument()
-      const rawBytes = await runPipeline(doc)
+      const rawBytes = await runPipeline(doc, { plugins })
       return applyPostProcessing(rawBytes, doc)
     },
   }

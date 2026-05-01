@@ -920,7 +920,7 @@ export interface InlineSpan {
 
 /**
  * A composed line from the rich-text compositor — contains multiple styled fragments
- * @public
+ * @internal
  */
 export interface RichLine {
   fragments: RichFragment[]
@@ -932,7 +932,7 @@ export interface RichLine {
 
 /**
  * A single styled run within a RichLine
- * @public
+ * @internal
  */
 export interface RichFragment {
   text: string
@@ -1123,4 +1123,10 @@ export interface TocEntryElement {
 export type RenderOptions = {
   /** Enable strict validation: reject unknown properties on elements and sub-structures */
   strict?: boolean
+  /**
+   * Plugin definitions for custom element types.
+   * Each plugin handles one `type` string across all 4 pipeline stages.
+   * @beta
+   */
+  plugins?: import('./plugin-types.js').PluginDefinition[]
 }

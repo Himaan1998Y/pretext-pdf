@@ -72,10 +72,11 @@ export async function stageLoadAssets(
   doc: PdfDocument,
   pdfDoc: PDFDocument,
   contentWidth: number,
+  plugins?: import('./plugin-types.js').PluginDefinition[]
 ): Promise<{ fontMap: FontMap; imageMap: ImageMap }> {
   const [fontMap, imageMap] = await Promise.all([
     loadFonts(doc, pdfDoc),
-    loadImages(doc, pdfDoc, contentWidth),
+    loadImages(doc, pdfDoc, contentWidth, plugins),
   ])
   return { fontMap, imageMap }
 }
@@ -128,8 +129,9 @@ export async function stageMeasure(
   contentWidth: number,
   imageMap: ImageMap,
   contentHeight: number,
+  plugins?: import('./plugin-types.js').PluginDefinition[]
 ): Promise<MeasuredBlock[]> {
-  let measuredBlocks = await measureAllBlocks(doc, contentWidth, imageMap, contentHeight)
+  let measuredBlocks = await measureAllBlocks(doc, contentWidth, imageMap, contentHeight, plugins)
   measuredBlocks = await runTocTwoPass(measuredBlocks, doc, contentWidth, contentHeight)
   return measuredBlocks
 }
@@ -154,8 +156,9 @@ export async function stageRender(
   imageMap: ImageMap,
   pdfDoc: PDFDocument,
   geo: PageGeometry,
+  plugins?: import('./plugin-types.js').PluginDefinition[]
 ): Promise<Uint8Array> {
-  return renderDocument(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo)
+  return renderDocument(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo, plugins)
 }
 
 // ─── Composed pipeline ────────────────────────────────────────────────────────
@@ -171,12 +174,14 @@ export async function runPipeline(doc: PdfDocument, options?: RenderOptions): Pr
     await installNodePolyfill()
   }
 
+  const plugins = options?.plugins
+
   stageValidate(doc, options)
 
   const { pdfDoc, geo: partialGeo, defaultFont } = await stageInit(doc)
-  const { fontMap, imageMap } = await stageLoadAssets(doc, pdfDoc, partialGeo.contentWidth)
+  const { fontMap, imageMap } = await stageLoadAssets(doc, pdfDoc, partialGeo.contentWidth, plugins)
   const geo = await stageFinalizeGeo(doc, partialGeo, defaultFont)
-  const measuredBlocks = await stageMeasure(doc, geo.contentWidth, imageMap, geo.contentHeight)
+  const measuredBlocks = await stageMeasure(doc, geo.contentWidth, imageMap, geo.contentHeight, plugins)
   const paginatedDoc = stagePaginate(measuredBlocks, geo.contentHeight, doc)
-  return stageRender(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo)
+  return stageRender(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo, plugins)
 }

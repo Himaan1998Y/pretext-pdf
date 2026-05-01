@@ -117,6 +117,11 @@ export interface MeasuredBlock {
     }>
     totalTextHeight: number
   }
+  // ─── Plugin fields ──────────────────────────────────────────
+  /** Only set for plugin element types. Data returned by the plugin's measure hook. */
+  pluginData?: unknown
+  /** Only set for plugin element types that return a PDFImage from loadAsset. imageMap key. */
+  pluginImageKey?: string
   // ─── RTL support ────────────────────────────────────────────
   /** Set to true if this block is RTL (right-to-left text). Used to apply right-align default in render.ts. */
   isRTL?: boolean

@@ -2,6 +2,8 @@ import { PDFDocument } from '@cantoo/pdf-lib'
 import type { PdfDocument, ImageElement, SvgElement, QrCodeElement, BarcodeElement, ChartElement } from './types.js'
 import type { ImageMap } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
+import type { PluginDefinition } from './plugin-types.js'
+import { findPlugin, runPluginLoadAsset } from './plugin-registry.js'
 
 // ─── Security helpers ─────────────────────────────────────────────────────────
 
@@ -381,7 +383,7 @@ async function loadSvgAsImage(
  * Images that fail to load (network error, file not found, unreachable URL) are
  * logged as warnings but do not crash the document — the document renders without that image.
  */
-export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentWidth: number): Promise<ImageMap> {
+export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentWidth: number, plugins?: PluginDefinition[]): Promise<ImageMap> {
   const imageMap: ImageMap = new Map()
   const allowedDirs = doc.allowedFileDirs
 
@@ -487,6 +489,24 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
       } catch (err) {
         if (err instanceof PretextPdfError) throw err
         console.warn(`[pretext-pdf] Chart skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+  }
+
+  // Load plugin assets
+  if (plugins && plugins.length > 0) {
+    for (let i = 0; i < doc.content.length; i++) {
+      const el = doc.content[i]!
+      const plugin = findPlugin(plugins, el.type)
+      if (!plugin) continue
+      try {
+        const assetResult = await runPluginLoadAsset(plugin, el as unknown as Record<string, unknown>, pdfDoc, contentWidth, i)
+        if (assetResult) {
+          imageMap.set(assetResult.key, assetResult.image)
+        }
+      } catch (err) {
+        if (err instanceof PretextPdfError) throw err
+        console.warn(`[pretext-pdf] Plugin '${plugin.type}' loadAsset failed at index ${i}: ${err instanceof Error ? err.message : String(err)}`)
       }
     }
   }

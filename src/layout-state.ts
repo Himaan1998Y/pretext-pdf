@@ -1,5 +1,5 @@
 import { PDFDocument } from '@cantoo/pdf-lib'
-import type { PdfDocument } from './types-public.js'
+import type { PdfDocument, RenderOptions } from './types-public.js'
 import type { MeasuredBlock, PaginatedDocument, PageGeometry, FontMap, ImageMap } from './types-internal.js'
 import { stageValidate, stageInit, stageLoadAssets, stageFinalizeGeo, stageMeasure, stagePaginate } from './pipeline.js'
 import { PretextPdfError } from './errors.js'
@@ -24,7 +24,7 @@ export interface LayoutTrace {
  * Run pipeline stages 1-4 (validate → init → loadAssets → measure → paginate)
  * without rendering. Returns intermediate state for inspection and testing.
  */
-export async function prepareLayoutState(doc: PdfDocument): Promise<LayoutState> {
+export async function prepareLayoutState(doc: PdfDocument, options?: RenderOptions): Promise<LayoutState> {
   if (typeof OffscreenCanvas === 'undefined' && typeof window === 'undefined') {
     try {
       const { installNodePolyfill } = await import('./node-polyfill.js')
@@ -34,12 +34,12 @@ export async function prepareLayoutState(doc: PdfDocument): Promise<LayoutState>
     }
   }
 
-  stageValidate(doc)
+  stageValidate(doc, options)
 
   const { pdfDoc, geo: partialGeo, defaultFont } = await stageInit(doc)
-  const { fontMap, imageMap } = await stageLoadAssets(doc, pdfDoc, partialGeo.contentWidth)
+  const { fontMap, imageMap } = await stageLoadAssets(doc, pdfDoc, partialGeo.contentWidth, options?.plugins)
   const geo = await stageFinalizeGeo(doc, partialGeo, defaultFont)
-  const measuredBlocks = await stageMeasure(doc, geo.contentWidth, imageMap, geo.contentHeight)
+  const measuredBlocks = await stageMeasure(doc, geo.contentWidth, imageMap, geo.contentHeight, options?.plugins)
   const paginatedDoc = stagePaginate(measuredBlocks, geo.contentHeight, doc)
 
   return { doc, measuredBlocks, paginatedDoc, pdfDoc, fontMap, imageMap, pageGeometry: geo }

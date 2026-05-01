@@ -54,7 +54,7 @@ export { PretextPdfError } from './errors.js'
 export type { ErrorCode } from './errors.js'
 export type { NamedPageSize } from './page-sizes.js'
 export { createPdf } from './builder.js'
-export type { PdfBuilderOptions } from './builder.js'
+export type { PdfBuilder, PdfBuilderOptions } from './builder.js'
 export { validate } from './validate.js'
 
 let _fnSetCounter = 0
@@ -171,3 +171,12 @@ export async function assemble(parts: import('./types.js').AssemblyPart[]): Prom
 // ─── Schema reflection ────────────────────────────────────────────────────────
 
 export { ELEMENT_TYPES, type ElementType } from './element-types.js'
+
+// ─── Plugin system ────────────────────────────────────────────────────────────
+
+export type {
+  PluginDefinition,
+  PluginMeasureContext,
+  PluginMeasureResult,
+  PluginRenderContext,
+} from './plugin-types.js'

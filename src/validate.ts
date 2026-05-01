@@ -1,8 +1,9 @@
-import type { PdfDocument, ContentElement, FontSpec, CommentElement } from './types.js'
+import type { PdfDocument, ContentElement, FontSpec, CommentElement, RenderOptions } from './types.js'
 import { PretextPdfError } from './errors.js'
 import { resolvePageDimensions } from './page-sizes.js'
 import { ALLOWED_PROPS, ALLOWED_PROPS_SUB } from './allowed-props.js'
 import { ELEMENT_TYPES } from './element-types.js'
+import { findPlugin, runPluginValidate } from './plugin-registry.js'
 
 /**
  * RTL strong bidi characters — Bidi_Class=R or AL per UAX #9.
@@ -141,7 +142,7 @@ const BUNDLED_VARIANTS = new Set(['Inter-400-normal', 'Inter-700-normal'])
  * Validate a PdfDocument and throw a {@link PretextPdfError} if any errors are found.
  * @public
  */
-export function validate(doc: PdfDocument, options?: { strict?: boolean }): void {
+export function validate(doc: PdfDocument, options?: RenderOptions): void {
   const strict = options?.strict ?? false
   const errors: string[] = []
 
@@ -378,7 +379,7 @@ export function validate(doc: PdfDocument, options?: { strict?: boolean }): void
       throw new PretextPdfError('VALIDATION_ERROR', 'signature.invisible must be a boolean')
     }
     if (sig.p12 !== undefined && doc.encryption !== undefined) {
-      throw new PretextPdfError('VALIDATION_ERROR', 'Cannot use both signature.p12 (cryptographic signing) and encryption together — the encryption step would invalidate the cryptographic signature.')
+      throw new PretextPdfError('SIGNATURE_CERT_AND_ENCRYPTION', 'Cannot use both signature.p12 (cryptographic signing) and encryption together — the encryption step would invalidate the cryptographic signature.')
     }
   }
 
@@ -450,7 +451,7 @@ export function validate(doc: PdfDocument, options?: { strict?: boolean }): void
   }
 
   for (let i = 0; i < doc.content.length; i++) {
-    validateElement(doc.content[i]!, i, loadedFamilies, strict, errors)
+    validateElement(doc.content[i]!, i, loadedFamilies, strict, errors, options)
   }
 
   // ── Footnote ref/def cross-validation ─────────────────────────────────────
@@ -649,7 +650,8 @@ function validateElement(
   index: number,
   loadedFamilies: Set<string>,
   strict: boolean,
-  errors: string[]
+  errors: string[],
+  options?: RenderOptions
 ): void {
   const prefix = `content[${index}]`
 
@@ -1582,6 +1584,15 @@ function validateElement(
 
     default: {
       const type = (el as { type: unknown }).type
+      const plugins = options?.plugins ?? []
+      const plugin = findPlugin(plugins, String(type))
+      if (plugin) {
+        const rejection = runPluginValidate(plugin, el as Record<string, unknown>)
+        if (rejection) {
+          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (${String(type)}): ${rejection}`)
+        }
+        break
+      }
       const validList = ELEMENT_TYPES.map(t => `'${t}'`).join(', ')
       throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: unknown element type '${String(type)}'. Valid types: ${validList}`)
     }

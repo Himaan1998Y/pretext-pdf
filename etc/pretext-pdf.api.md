@@ -4,6 +4,10 @@
 
 ```ts
 
+import { PDFDocument } from '@cantoo/pdf-lib';
+import { PDFImage } from '@cantoo/pdf-lib';
+import { PDFPage } from '@cantoo/pdf-lib';
+
 // @public (undocumented)
 export interface AnnotationSpec {
     author?: string;
@@ -517,6 +521,43 @@ export interface PdfDocument {
     watermark?: WatermarkSpec;
 }
 
+// @beta
+export interface PluginDefinition {
+    loadAsset?: (element: Record<string, unknown>, pdfDoc: PDFDocument, contentWidth: number) => Promise<PDFImage | undefined>;
+    measure: (element: Record<string, unknown>, context: PluginMeasureContext) => Promise<PluginMeasureResult>;
+    render: (context: PluginRenderContext) => void;
+    type: string;
+    validate?: (element: Record<string, unknown>) => string | void;
+}
+
+// @beta
+export interface PluginMeasureContext {
+    contentHeight: number;
+    contentWidth: number;
+    doc: PdfDocument;
+}
+
+// @beta
+export interface PluginMeasureResult {
+    height: number;
+    pluginData?: unknown;
+    spaceAfter?: number;
+    spaceBefore?: number;
+}
+
+// @beta
+export interface PluginRenderContext {
+    element: Record<string, unknown>;
+    height: number;
+    pdfDoc: PDFDocument;
+    pdfImage?: PDFImage;
+    pdfPage: PDFPage;
+    pluginData?: unknown;
+    width: number;
+    x: number;
+    y: number;
+}
+
 // @public
 export class PretextPdfError extends Error {
     constructor(code: ErrorCode, message: string);
@@ -545,6 +586,7 @@ export function render(doc: PdfDocument, options?: RenderOptions): Promise<Uint8
 // @public (undocumented)
 export type RenderOptions = {
     strict?: boolean;
+    plugins?: PluginDefinition[];
 };
 
 // @public
@@ -702,9 +744,7 @@ export interface TocElement {
 }
 
 // @public
-export function validate(doc: PdfDocument, options?: {
-    strict?: boolean;
-}): void;
+export function validate(doc: PdfDocument, options?: RenderOptions): void;
 
 // @public (undocumented)
 export interface WatermarkSpec {
