@@ -155,7 +155,7 @@ export interface CommentElement {
     type: 'comment';
 }
 
-// Warning: (ae-forgotten-export) The symbol "TocEntryElement" needs to be exported by the entry point index.d.ts
+// Warning: (ae-incompatible-release-tags) The symbol "ContentElement" is marked as @public, but its signature references "TocEntryElement" which is marked as @internal
 //
 // @public (undocumented)
 export type ContentElement = ParagraphElement | HeadingElement | SpacerElement | TableElement | ImageElement | SvgElement | QrCodeElement | BarcodeElement | ChartElement | ListElement | HorizontalRuleElement | PageBreakElement | CodeBlockElement | RichParagraphElement | BlockquoteElement | TocElement | TocEntryElement | CommentElement | FormFieldElement | CalloutElement | FootnoteDefElement | FloatGroupElement;
@@ -171,8 +171,6 @@ export function createFootnoteSet(items: Array<{
     def: FootnoteDefElement;
 }>;
 
-// Warning: (ae-forgotten-export) The symbol "PdfBuilder" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function createPdf(options?: PdfBuilderOptions): PdfBuilder;
 
@@ -455,6 +453,49 @@ export interface ParagraphElement {
 }
 
 // @public
+export interface PdfBuilder {
+    // (undocumented)
+    addBlockquote(text: string, opts?: Partial<Omit<BlockquoteElement, 'type' | 'text'>>): PdfBuilder;
+    addCallout(content: string, opts?: Partial<Omit<CalloutElement, 'type' | 'content'>>): PdfBuilder;
+    // (undocumented)
+    addCode(text: string, opts: Omit<CodeBlockElement, 'type' | 'text'>): PdfBuilder;
+    addComment(contents: string, opts?: Partial<Omit<CommentElement, 'type' | 'contents'>>): PdfBuilder;
+    addFootnoteDef(id: string, text: string, opts?: Partial<Omit<FootnoteDefElement, 'type' | 'id' | 'text'>>): PdfBuilder;
+    addFormField(opts: Omit<FormFieldElement, 'type'>): PdfBuilder;
+    // (undocumented)
+    addHeading(text: string, opts?: Partial<Omit<HeadingElement, 'type' | 'text' | 'level'>> & {
+        level?: number;
+    }): PdfBuilder;
+    // (undocumented)
+    addHr(opts?: Partial<Omit<HorizontalRuleElement, 'type'>>): PdfBuilder;
+    // (undocumented)
+    addImage(src: ImageElement['src'], opts?: Partial<Omit<ImageElement, 'type' | 'src'>>): PdfBuilder;
+    // (undocumented)
+    addList(opts: Omit<ListElement, 'type'>): PdfBuilder;
+    // (undocumented)
+    addPageBreak(): PdfBuilder;
+    // (undocumented)
+    addRichText(spans: InlineSpan[], opts?: Partial<Omit<RichParagraphElement, 'type' | 'spans'>>): PdfBuilder;
+    // (undocumented)
+    addSpacer(height: number): PdfBuilder;
+    addSvg(svg: string, opts?: Partial<Omit<SvgElement, 'type' | 'svg'>>): PdfBuilder;
+    // (undocumented)
+    addTable(opts: Omit<TableElement, 'type'>): PdfBuilder;
+    addTableOfContents(opts?: Partial<Omit<TocElement, 'type'>>): PdfBuilder;
+    // (undocumented)
+    addText(text: string, opts?: Partial<Omit<ParagraphElement, 'type' | 'text'>>): PdfBuilder;
+    // (undocumented)
+    build(): Promise<Uint8Array>;
+    defaultStyle(style: PdfDocument['defaultParagraphStyle']): PdfBuilder;
+    section(fromPage: number, toPage: number, overrides: {
+        header?: HeaderFooterSpec;
+        footer?: HeaderFooterSpec;
+    }): PdfBuilder;
+    // (undocumented)
+    toDocument(): PdfDocument;
+}
+
+// @public
 export interface PdfBuilderOptions {
     // (undocumented)
     defaultFont?: string;
@@ -476,6 +517,10 @@ export interface PdfBuilderOptions {
     metadata?: DocumentMetadata;
     // (undocumented)
     pageSize?: PdfDocument['pageSize'];
+    // Warning: (ae-incompatible-release-tags) The symbol "plugins" is marked as @public, but its signature references "PluginDefinition" which is marked as @beta
+    //
+    // (undocumented)
+    plugins?: PluginDefinition[];
     // (undocumented)
     sections?: PdfDocument['sections'];
 }
@@ -549,6 +594,9 @@ export interface PluginMeasureResult {
 export interface PluginRenderContext {
     element: Record<string, unknown>;
     height: number;
+    margins: Margins;
+    pageHeight: number;
+    pageWidth: number;
     pdfDoc: PDFDocument;
     pdfImage?: PDFImage;
     pdfPage: PDFPage;
@@ -589,7 +637,9 @@ export type RenderOptions = {
     plugins?: PluginDefinition[];
 };
 
-// @public
+// Warning: (ae-internal-missing-underscore) The name "RichFragment" should be prefixed with an underscore because the declaration is marked as @internal
+//
+// @internal
 export interface RichFragment {
     // (undocumented)
     color: string;
@@ -614,7 +664,9 @@ export interface RichFragment {
     yOffset?: number;
 }
 
-// @public
+// Warning: (ae-internal-missing-underscore) The name "RichLine" should be prefixed with an underscore because the declaration is marked as @internal
+//
+// @internal
 export interface RichLine {
     // (undocumented)
     fragments: RichFragment[];
@@ -741,6 +793,28 @@ export interface TocElement {
     titleFontSize?: number;
     // (undocumented)
     type: 'toc';
+}
+
+// Warning: (ae-internal-missing-underscore) The name "TocEntryElement" should be prefixed with an underscore because the declaration is marked as @internal
+//
+// @internal (undocumented)
+export interface TocEntryElement {
+    // (undocumented)
+    fontFamily: string;
+    // (undocumented)
+    fontWeight: number;
+    // (undocumented)
+    leader: string;
+    // (undocumented)
+    level: 1 | 2 | 3 | 4;
+    // (undocumented)
+    levelIndent: number;
+    // (undocumented)
+    pageNumber: number;
+    // (undocumented)
+    text: string;
+    // (undocumented)
+    type: 'toc-entry';
 }
 
 // @public

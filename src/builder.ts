@@ -70,7 +70,7 @@ export interface PdfBuilder {
   addHr(opts?: Partial<Omit<HorizontalRuleElement, 'type'>>): PdfBuilder
   addSpacer(height: number): PdfBuilder
   addPageBreak(): PdfBuilder
-  /** Render an inline SVG string (requires @napi-rs/canvas peer dep). */
+  /** Render an inline SVG string (requires \@napi-rs/canvas peer dep). */
   addSvg(svg: string, opts?: Partial<Omit<SvgElement, 'type' | 'svg'>>): PdfBuilder
   /** Add a callout box (info / warning / tip / note). */
   addCallout(content: string, opts?: Partial<Omit<CalloutElement, 'type' | 'content'>>): PdfBuilder

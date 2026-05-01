@@ -7,6 +7,93 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.0.0] — 2026-05-02
+
+First stable release. Completes the plugin extension API, closes all v1.0 gate requirements,
+and ships a fully verified public surface with zero breaking changes from 0.9.x.
+
+### Added
+
+- **Plugin extension API** — Register custom element types via `RenderOptions.plugins`.
+  Each `PluginDefinition` participates in all four pipeline stages: `validate`, `loadAsset`,
+  `measure`, and `render`. Plugins are fully typed and tree-shaken from documents
+  that don't use them. See README § Custom element types (plugins) and
+  `examples/plugin-custom-element.ts` for a runnable example.
+- **`PluginDefinition`, `PluginMeasureContext`, `PluginMeasureResult`, `PluginRenderContext`**
+  exported from `pretext-pdf` public surface (previously internal).
+- **`PdfBuilder` and `PdfBuilderOptions`** exported from `pretext-pdf` (enables type-safe
+  builder construction in downstream code without re-declaring the interface).
+- **`TocEntryElement`** exported from `pretext-pdf` public surface (was in the `ContentElement`
+  union but not individually importable).
+- **`plugins` option on `createPdf()`** — `PdfBuilderOptions.plugins` threads plugins through
+  the builder's `build()` call automatically.
+- **`Intl.Segmenter` pre-flight guard** in `render()` — throws `RENDER_FAILED` with a clear
+  message on Node.js < 16 or runtimes without full-ICU data, instead of silently producing
+  incorrect line breaks.
+- **`PluginRenderContext.pageWidth/pageHeight/margins`** — render hooks now receive full page
+  geometry for layout calculations (page-relative positioning, bleed boxes, etc.).
+- **`render` context Y-coordinate docs** — expanded JSDoc with multi-line text example showing
+  how to position text baselines relative to `context.y`.
+- **Benchmark corpora manifest** and **smoke staging** tests wired into `npm test`
+  (previously orphaned). Total test count: 672.
+- `examples/plugin-custom-element.ts` — runnable plugin example (`npm run example:plugin`).
+
+### Fixed
+
+- **`SIGNATURE_CERT_AND_ENCRYPTION` error code** — was declared in the `ErrorCode` union
+  but never thrown; validate.ts now uses it correctly when a document specifies both
+  signatures and encryption (previously threw a generic `VALIDATION_ERROR`).
+- **Build break under `exactOptionalPropertyTypes: true`** — `PdfBuilder.build()` no longer
+  passes `{ plugins: undefined }` to `runPipeline` when no plugins are configured.
+- **Plugin `validate` hook empty-string normalization** — `plugin.validate()` returning `''`
+  now correctly accepts the element (was previously treated as a rejection message).
+- **`toc` element reaching render default arm** — `render.ts` now has an explicit
+  `case 'toc': return` guard before the default arm; TOC elements are pre-processed
+  during pagination and should never reach the renderer.
+- **`RichLine` and `RichFragment`** demoted from `@public` to `@internal`; these are
+  implementation details of the rich-text pipeline, not intended for external use.
+- **Sentinel value documentation** — `MeasuredBlock` comment now explicitly states that
+  `lines: []`, `fontSize: 0`, `lineHeight: 0`, `fontKey: ''` applies to spacers, tables,
+  images, hr, *and plugin blocks* — not a bug but a documented convention.
+
+### Internal
+
+- `src/plugin-registry.ts` (new): Pure orchestration helpers for the four plugin injection
+  points (`findPlugin`, `runPluginValidate`, `runPluginLoadAsset`, `runPluginMeasure`,
+  `runPluginRender`).
+- `src/plugin-types.ts` (new): `PluginDefinition` interface and context/result types.
+- `src/layout-state.ts`: `prepareLayoutState` now accepts `options?: RenderOptions` and
+  threads plugins to `stageValidate`, `stageLoadAssets`, and `stageMeasure`.
+- `docs/V1.0-RUNBOOK.md`: Full release runbook with first-principles audit, anti-hallucination
+  protocol, verified-facts table, and phase-by-phase plan.
+
+---
+
+## [0.9.4] — 2026-05-02
+
+Hotfix omnibus + API surface snapshot. No new features; cleans up residual issues
+from the 0.9.x series before the v1.0 release freeze.
+
+### Fixed
+
+- **`fromPdfmake()` crash on `fillColor` arrays** — `fillColor: [r, g, b]` arrays (pdfmake
+  RGB shorthand) now convert correctly instead of throwing `TypeError: color.map is not a function`.
+- **`fromPdfmake()` crash on `ul`/`ol` with string items** — plain string list items (not
+  wrapped in `{ text: '...' }`) are now normalised to `ListItem` objects.
+- **`fromPdfmake()` crash on `columns` with `width: 'auto'`** — `'auto'` width is now mapped
+  to `'*'` (star/flex) to match the closest supported equivalent.
+- **Heading level clamp** — `{ type: 'heading', level: 5 }` (and 6, 7, …) no longer silently
+  produces broken layout; levels above 4 are clamped to 4 at validation time with a warning.
+- **Empty `content` array** — `render({ content: [] })` now returns a valid single-page PDF
+  instead of throwing `PAGINATION_FAILED`.
+
+### Added
+
+- API surface snapshot (`etc/pretext-pdf.api.md`) checked into source control as a v1.0
+  baseline. CI `api:check` step will fail on unintentional public-API drift from this point.
+
+---
+
 ## [0.9.3] — 2026-04-23
 
 Strict validation release. Opt-in property validation to catch unknown properties on elements and sub-structures via typo detection and precise JSONPath error reporting.

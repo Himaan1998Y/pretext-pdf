@@ -39,6 +39,7 @@
 - [Custom fonts](#custom-fonts)
 - [Rich text](#rich-text)
 - [Footnotes](#footnotes)
+- [Custom element types (plugins)](#custom-element-types-plugins)
 - [Examples](#examples)
 - [Error handling](#error-handling)
 - [Troubleshooting](#troubleshooting)
@@ -582,6 +583,66 @@ await render({
 
 ---
 
+## Custom element types (plugins)
+
+The plugin API lets you register new element types without forking the library.
+Each plugin definition handles one `type` string and participates in the standard
+validate → measure → render pipeline.
+
+```typescript
+import { render } from 'pretext-pdf'
+import type { PluginDefinition } from 'pretext-pdf'
+import { rgb } from '@cantoo/pdf-lib'
+
+const highlightBoxPlugin: PluginDefinition = {
+  type: 'highlight-box',
+
+  // Optional: reject bad elements early
+  validate(element) {
+    if (typeof element['label'] !== 'string') return '"label" must be a string'
+  },
+
+  // Required: return block height for layout/pagination
+  async measure(element) {
+    return { height: 48, spaceBefore: 8, spaceAfter: 8 }
+  },
+
+  // Required: draw onto the pdf-lib page
+  render({ element, pdfPage, x, y, width, height }) {
+    pdfPage.drawRectangle({ x, y: y - height, width, height, color: rgb(1, 0.93, 0.73) })
+    pdfPage.drawText(element['label'] as string, { x: x + 16, y: y - 30, size: 13 })
+  },
+}
+
+// Pass plugins via render() options or createPdf() options
+const pdf = await render(doc, { plugins: [highlightBoxPlugin] })
+```
+
+**How it works:**
+
+| Hook | Stage | Required | Purpose |
+| ---- | ----- | -------- | ------- |
+| `validate` | 1 | No | Reject malformed custom elements; return error string or void |
+| `loadAsset` | 2b | No | Embed a `PDFImage` (passed back as `context.pdfImage` in render) |
+| `measure` | 3 | **Yes** | Return `height`, optional `spaceBefore`/`spaceAfter`, optional `pluginData` |
+| `render` | 5 | **Yes** | Draw onto `context.pdfPage` using pdf-lib's drawing API |
+
+**Y-coordinate note:** pdf-lib uses a bottom-left origin. `context.y` is the **top** edge of your block.
+To fill the block: `drawRectangle({ x, y: y - height, width, height })`.
+To draw the first line of text: `drawText(line, { x, y: y - fontSize })`.
+
+**Constraints:** Plugin elements can only appear at the top level of `doc.content`.
+They cannot be nested inside callout, blockquote, or float-group children (those
+have hardcoded child type whitelists). Use top-level layout with spacers for positioning.
+
+See `examples/plugin-custom-element.ts` for a full runnable example:
+
+```bash
+npm run example:plugin
+```
+
+---
+
 ## Examples
 
 ```bash
@@ -598,6 +659,7 @@ npm run example:assembly       # Merge + assemble multiple PDFs
 npm run example:inline         # Super/subscript, letterSpacing, smallCaps
 npm run example:forms          # Interactive form fields
 npm run example:callout        # Callout boxes
+npm run example:plugin         # Custom element types (plugin API)
 ```
 
 All write to `output/*.pdf`.
