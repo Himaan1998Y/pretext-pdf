@@ -271,7 +271,7 @@ export function createPdf(options: PdfBuilderOptions = {}): PdfBuilder {
      */
     async build(): Promise<Uint8Array> {
       const doc = this.toDocument()
-      const rawBytes = await runPipeline(doc, { plugins })
+      const rawBytes = await runPipeline(doc, plugins !== undefined ? { plugins } : {})
       return applyPostProcessing(rawBytes, doc)
     },
   }
