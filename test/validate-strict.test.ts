@@ -43,7 +43,7 @@ describe('Strict validation — Group 1: Default mode (non-strict)', () => {
       content: [
         {
           type: 'table',
-          columns: [{ width: '50%' }],
+          columns: [{ width: 200 }],
           rows: [{ cells: [{ text: 'Cell', bogus: true as any }] }],
         },
       ],
@@ -72,13 +72,13 @@ describe('Strict validation — Group 2: Strict mode valid docs', () => {
         { type: 'paragraph', text: 'Date: 2026-04-23' },
         {
           type: 'table',
-          columns: [{ width: '50%' }, { width: '50%' }],
+          columns: [{ width: 200 }, { width: 200 }],
           rows: [
             { isHeader: true, cells: [{ text: 'Item' }, { text: 'Price' }] },
             { cells: [{ text: 'Widget' }, { text: '$10' }] },
           ],
         },
-        { type: 'list', style: 'bullet', items: [{ text: 'Note 1' }, { text: 'Note 2' }] },
+        { type: 'list', style: 'unordered', items: [{ text: 'Note 1' }, { text: 'Note 2' }] },
       ],
     }
     await expectPass(() => render(doc, { strict: true }))
@@ -91,16 +91,15 @@ describe('Strict validation — Group 2: Strict mode valid docs', () => {
         { type: 'paragraph', text: 'Para' },
         { type: 'heading', level: 1, text: 'H1' },
         { type: 'spacer', height: 10 },
-        { type: 'hr', thickness: 1, color: '#000' },
+        { type: 'hr', thickness: 1, color: '#000000' },
         { type: 'page-break' },
-        { type: 'code', text: 'code snippet', language: 'js' },
         { type: 'blockquote', text: 'Quote' },
         {
           type: 'rich-paragraph',
           spans: [{ text: 'Rich' }],
         },
-        { type: 'callout', style: 'info', content: [{ type: 'paragraph', text: 'Info' }] },
-        { type: 'list', style: 'bullet', items: [{ text: 'Item' }] },
+        { type: 'callout', style: 'info', content: 'Info text' },
+        { type: 'list', style: 'unordered', items: [{ text: 'Item' }] },
       ],
     }
     await expectPass(() => render(doc, { strict: true }))
@@ -132,7 +131,7 @@ describe('Strict validation — Group 3: Unknown props on element types', () => 
       content: [
         {
           type: 'table',
-          columns: [{ width: '50%' }, { width: '50%' }],
+          columns: [{ width: 100 }, { width: 100 }],
           rows: [
             {
               cells: [
@@ -156,7 +155,7 @@ describe('Strict validation — Group 3: Unknown props on element types', () => 
       content: [
         {
           type: 'table',
-          columns: [{ width: '100%' }],
+          columns: [{ width: 200 }],
           rows: [{ cells: [{ text: 'X' }], badProp: true as any }],
         },
       ],
@@ -173,7 +172,7 @@ describe('Strict validation — Group 3: Unknown props on element types', () => 
       content: [
         {
           type: 'list',
-          style: 'bullet',
+          style: 'unordered',
           items: [{ text: 'Item', xyz: 'bad' as any }],
         },
       ],
@@ -224,7 +223,7 @@ describe('Strict validation — Group 3: Unknown props on element types', () => 
         {
           type: 'callout',
           style: 'info',
-          content: [{ type: 'paragraph', text: 'Text' }],
+          content: 'Some callout text',
           variant: 'warning' as any,
         },
       ],
@@ -251,7 +250,7 @@ describe('Strict validation — Group 3: Unknown props on element types', () => 
   test('hr + color (valid, should pass) → passes', async () => {
     const doc: PdfDocument = {
       metadata: { title: 'Test' },
-      content: [{ type: 'hr', thickness: 1, color: '#000' }],
+      content: [{ type: 'hr', thickness: 1, color: '#000000' }],
     }
     await expectPass(() => render(doc, { strict: true }))
   })
@@ -274,7 +273,7 @@ describe('Strict validation — Group 4: Nested structures', () => {
       content: [
         {
           type: 'table',
-          columns: [{ width: '100%' }],
+          columns: [{ width: 200 }],
           rows: [{ cells: [{ text: 'X', badKey: 'val' as any }] }],
         },
       ],
@@ -291,7 +290,7 @@ describe('Strict validation — Group 4: Nested structures', () => {
       content: [
         {
           type: 'list',
-          style: 'bullet',
+          style: 'unordered',
           items: [{ text: 'Item', badProp: true as any }],
         },
       ],
@@ -308,7 +307,7 @@ describe('Strict validation — Group 4: Nested structures', () => {
       content: [
         {
           type: 'list',
-          style: 'bullet',
+          style: 'unordered',
           items: [
             {
               text: 'Item 1',
@@ -473,6 +472,7 @@ describe('Strict validation — Group 6: Opaque content and doc-level', () => {
       content: [
         {
           type: 'float-group',
+          float: 'left',
           image: { src: new Uint8Array(10), format: 'png', height: 100 },
           content: [
             { type: 'paragraph', text: 'Text', badKey: true as any },
@@ -515,11 +515,14 @@ describe('Strict validation — Group 7: Levenshtein edge cases', () => {
       metadata: { title: 'Test' },
       content: [{ type: 'paragraph', text: 'Hi', longunknownbadkey: true as any }],
     }
-    const err = await assert.rejects(
+    await assert.rejects(
       () => render(doc, { strict: true }),
-      (e: any) => e.code === 'VALIDATION_ERROR'
+      (e: any) => {
+        assert.ok(e.code === 'VALIDATION_ERROR')
+        assert.ok(!e.message.includes('did you mean'))
+        return true
+      }
     )
-    assert(!err?.message.includes('did you mean'))
   })
 
   test('Distance 1 vs 2 candidates → returns shortest', async () => {

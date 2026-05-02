@@ -35,9 +35,12 @@ and ships a fully verified public surface with zero breaking changes from 0.9.x.
 - **`render` context Y-coordinate docs** — expanded JSDoc with multi-line text example showing
   how to position text baselines relative to `context.y`.
 - **Benchmark corpora manifest** and **smoke staging** tests wired into `npm test`
-  (previously orphaned). Total test count: 641.
+  (previously orphaned).
 - **`test/table-determinism.test.ts`** — asserts that table pagination produces identical
   layout traces across repeated invocations of `prepareLayoutState`.
+- **`test/validate-strict.test.ts`** (35 tests) — comprehensive contract for `strict: true`
+  validation covering all element types, nested structures, Levenshtein suggestions, error
+  message format, doc-level and sub-structure prop checks. Total test count: 676.
 - `examples/plugin-custom-element.ts` — runnable plugin example (`npm run example:plugin`).
 
 ### Fixed

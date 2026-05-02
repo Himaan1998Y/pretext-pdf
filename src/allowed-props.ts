@@ -35,6 +35,7 @@ import type {
   AnnotationSpec,
   TableRow,
   DocumentMetadata,
+  EncryptionSpec,
 } from './types.js'
 
 /** Compile-time assertion that T has exactly the keys in Keys (no more, no less) */
@@ -190,6 +191,9 @@ type _FloatGroup = Exact<FloatGroupElement, typeof FLOAT_GROUP_KEYS>
 const ANNOTATION_KEYS = ['contents', 'author', 'color', 'open'] as const
 type _Annotation = Exact<AnnotationSpec, typeof ANNOTATION_KEYS>
 
+const ENCRYPTION_KEYS = ['userPassword', 'ownerPassword', 'permissions'] as const
+type _Encryption = Exact<EncryptionSpec, typeof ENCRYPTION_KEYS>
+
 // ─── Runtime Sets created from key arrays ─────────────────────────────────────
 
 export const ALLOWED_PROPS = {
@@ -226,4 +230,5 @@ export const ALLOWED_PROPS_SUB = {
   'list-item': new Set(LIST_ITEM_KEYS),
   'inline-span': new Set(INLINE_SPAN_KEYS),
   'annotation': new Set(ANNOTATION_KEYS),
+  'encryption': new Set(ENCRYPTION_KEYS),
 } as const

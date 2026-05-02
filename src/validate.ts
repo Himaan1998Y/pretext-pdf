@@ -48,7 +48,7 @@ const SAFE_URL_SCHEME = /^(https?|mailto|ftp|#)/i
 /** BCP47 language tag pattern for hyphenation.language — prevents dynamic-import path injection */
 const LANGUAGE_TAG_REGEX = /^[a-zA-Z]{2,8}(-[a-zA-Z0-9]{2,8})*$/
 
-/** Levenshtein distance with early exit at distance > 2 */
+/** Levenshtein distance, returns 999 if result would exceed 2 */
 function levenshteinDist(a: string, b: string): number {
   if (a === b) return 0
   if (Math.abs(a.length - b.length) > 2) return 999
@@ -63,11 +63,10 @@ function levenshteinDist(a: string, b: string): number {
     for (let j = 1; j <= n; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1
       curr[j] = Math.min(prev[j]! + 1, curr[j - 1]! + 1, prev[j - 1]! + cost)
-      if (curr[j]! > 2) return 999
     }
     for (let j = 0; j <= n; j++) prev[j] = curr[j]
   }
-  return prev[n]!
+  return prev[n]! > 2 ? 999 : prev[n]!
 }
 
 /** Find closest match with edit distance <= 2 */
@@ -95,7 +94,7 @@ function assertUnknownProps(
   for (const key of Object.keys(obj)) {
     if (!allowed.has(key)) {
       const suggestion = closestMatch(key, allowed)
-      const hint = suggestion ? ` Did you mean '${suggestion}'?` : ''
+      const hint = suggestion ? ` did you mean "${suggestion}"` : ''
       errors.push(`${path}.${key}: unknown property.${hint}`)
     }
   }
@@ -104,9 +103,10 @@ function assertUnknownProps(
 /** Format accumulated errors into a single message (cap at 20 errors) */
 function formatErrors(errors: string[]): string {
   if (errors.length === 0) return ''
+  const header = `Strict validation failed (${errors.length} issue${errors.length === 1 ? '' : 's'}):\n`
   const msgs = errors.slice(0, 20)
   const suffix = errors.length > 20 ? `\n... and ${errors.length - 20} more error(s)` : ''
-  return msgs.join('\n') + suffix
+  return header + msgs.join('\n') + suffix
 }
 
 /** Validate a hyperlink URL — throws VALIDATION_ERROR for unsafe schemes */
@@ -158,7 +158,7 @@ export function validate(doc: PdfDocument, options?: RenderOptions): void {
 
   // Strict: check doc-level properties
   if (strict) {
-    assertUnknownProps(doc, ALLOWED_PROPS_SUB['document'], 'document', errors)
+    assertUnknownProps(doc, ALLOWED_PROPS_SUB['document'], 'doc', errors)
   }
 
   // content must be a non-empty array
@@ -338,6 +338,9 @@ export function validate(doc: PdfDocument, options?: RenderOptions): void {
   // encryption
   if (doc.encryption) {
     const enc = doc.encryption
+    if (strict) {
+      assertUnknownProps(enc, ALLOWED_PROPS_SUB['encryption'], 'doc.encryption', errors)
+    }
     if (enc.userPassword !== undefined && typeof enc.userPassword !== 'string') {
       throw new PretextPdfError('VALIDATION_ERROR', 'doc.encryption.userPassword must be a string if provided')
     }
@@ -730,7 +733,7 @@ function validateElement(
       if (el.annotation) {
         // Strict: validate annotation properties
         if (strict) {
-          assertUnknownProps(el.annotation, ALLOWED_PROPS_SUB['annotation'], `${prefix} (paragraph).annotation`, errors)
+          assertUnknownProps(el.annotation, ALLOWED_PROPS_SUB['annotation'], `${prefix}.annotation`, errors)
         }
         if (!el.annotation.contents || el.annotation.contents.trim() === '') {
           throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (paragraph): annotation.contents is required and must be non-empty`)
@@ -917,14 +920,14 @@ function validateElement(
 
         // Strict: validate row and column defs
         if (strict) {
-          assertUnknownProps(row, ALLOWED_PROPS_SUB['table-row'], `${prefix} (table).rows[${ri}]`, errors)
+          assertUnknownProps(row, ALLOWED_PROPS_SUB['table-row'], `${prefix}.rows[${ri}]`, errors)
         }
 
         for (let cellI = 0; cellI < row.cells.length; cellI++) {
           const cell = row.cells[cellI]!
           // Strict: validate cell properties
           if (strict) {
-            assertUnknownProps(cell, ALLOWED_PROPS_SUB['table-cell'], `${prefix} (table).rows[${ri}].cells[${cellI}]`, errors)
+            assertUnknownProps(cell, ALLOWED_PROPS_SUB['table-cell'], `${prefix}.rows[${ri}].cells[${cellI}]`, errors)
           }
           if (typeof cell.text !== 'string') {
             throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].text must be a string`)
@@ -1169,7 +1172,7 @@ function validateElement(
         const item = el.items[ii]!
         // Strict: validate list item properties
         if (strict) {
-          assertUnknownProps(item, ALLOWED_PROPS_SUB['list-item'], `${prefix} (list).items[${ii}]`, errors)
+          assertUnknownProps(item, ALLOWED_PROPS_SUB['list-item'], `${prefix}.items[${ii}]`, errors)
         }
         if (typeof item.text !== 'string' || item.text.trim() === '') {
           throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].text must be a non-empty string`)
@@ -1190,7 +1193,7 @@ function validateElement(
             const nested = item.items[ni]!
             // Strict: validate nested list item properties
             if (strict) {
-              assertUnknownProps(nested, ALLOWED_PROPS_SUB['list-item'], `${prefix} (list).items[${ii}].items[${ni}]`, errors)
+              assertUnknownProps(nested, ALLOWED_PROPS_SUB['list-item'], `${prefix}.items[${ii}].items[${ni}]`, errors)
             }
             if (typeof nested.text !== 'string' || nested.text.trim() === '') {
               throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].items[${ni}].text must be a non-empty string`)
@@ -1248,7 +1251,7 @@ function validateElement(
         const span = el.spans[si]!
         // Strict: validate span properties
         if (strict) {
-          assertUnknownProps(span, ALLOWED_PROPS_SUB['inline-span'], `${prefix} (rich-paragraph).spans[${si}]`, errors)
+          assertUnknownProps(span, ALLOWED_PROPS_SUB['inline-span'], `${prefix}.spans[${si}]`, errors)
         }
         if (typeof span.text !== 'string') {
           throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].text must be a string`)
