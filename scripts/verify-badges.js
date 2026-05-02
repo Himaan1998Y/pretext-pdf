@@ -75,7 +75,13 @@ if (process.env.SKIP_TEST_RUN === '1') {
 
 let testOutput
 try {
-  testOutput = execSync('npm test 2>&1', { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  // Force spec reporter: execSync is not a TTY, so Node.js test runner defaults to TAP
+  // format which doesn't emit 'ℹ tests N' lines. NODE_OPTIONS propagates to all tsx subprocesses.
+  const env = {
+    ...process.env,
+    NODE_OPTIONS: [process.env.NODE_OPTIONS, '--test-reporter=spec'].filter(Boolean).join(' '),
+  }
+  testOutput = execSync('npm test 2>&1', { cwd: ROOT, encoding: 'utf8', env, maxBuffer: 20 * 1024 * 1024 })
 } catch (e) {
   // npm test can exit nonzero on informational output; capture stdout anyway
   testOutput = (e.stdout || '') + (e.stderr || '')
