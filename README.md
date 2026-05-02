@@ -792,7 +792,7 @@ For documents with 10,000+ elements, set `NODE_OPTIONS=--max-old-space-size=4096
 
 ## Tests
 
-600+ tests with 100% pass rate:
+676 tests with 100% pass rate:
 
 ```bash
 npm test              # Full suite (contract + unit + e2e + phases + 2f stress)

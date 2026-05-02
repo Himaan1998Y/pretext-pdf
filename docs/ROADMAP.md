@@ -1,6 +1,6 @@
 # pretext-pdf — Roadmap
 
-**Last updated:** 2026-04-23 · **Current version:** 0.9.3
+**Last updated:** 2026-05-02 · **Current version:** 1.0.1
 
 This is a **living document**. See [Update discipline](#update-discipline) at the bottom for how and when this file is touched.
 
@@ -8,10 +8,7 @@ This is a **living document**. See [Update discipline](#update-discipline) at th
 
 ## Now
 
-Active work. Each item should have a tracking PR or issue.
-
-- **Tier 0 remediation pass** — Post-release audit findings and hardening. PR #2 in progress (renovate config fix, CHANGELOG consistency, strict validator promotion).
-- **Tier 1 planning** — Inventory structural debt and sequence delivery.
+Active work: None. Repo at stable v1.0.1 — strict mode validation bugs fixed, CI actions updated, all phase tests passing.
 
 ---
 

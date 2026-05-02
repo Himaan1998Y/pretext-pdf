@@ -7,6 +7,36 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.0.1] — 2026-05-02
+
+Patch: strict mode correctness fixes. No API changes.
+
+### Fixed
+
+- **`levenshteinDist` early-exit bug** — per-cell `if (curr[j]! > 2) return 999` inside
+  the inner DP loop fired on intermediate cells, causing d=1 pairs like `hrefs→href` and
+  `spaceafter→spaceAfter` to incorrectly return 999 instead of 1. Fix: removed the per-cell
+  guard; final check only (`prev[n]! > 2 ? 999 : prev[n]!`).
+- **Seven path-prefix annotations** — strict-mode error paths had `(type)` suffixes
+  (e.g. `doc(table).rows[0]`) that no other validator used and that tests didn't expect.
+  All seven removed so paths are plain dot-notation.
+- **`encryption` block not strict-checked** — unknown props inside `doc.encryption`
+  were silently accepted in strict mode. Now validated against `ALLOWED_PROPS_SUB['encryption']`.
+- **Root path was `'document'` not `'doc'`** — top-level `assertUnknownProps` was called
+  with `'document'` as the path prefix, producing paths like `document.content[0]` instead
+  of `doc.content[0]`. Corrected to `'doc'`.
+- **Suggestion format mismatched** — `Did you mean 'x'?` → `did you mean "x"` (lowercase,
+  double-quotes) to match the format tests asserted.
+- **`formatErrors` missing header** — multi-error output now begins with
+  `Strict validation failed (N issues):\n` so callers can detect strict vs. regular errors.
+
+### Tests
+
+- Added `test/validate-strict.test.ts` (35 tests) to `test:unit` script — these tests were
+  written but not wired into CI in v1.0.0.
+
+---
+
 ## [1.0.0] — 2026-05-02
 
 First stable release. Completes the plugin extension API, closes all v1.0 gate requirements,
@@ -299,7 +329,10 @@ Three additive enhancements that broaden the package's surface without growing i
 
 ---
 
-## [Unreleased]
+## [0.7.2] — 2026-04-20
+
+Phase 11 cross-cutting enhancements. This section was left as `[Unreleased]` in earlier
+entries and is being attributed retroactively to 0.7.2 for historical accuracy.
 
 ### Added (Phase 11 — Cross-cutting Enhancements)
 
