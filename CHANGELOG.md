@@ -35,7 +35,9 @@ and ships a fully verified public surface with zero breaking changes from 0.9.x.
 - **`render` context Y-coordinate docs** — expanded JSDoc with multi-line text example showing
   how to position text baselines relative to `context.y`.
 - **Benchmark corpora manifest** and **smoke staging** tests wired into `npm test`
-  (previously orphaned). Total test count: 672.
+  (previously orphaned). Total test count: 641.
+- **`test/table-determinism.test.ts`** — asserts that table pagination produces identical
+  layout traces across repeated invocations of `prepareLayoutState`.
 - `examples/plugin-custom-element.ts` — runnable plugin example (`npm run example:plugin`).
 
 ### Fixed
@@ -70,6 +72,9 @@ and ships a fully verified public surface with zero breaking changes from 0.9.x.
 ---
 
 ## [0.9.4] — 2026-05-02
+
+> **Note:** This release was never published to npm as a standalone tag. All changes listed
+> here shipped as part of [1.0.0] on the same date.
 
 Architecture hardening + API surface snapshot. No public API changes; internal
 restructuring to eliminate circular dependencies and add drift guards before v1.0 freeze.
