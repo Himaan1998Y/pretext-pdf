@@ -7,6 +7,131 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.0.0] — 2026-05-02
+
+First stable release. Completes the plugin extension API, closes all v1.0 gate requirements,
+and ships a fully verified public surface with zero breaking changes from 0.9.x.
+
+### Added
+
+- **Plugin extension API** — Register custom element types via `RenderOptions.plugins`.
+  Each `PluginDefinition` participates in all four pipeline stages: `validate`, `loadAsset`,
+  `measure`, and `render`. Plugins are fully typed and tree-shaken from documents
+  that don't use them. See README § Custom element types (plugins) and
+  `examples/plugin-custom-element.ts` for a runnable example.
+- **`PluginDefinition`, `PluginMeasureContext`, `PluginMeasureResult`, `PluginRenderContext`**
+  exported from `pretext-pdf` public surface (previously internal).
+- **`PdfBuilder` and `PdfBuilderOptions`** exported from `pretext-pdf` (enables type-safe
+  builder construction in downstream code without re-declaring the interface).
+- **`TocEntryElement`** exported from `pretext-pdf` public surface (was in the `ContentElement`
+  union but not individually importable).
+- **`plugins` option on `createPdf()`** — `PdfBuilderOptions.plugins` threads plugins through
+  the builder's `build()` call automatically.
+- **`Intl.Segmenter` pre-flight guard** in `render()` — throws `RENDER_FAILED` with a clear
+  message on Node.js < 16 or runtimes without full-ICU data, instead of silently producing
+  incorrect line breaks.
+- **`PluginRenderContext.pageWidth/pageHeight/margins`** — render hooks now receive full page
+  geometry for layout calculations (page-relative positioning, bleed boxes, etc.).
+- **`render` context Y-coordinate docs** — expanded JSDoc with multi-line text example showing
+  how to position text baselines relative to `context.y`.
+- **Benchmark corpora manifest** and **smoke staging** tests wired into `npm test`
+  (previously orphaned). Total test count: 672.
+- `examples/plugin-custom-element.ts` — runnable plugin example (`npm run example:plugin`).
+
+### Fixed
+
+- **`SIGNATURE_CERT_AND_ENCRYPTION` error code** — was declared in the `ErrorCode` union
+  but never thrown; validate.ts now uses it correctly when a document specifies both
+  signatures and encryption (previously threw a generic `VALIDATION_ERROR`).
+- **Build break under `exactOptionalPropertyTypes: true`** — `PdfBuilder.build()` no longer
+  passes `{ plugins: undefined }` to `runPipeline` when no plugins are configured.
+- **Plugin `validate` hook empty-string normalization** — `plugin.validate()` returning `''`
+  now correctly accepts the element (was previously treated as a rejection message).
+- **`toc` element reaching render default arm** — `render.ts` now has an explicit
+  `case 'toc': return` guard before the default arm; TOC elements are pre-processed
+  during pagination and should never reach the renderer.
+- **`RichLine` and `RichFragment`** demoted from `@public` to `@internal`; these are
+  implementation details of the rich-text pipeline, not intended for external use.
+- **Sentinel value documentation** — `MeasuredBlock` comment now explicitly states that
+  `lines: []`, `fontSize: 0`, `lineHeight: 0`, `fontKey: ''` applies to spacers, tables,
+  images, hr, *and plugin blocks* — not a bug but a documented convention.
+
+### Internal
+
+- `src/plugin-registry.ts` (new): Pure orchestration helpers for the four plugin injection
+  points (`findPlugin`, `runPluginValidate`, `runPluginLoadAsset`, `runPluginMeasure`,
+  `runPluginRender`).
+- `src/plugin-types.ts` (new): `PluginDefinition` interface and context/result types.
+- `src/layout-state.ts`: `prepareLayoutState` now accepts `options?: RenderOptions` and
+  threads plugins to `stageValidate`, `stageLoadAssets`, and `stageMeasure`.
+- `docs/V1.0-RUNBOOK.md`: Full release runbook with first-principles audit, anti-hallucination
+  protocol, verified-facts table, and phase-by-phase plan.
+
+---
+
+## [0.9.4] — 2026-05-02
+
+Architecture hardening + API surface snapshot. No public API changes; internal
+restructuring to eliminate circular dependencies and add drift guards before v1.0 freeze.
+
+### Added
+
+- **API surface snapshot** (`etc/pretext-pdf.api.md`) checked into source control as
+  the v1.0 baseline. The `api:check` CI step will fail on unintentional public-API drift.
+- **`src/layout-state.ts`** — `prepareLayoutState()` and `summarizeLayoutState()` extracted
+  from the pipeline for testability; `layout-contract` and `hard-text-contract` tests
+  wired into `test:unit`.
+- **`src/benchmarks/corpora.ts`** — benchmark corpus manifest (`getBenchmarkCorpora()`)
+  restored from git history; `benchmark-baseline.test.ts` wired into `test:contract`.
+- **Drift guards** (`test/drift-guards.test.ts`) — asserts that `ELEMENT_TYPES`,
+  `ALLOWED_PROPS`, `validate.ts` cases, and `render.ts` cases all agree at test time.
+  Catches any future element-type addition that isn't plumbed through all four places.
+- **`render.ts` default arm** — unknown element types now throw immediately instead of
+  silently producing a blank block.
+
+### Refactored
+
+- **Circular dependency broken**: `src/post-process.ts` extracted so `builder.ts` and
+  `index.ts` no longer form a cycle through each other.
+- **`ELEMENT_TYPES` extracted** to `src/element-types.ts` as single source of truth;
+  re-exported from `index.ts`, imported by `validate.ts` — eliminates the previous
+  per-file string-literal duplication.
+
+### Fixed
+
+- `post-process.ts`: drop raw signing library error message from `SIGNATURE_FAILED`
+  to avoid leaking certificate or passphrase details in error output.
+- `layout-state.ts`: polyfill install wrapped in try/catch; throws `CANVAS_UNAVAILABLE`
+  on failure instead of an untyped exception.
+
+---
+
+## [0.9.3] — 2026-04-23
+
+Strict validation release. Opt-in property validation to catch unknown properties on elements and sub-structures via typo detection and precise JSONPath error reporting.
+
+### Added
+
+- **Strict validation mode**: Pass `{ strict: true }` to `render(doc, options)` to reject unknown properties. Non-strict mode (default) remains permissive for backwards compatibility.
+- **`render()` options parameter**: Updated signature to `render(doc: PdfDocument, options?: RenderOptions)` where `RenderOptions = { strict?: boolean }`.
+- **`validate()` public export**: `validate()` is now exported from `pretext-pdf` for standalone validation and testing.
+- **Validation error details**:
+  - Unknown properties reported with Levenshtein edit-distance suggestions (distance ≤2) for typo correction.
+  - Errors include JSONPath-like paths (`content[3].table.rows[0].cells[1].align`) for precise location reporting.
+  - Error accumulation: all violations collected before throwing a single VALIDATION_ERROR with formatted multi-line message.
+  - First 20 errors shown; overflow indicator present.
+- **Compile-time drift guards**: `src/allowed-props.ts` uses `Exact<T, Keys>` TypeScript type assertions to catch property definition drift at type-check time. If element types change, `tsc --noEmit` will error if allowed-props lists don't match.
+- **Property allowlists**:
+  - `ALLOWED_PROPS`: 22 element types (paragraph, heading, table, image, code, list, etc.)
+  - `ALLOWED_PROPS_SUB`: 8 sub-structures (document, metadata, table-row, table-cell, list-item, inline-span, column-def, annotation)
+
+### Internal
+
+- `src/allowed-props.ts` (new): Central configuration for allowed properties with compile-time assertions.
+- `src/validate.ts` (enhanced): Added `levenshteinDist()`, `closestMatch()`, `assertUnknownProps()`, and `formatErrors()` helpers; threading strict flag through `validateElement()` for nested structure validation (tables, lists, rich-paragraphs, float-groups, annotations).
+
+---
+
 ## [0.9.2] — 2026-04-22
 
 Maintenance release. Engine refresh + repo-hygiene automation. No runtime behavior changes beyond the `@chenglou/pretext` bump.
@@ -22,7 +147,7 @@ Maintenance release. Engine refresh + repo-hygiene automation. No runtime behavi
 ### Added
 
 - `scripts/verify-badges.js` + CI step — compares README shields.io badge values against `package.json` dep count and `npm test` total. Fails CI on drift. Fast path via `SKIP_TEST_RUN=1` for pre-commit use.
-- `.github/workflows/release-on-tag.yml` — on `v*` tag push, auto-extracts the matching `## [X.Y.Z]` section from this file and creates the GitHub release. Closes the "tag exists but no release page" gap that affected v0.9.1.
+- `release` job in `ci.yml` — on `v*` tag push, auto-extracts the matching `## [X.Y.Z]` section from this file and creates the GitHub release (requires publish to succeed first). Closes the "tag exists but no release page" gap that affected v0.9.1. (Note: originally shipped as `.github/workflows/release-on-tag.yml`; merged into `ci.yml` for dependency ordering in Tier 0.5.)
 - `renovate.json` — watches dependencies, auto-merges devDependency bumps that pass CI, opens PRs (without auto-merge) for runtime, peer, and `@chenglou/pretext` engine bumps. Closes the gap that left us one release behind upstream.
 
 ### Removed
@@ -484,112 +609,3 @@ Three additive enhancements that broaden the package's surface without growing i
 - Image formats: PNG, JPG, WebP
 - Table features: custom column widths, cell padding, borders, header styling
 - Colors: hex color codes throughout (text, backgrounds, borders)
-
----
-
-## Features by Phase
-
-| Phase | Feature | Status | Tests | Version |
-|-------|---------|--------|-------|---------|
-| 7A | Bookmarks / PDF Outline | ✅ Complete | 8 | 0.1.0 |
-| 7B | Watermarks | ✅ Complete | 8 | 0.1.0 |
-| 7C | Hyphenation | ✅ Complete | 10 | 0.1.0 |
-| 7D | Table of Contents | ✅ Complete | 10 | 0.1.0 |
-| 7E | SVG Support | ✅ Complete | 8 | 0.1.0 |
-| 7F | RTL Text Support | ✅ Complete | 12 | 0.1.0 |
-| 7G | Encryption | ✅ Complete | 7 | 0.1.0 |
-| Integration | Feature Combinations | ✅ Complete | 6 | 0.1.0 |
-| 6 | Advanced Features | ✅ Complete | — | 0.1.0 |
-| 5 | Rich Text / Builder API | ✅ Complete | — | 0.1.0 |
-| 1–4 | Core Engine | ✅ Complete | — | 0.1.0 |
-
----
-
-## How to Use Examples
-
-All Phase 7 features have working examples in the `examples/` directory. Run them with:
-
-```bash
-npm run example:watermark    # Phase 7B — Watermarks
-npm run example:bookmarks    # Phase 7A — Bookmarks
-npm run example:toc          # Phase 7D — Table of Contents
-npm run example:rtl          # Phase 7F — RTL Text Support
-npm run example:encryption   # Phase 7G — Encryption
-```
-
-PDF output is written to `output/phase7-*.pdf`.
-
----
-
-## Test Coverage
-
-All phases include comprehensive test coverage:
-
-```bash
-npm test                  # Run all 75+ tests
-npm run test:unit        # Unit tests only
-npm run test:e2e         # End-to-end tests
-npm run test:visual      # Visual regression tests
-```
-
----
-
-## Dependencies
-
-### Required
-
-- `@chenglou/pretext` — Pretext text layout engine
-- `pdf-lib` — PDF document manipulation
-- `@fontsource/inter` — Font: Inter (bundled)
-- `bidi-js` — Bidirectional text algorithm (Phase 7F)
-- `hypher` — Hyphenation algorithm (Phase 7C)
-- `hyphenation.en-us` — English hyphenation patterns (Phase 7C)
-
-### Optional (Peer)
-
-- `@napi-rs/canvas` — SVG rasterization (Phase 7E)
-- `@cantoo/pdf-lib` — PDF encryption (Phase 7G)
-
----
-
-## Architecture
-
-pretext-pdf uses a modular, layered architecture:
-
-```
-render(doc) → validate → layout → paginate → render-pages → PDF bytes
-```
-
-Each phase adds features orthogonally:
-- Phase 1–4: Core engine, pagination, typography
-- Phase 5: Rich text and builder patterns
-- Phase 6: Advanced layout and formatting
-- Phase 7: Security, internationalization, accessibility
-
----
-
-## Future Roadmap
-
-Potential Phase 8+ features (not yet implemented):
-- Hyperlinks and anchors
-- Justified text alignment
-- Enhanced text decorations
-- Font subsetting for file size reduction
-- Browser compatibility improvements
-- Performance optimizations
-
----
-
-## Contributing
-
-pretext-pdf is actively maintained. To report issues, request features, or contribute:
-
-1. Check existing issues on the project repo
-2. Write failing tests first (TDD)
-3. Submit pull requests with test coverage ≥80%
-
----
-
-## License
-
-Check LICENSE file in repository root.

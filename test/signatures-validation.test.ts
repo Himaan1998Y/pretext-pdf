@@ -63,7 +63,7 @@ test('Phase 3 — Cryptographic Digital Signatures', async (t) => {
     )
   })
 
-  await t.test('p12 + encryption together throws VALIDATION_ERROR', async () => {
+  await t.test('p12 + encryption together throws SIGNATURE_CERT_AND_ENCRYPTION', async () => {
     await assert.rejects(
       () => render({
         signature: { p12: new Uint8Array([1, 2, 3]) },
@@ -72,7 +72,7 @@ test('Phase 3 — Cryptographic Digital Signatures', async (t) => {
       }),
       (err: any) => {
         assert.ok(err instanceof PretextPdfError)
-        assert.equal(err.code, 'VALIDATION_ERROR')
+        assert.equal(err.code, 'SIGNATURE_CERT_AND_ENCRYPTION')
         assert.match(err.message, /encryption/)
         return true
       }

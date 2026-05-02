@@ -9,7 +9,7 @@
 [![npm downloads](https://img.shields.io/npm/dw/pretext-pdf)](https://www.npmjs.com/package/pretext-pdf)
 [![CI](https://github.com/Himaan1998Y/pretext-pdf/actions/workflows/ci.yml/badge.svg)](https://github.com/Himaan1998Y/pretext-pdf/actions)
 [![TypeScript](https://img.shields.io/badge/typescript-strict-blue)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-624-brightgreen)](#tests)
+[![Tests](https://img.shields.io/badge/tests-641-brightgreen)](#tests)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Bundle](https://img.shields.io/badge/runtime%20deps-8-informational)](#runtime-footprint)
 
@@ -34,15 +34,18 @@
 - [Element catalog](#element-catalog)
 - [Document features](#document-level-features)
 - [API reference](#api-reference)
+- [Strict validation](#strict-validation)
 - [India / GST invoicing](#india--gst-invoicing)
 - [Custom fonts](#custom-fonts)
 - [Rich text](#rich-text)
 - [Footnotes](#footnotes)
+- [Custom element types (plugins)](#custom-element-types-plugins)
 - [Examples](#examples)
 - [Error handling](#error-handling)
 - [Troubleshooting](#troubleshooting)
 - [Non-goals](#non-goals)
 - [Runtime footprint](#runtime-footprint)
+- [Compatibility matrix](#compatibility-matrix)
 - [Performance](#performance)
 - [Tests](#tests)
 - [Security](#security)
@@ -432,6 +435,47 @@ const pdf = await createPdf({ pageSize: 'A4' })
 
 ---
 
+## Strict validation
+
+By default, `render()` uses permissive validation — unknown properties are silently ignored. Enable strict mode to catch typos and ensure property names match the schema exactly:
+
+```typescript
+import { render } from 'pretext-pdf'
+
+const pdf = await render(doc, { strict: true })
+```
+
+In strict mode:
+
+- **Unknown properties are rejected** with a `VALIDATION_ERROR` that includes:
+  - Property name and location (JSONPath-like: `content[3].table.rows[0].cells[1].align`)
+  - Typo suggestions via Levenshtein distance (edit distance ≤2)
+  - All violations collected before throwing, with a 20-error cap + overflow indicator
+
+Example error:
+
+```
+VALIDATION_ERROR:
+  unknown property 'fontSizee' at content[0].fontSizee (did you mean fontsize, fontSize?)
+  unknown property 'colorr' at content[1].inline.colorr (did you mean color?)
+```
+
+Strict validation is useful for:
+- **AI agent self-correction**: LLMs can parse error messages and fix typos
+- **Template development**: catch copy-paste errors in large documents
+- **Type safety**: ensure your generator is emitting well-formed documents
+
+You can also call `validate()` standalone for testing:
+
+```typescript
+import { validate } from 'pretext-pdf'
+
+// Throws PretextPdfError('VALIDATION_ERROR', ...) if strict check fails
+validate(doc, { strict: true })
+```
+
+---
+
 ## India / GST invoicing
 
 Built-in support for Indian invoice requirements:
@@ -539,6 +583,66 @@ await render({
 
 ---
 
+## Custom element types (plugins)
+
+The plugin API lets you register new element types without forking the library.
+Each plugin definition handles one `type` string and participates in the standard
+validate → measure → render pipeline.
+
+```typescript
+import { render } from 'pretext-pdf'
+import type { PluginDefinition } from 'pretext-pdf'
+import { rgb } from '@cantoo/pdf-lib'
+
+const highlightBoxPlugin: PluginDefinition = {
+  type: 'highlight-box',
+
+  // Optional: reject bad elements early
+  validate(element) {
+    if (typeof element['label'] !== 'string') return '"label" must be a string'
+  },
+
+  // Required: return block height for layout/pagination
+  async measure(element) {
+    return { height: 48, spaceBefore: 8, spaceAfter: 8 }
+  },
+
+  // Required: draw onto the pdf-lib page
+  render({ element, pdfPage, x, y, width, height }) {
+    pdfPage.drawRectangle({ x, y: y - height, width, height, color: rgb(1, 0.93, 0.73) })
+    pdfPage.drawText(element['label'] as string, { x: x + 16, y: y - 30, size: 13 })
+  },
+}
+
+// Pass plugins via render() options or createPdf() options
+const pdf = await render(doc, { plugins: [highlightBoxPlugin] })
+```
+
+**How it works:**
+
+| Hook | Stage | Required | Purpose |
+| ---- | ----- | -------- | ------- |
+| `validate` | 1 | No | Reject malformed custom elements; return error string or void |
+| `loadAsset` | 2b | No | Embed a `PDFImage` (passed back as `context.pdfImage` in render) |
+| `measure` | 3 | **Yes** | Return `height`, optional `spaceBefore`/`spaceAfter`, optional `pluginData` |
+| `render` | 5 | **Yes** | Draw onto `context.pdfPage` using pdf-lib's drawing API |
+
+**Y-coordinate note:** pdf-lib uses a bottom-left origin. `context.y` is the **top** edge of your block.
+To fill the block: `drawRectangle({ x, y: y - height, width, height })`.
+To draw the first line of text: `drawText(line, { x, y: y - fontSize })`.
+
+**Constraints:** Plugin elements can only appear at the top level of `doc.content`.
+They cannot be nested inside callout, blockquote, or float-group children (those
+have hardcoded child type whitelists). Use top-level layout with spacers for positioning.
+
+See `examples/plugin-custom-element.ts` for a full runnable example:
+
+```bash
+npm run example:plugin
+```
+
+---
+
 ## Examples
 
 ```bash
@@ -555,6 +659,7 @@ npm run example:assembly       # Merge + assemble multiple PDFs
 npm run example:inline         # Super/subscript, letterSpacing, smallCaps
 npm run example:forms          # Interactive form fields
 npm run example:callout        # Callout boxes
+npm run example:plugin         # Custom element types (plugin API)
 ```
 
 All write to `output/*.pdf`.
@@ -650,6 +755,22 @@ Mandatory runtime dependencies:
 All other capabilities (SVG, charts, QR, barcodes, markdown, signing) are optional peer deps — install only what you use.
 
 **Browser:** the library imports cleanly from any non-`file://` URL (esm.sh, Vite dev server, browser bundles) since v0.8.1. Bring your own Inter font via `doc.fonts` and register it with `document.fonts.add(...)` for accurate measurement.
+
+---
+
+## Compatibility matrix
+
+| Environment | Status | Notes |
+| ----------- | ------ | ----- |
+| **Node.js 18 / 20 / 22** | ✅ Confirmed | CI tests all three. Requires `@napi-rs/canvas` peer dep for SVG / chart / QR elements. |
+| **Browser (Vite, webpack, esm.sh)** | ✅ Confirmed | Uses native `OffscreenCanvas`. No canvas peer dep needed. Bring your own font bytes via `doc.fonts` — the bundled Inter loader is Node-only. |
+| **Bun** | ⚠️ Untested | Bun has Node.js compat mode. `@napi-rs/canvas` provides Bun builds but is untested end-to-end. |
+| **Deno** | ⚠️ Untested | Deno's Node compat layer may work. `@napi-rs/canvas` native bindings are the unknown variable. |
+| **AWS Lambda / serverless (Node runtime)** | ⚠️ Likely works | Node.js runtime, ESM supported. Cold-start impact from `@napi-rs/canvas` native addon if used. Elements that don't need canvas (paragraph, heading, table, list) have no native dep. |
+| **Cloudflare Workers** | ❌ Not supported | No Node.js runtime, no native addons, no `OffscreenCanvas`. Neither the Node polyfill nor the browser path can run. |
+| **Next.js (server components / API routes)** | ✅ Confirmed (Node path) | Runs on Node.js server side. Client-side rendering follows the browser path above. |
+
+**Legend:** ✅ Confirmed in CI or end-to-end testing · ⚠️ Untested / likely works · ❌ Known not supported
 
 ---
 

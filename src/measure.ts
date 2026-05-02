@@ -4,12 +4,17 @@
  */
 
 import type {
-  PdfDocument, ContentElement, MeasuredBlock, ImageMap
+  PdfDocument, ContentElement
 } from './types.js'
+import type {
+  MeasuredBlock, ImageMap
+} from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 import { measureBlock } from './measure-blocks.js'
 import { getPretext, HyphenatorOpts, getHyphenator } from './measure-text.js'
 import { LINE_HEIGHT_BODY } from './render-utils.js'
+import type { PluginDefinition } from './plugin-types.js'
+import { findPlugin, runPluginMeasure } from './plugin-registry.js'
 
 // Re-export for backward compatibility with tests
 export { measureBlock }
@@ -125,7 +130,8 @@ export async function measureAllBlocks(
   doc: PdfDocument,
   contentWidth: number,
   imageMap: ImageMap,
-  pageContentHeight: number
+  pageContentHeight: number,
+  plugins?: PluginDefinition[]
 ): Promise<MeasuredBlock[]> {
   const { measureImageWithKey, measureFloatImageBlock } = await import('./measure-blocks.js')
 
@@ -176,7 +182,10 @@ export async function measureAllBlocks(
         spaceBefore: el.spaceBefore ?? 8,
       }
       const block = await measureImageWithKey(syntheticImage, svgKey, imageMap, contentWidth, pageContentHeight)
-      // Preserve the original element type so render.ts can route correctly
+      // measureImageWithKey returns a block with element = syntheticImage. We overwrite it with
+      // the original element (svg/qr-code/barcode/chart) so render.ts routes to the right renderer.
+      // The cast bypasses MeasuredBlock.element's readonly constraint — safe because this is the
+      // single construction site and the field is never mutated elsewhere.
       ;(block as any).element = el
       results.push(block)
     } else if (el.type === 'float-group') {
@@ -189,11 +198,24 @@ export async function measureAllBlocks(
       const block = await measureFloatGroup(el, imageKey, imageMap, contentWidth, pageContentHeight, doc, hyphenatorOpts)
       results.push(block)
     } else {
-      const result = await measureBlock(el, contentWidth, doc, hyphenatorOpts)
-      if (Array.isArray(result)) {
-        results.push(...result)
+      const plugin = plugins ? findPlugin(plugins, el.type) : undefined
+      if (plugin) {
+        const pluginImageKey = `${plugin.type}-${i}`
+        const hasAsset = imageMap.has(pluginImageKey)
+        const block = await runPluginMeasure(
+          plugin,
+          el as unknown as Record<string, unknown>,
+          { contentWidth, contentHeight: pageContentHeight, doc },
+          hasAsset ? pluginImageKey : undefined
+        )
+        results.push(block)
       } else {
-        results.push(result)
+        const result = await measureBlock(el, contentWidth, doc, hyphenatorOpts)
+        if (Array.isArray(result)) {
+          results.push(...result)
+        } else {
+          results.push(result)
+        }
       }
     }
   }

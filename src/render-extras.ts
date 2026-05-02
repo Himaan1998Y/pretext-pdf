@@ -4,7 +4,7 @@
  */
 
 import { PDFDocument, PDFFont, PDFName, PDFNull, PDFRef, PDFString, rgb } from '@cantoo/pdf-lib'
-import type { PaginatedDocument, FontMap, PageGeometry, PagedBlock } from './types.js'
+import type { PaginatedDocument, FontMap, PageGeometry, PagedBlock } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 import { toPdfY, hexToRgb } from './render-utils.js'
 
@@ -280,8 +280,8 @@ export function renderFormField(
 export function renderSignaturePlaceholder(
   sig: import('./types.js').SignatureSpec,
   pdfDoc: PDFDocument,
-  fontMap: import('./types.js').FontMap,
-  geo: import('./types.js').PageGeometry
+  fontMap: import('./types-internal.js').FontMap,
+  geo: import('./types-internal.js').PageGeometry
 ): void {
   const pages = pdfDoc.getPages()
   if (pages.length === 0) return

@@ -100,7 +100,7 @@ test('Phase 9A — Cryptographic Signatures', async (t) => {
     )
   })
 
-  await t.test('signing with encryption together throws VALIDATION_ERROR', async () => {
+  await t.test('signing with encryption together throws SIGNATURE_CERT_AND_ENCRYPTION', async () => {
     await assert.rejects(
       () => render({
         content: [{ type: 'paragraph', text: 'Test' }],
@@ -109,7 +109,7 @@ test('Phase 9A — Cryptographic Signatures', async (t) => {
       }),
       (err: any) => {
         assert.ok(err instanceof PretextPdfError)
-        assert.equal(err.code, 'VALIDATION_ERROR')
+        assert.equal(err.code, 'SIGNATURE_CERT_AND_ENCRYPTION')
         assert.match(err.message, /signature.*encryption|encryption.*signature/i)
         return true
       }

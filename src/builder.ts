@@ -5,7 +5,8 @@
  * Accumulates ContentElement[] and delegates final rendering to render().
  */
 
-import { render } from './index.js'
+import { runPipeline } from './pipeline.js'
+import { applyPostProcessing } from './post-process.js'
 import { validate } from './validate.js'
 import type {
   PdfDocument,
@@ -31,10 +32,12 @@ import type {
   HeaderFooterSpec,
   DocumentMetadata,
 } from './types.js'
+import type { PluginDefinition } from './plugin-types.js'
 
 /**
  * Options for initializing the PDF builder.
  * Includes all PdfDocument fields except 'content' (which is managed by the builder).
+ * @public
  */
 export interface PdfBuilderOptions {
   pageSize?: PdfDocument['pageSize']
@@ -48,8 +51,13 @@ export interface PdfBuilderOptions {
   metadata?: DocumentMetadata
   defaultParagraphStyle?: PdfDocument['defaultParagraphStyle']
   sections?: PdfDocument['sections']
+  plugins?: PluginDefinition[]
 }
 
+/**
+ * Fluent builder returned by {@link createPdf}.
+ * @public
+ */
 export interface PdfBuilder {
   addText(text: string, opts?: Partial<Omit<ParagraphElement, 'type' | 'text'>>): PdfBuilder
   addHeading(text: string, opts?: Partial<Omit<HeadingElement, 'type' | 'text' | 'level'>> & { level?: number }): PdfBuilder
@@ -62,7 +70,7 @@ export interface PdfBuilder {
   addHr(opts?: Partial<Omit<HorizontalRuleElement, 'type'>>): PdfBuilder
   addSpacer(height: number): PdfBuilder
   addPageBreak(): PdfBuilder
-  /** Render an inline SVG string (requires @napi-rs/canvas peer dep). */
+  /** Render an inline SVG string (requires \@napi-rs/canvas peer dep). */
   addSvg(svg: string, opts?: Partial<Omit<SvgElement, 'type' | 'svg'>>): PdfBuilder
   /** Add a callout box (info / warning / tip / note). */
   addCallout(content: string, opts?: Partial<Omit<CalloutElement, 'type' | 'content'>>): PdfBuilder
@@ -83,7 +91,7 @@ export interface PdfBuilder {
 }
 
 /**
- * Create a new PDF document using the builder API.
+ * Create a new PDF document using the fluent builder API.
  *
  * @example
  * ```ts
@@ -93,11 +101,13 @@ export interface PdfBuilder {
  *   .addHr()
  *   .build()
  * ```
+ * @public
  */
 export function createPdf(options: PdfBuilderOptions = {}): PdfBuilder {
   const content: ContentElement[] = []
   let defaultParagraphStyle: PdfDocument['defaultParagraphStyle'] = options.defaultParagraphStyle
   const sections: NonNullable<PdfDocument['sections']> = options.sections ? [...options.sections] : []
+  const plugins = options.plugins
 
   return {
     /**
@@ -233,6 +243,10 @@ export function createPdf(options: PdfBuilderOptions = {}): PdfBuilder {
     /**
      * Get the underlying declarative document.
      * Useful for inspection, serialization, or reusing with render().
+     *
+     * **Note:** Plugins are a rendering concern and are NOT included in the returned document.
+     * If you pass this document to `render()` directly, supply plugins separately via
+     * `RenderOptions.plugins`. Use `build()` if you want plugins applied automatically.
      */
     toDocument(): PdfDocument {
       const doc = {
@@ -254,10 +268,11 @@ export function createPdf(options: PdfBuilderOptions = {}): PdfBuilder {
 
     /**
      * Build the PDF and return the bytes.
-     * Delegates to render() with the accumulated document.
      */
     async build(): Promise<Uint8Array> {
-      return render(this.toDocument())
+      const doc = this.toDocument()
+      const rawBytes = await runPipeline(doc, plugins !== undefined ? { plugins } : {})
+      return applyPostProcessing(rawBytes, doc)
     },
   }
 }

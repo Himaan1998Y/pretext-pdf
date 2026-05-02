@@ -1,7 +1,7 @@
 import type {
   MeasuredBlock, MeasuredCalloutBlock, MeasuredBlockquoteBlock,
   PagedBlock, RenderedPage, PaginatedDocument
-} from './types.js'
+} from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 
 const MAX_PAGES = 10_000
@@ -335,8 +335,13 @@ function placeBlock(
     return
   }
 
-  // ── Images and HR: never split ───────────────────────────────────────────────
-  if (block.element.type === 'image' || block.element.type === 'svg' || block.element.type === 'hr') {
+  // ── Images, HR, and fixed-height blocks: never split ────────────────────────
+  // This includes qr-code/barcode/chart (lines=[] after element type is restored in measure.ts)
+  // and plugin elements. All produce blocks with lines=[] and lineHeight=0.
+  if (
+    block.element.type === 'image' || block.element.type === 'svg' || block.element.type === 'hr' ||
+    (block.lines.length === 0 && block.lineHeight === 0)
+  ) {
     if (currentY > 0) {
       pushNewPage(pages)
     }
@@ -568,6 +573,12 @@ export function getCurrentY(pages: RenderedPage[]): number {
       const contentHeight = visibleRichLines.reduce((sum, rl) => sum + rl.lineHeight, 0)
       blockBottom = pagedBlock.yFromTop + contentHeight + block.spaceAfter
 
+    } else if (block.lines.length === 0 && block.lineHeight === 0) {
+      // Fixed-height blocks with no text lines: plugin elements, qr-code, barcode, chart
+      // (those types are stored with a synthetic image element in measure.ts, but element.type
+      // is overwritten to the original type, so they don't hit the image/svg branch above).
+      blockBottom = pagedBlock.yFromTop + block.height + block.spaceAfter
+
     } else {
       // Text elements (paragraph, heading, list items)
       const lineCount = pagedBlock.endLine - pagedBlock.startLine
@@ -586,7 +597,7 @@ export function getCurrentY(pages: RenderedPage[]): number {
  * Uses greedy accumulation of per-line heights (which may vary due to per-span fontSize).
  */
 function countRichLinesInHeight(
-  richLines: import('./types.js').RichLine[],
+  richLines: import('./types-internal.js').RichLine[],
   startIdx: number,
   available: number
 ): number {

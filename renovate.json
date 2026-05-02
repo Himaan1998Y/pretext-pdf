@@ -18,7 +18,7 @@
       "groupName": "devDependencies",
       "automerge": true,
       "automergeType": "branch",
-      "requiredStatusChecks": ["CI"]
+      "requiredStatusChecks": ["CI / ci-ok"]
     },
     {
       "description": "@chenglou/pretext — engine dep, never auto-merge, eyeball every bump",

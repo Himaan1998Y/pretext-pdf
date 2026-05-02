@@ -1,9 +1,14 @@
 import { PDFDocument, PDFName, PDFString, PDFNull } from '@cantoo/pdf-lib'
 import type {
-  PdfDocument, PaginatedDocument, PagedBlock,
-  FontMap, ImageMap, PageGeometry
+  PdfDocument
 } from './types.js'
+import type {
+  PaginatedDocument, PagedBlock,
+  FontMap, ImageMap, PageGeometry
+} from './types-internal.js'
 import { PretextPdfError } from './errors.js'
+import type { PluginDefinition } from './plugin-types.js'
+import { findPlugin, runPluginRender } from './plugin-registry.js'
 import {
   renderTextBlock,
   renderListItem,
@@ -42,7 +47,8 @@ export async function renderDocument(
   fontMap: FontMap,
   imageMap: ImageMap,
   pdfDoc: PDFDocument,
-  geo: PageGeometry
+  geo: PageGeometry,
+  plugins?: PluginDefinition[]
 ): Promise<Uint8Array> {
   const { pageWidth, pageHeight, margins, contentWidth } = geo
 
@@ -65,7 +71,7 @@ export async function renderDocument(
       const blockEl = pagedBlock.measuredBlock.element
       if (blockEl.type === 'form-field') {
         try {
-          renderBlock(pdfPage, pagedBlock, geo, fontMap, imageMap, pdfDoc, paginatedDoc.footnoteNumbering)
+          renderBlock(pdfPage, pagedBlock, geo, fontMap, imageMap, pdfDoc, paginatedDoc.footnoteNumbering, plugins)
         } catch (e) {
           const ffEl = blockEl as import('./types.js').FormFieldElement
           const action = doc.onFormFieldError ? doc.onFormFieldError(ffEl.name, e as Error) : 'skip'
@@ -73,7 +79,7 @@ export async function renderDocument(
           console.warn(`[pretext-pdf] Form field "${ffEl.name}" failed to render: ${(e as Error).message}`)
         }
       } else {
-        renderBlock(pdfPage, pagedBlock, geo, fontMap, imageMap, pdfDoc, paginatedDoc.footnoteNumbering)
+        renderBlock(pdfPage, pagedBlock, geo, fontMap, imageMap, pdfDoc, paginatedDoc.footnoteNumbering, plugins)
       }
     }
 
@@ -147,7 +153,8 @@ function renderBlock(
   fontMap: FontMap,
   imageMap: ImageMap,
   pdfDoc: PDFDocument,
-  footnoteNumbering?: Map<string, number>
+  footnoteNumbering?: Map<string, number>,
+  plugins?: PluginDefinition[]
 ): void {
   const { measuredBlock } = pagedBlock
   const { element } = measuredBlock
@@ -207,6 +214,9 @@ function renderBlock(
       renderCallout(pdfPage, pagedBlock, geo, fontMap)
       return
 
+    case 'toc':
+      return // TOC is expanded into toc-entry elements during the measure phase; this should not be reached
+
     case 'toc-entry':
       renderTocEntry(pdfPage, pagedBlock, geo, fontMap)
       return
@@ -232,5 +242,25 @@ function renderBlock(
 
     case 'footnote-def':
       return // footnote defs are rendered via renderFootnoteZone, not inline
+
+    default: {
+      const unknownType = (element as { type: unknown }).type
+      const plugin = plugins ? findPlugin(plugins, String(unknownType)) : undefined
+      if (plugin) {
+        const x = geo.margins.left
+        // Convert content-area yFromTop → pdf-lib top-of-block coordinate.
+        // pdf-lib origin is bottom-left; toPdfY(absY, 0, pageHeight) = pageHeight - absY.
+        const absYFromTop = pagedBlock.yFromTop + geo.margins.top + geo.headerHeight
+        const y = geo.pageHeight - absYFromTop
+        runPluginRender(plugin, measuredBlock, pdfPage, pdfDoc, x, y, geo, imageMap)
+        return
+      }
+      // Unrecognized element types reaching render are a producer bug — validate()
+      // should have caught them. Throw so the failure is visible, not silent.
+      throw new PretextPdfError(
+        'RENDER_FAILED',
+        `renderBlock: unhandled element type '${String(unknownType)}'. This is a bug — validate() should have rejected it.`
+      )
+    }
   }
 }

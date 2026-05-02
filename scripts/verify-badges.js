@@ -51,9 +51,10 @@ try {
   abort(`cannot read README.md: ${e.message}`)
 }
 
-const depsMatch = readme.match(/runtime%20deps-(\d+)-/)
-if (!depsMatch) abort('could not find runtime-deps badge in README')
-const badgeDeps = Number(depsMatch[1])
+const depsMatches = [...readme.matchAll(/runtime%20deps-(\d+)-/g)]
+if (depsMatches.length === 0) abort('could not find runtime-deps badge in README')
+if (depsMatches.length > 1) abort(`runtime-deps badge appears ${depsMatches.length} times in README — expected exactly 1`)
+const badgeDeps = Number(depsMatches[0][1])
 
 if (badgeDeps !== actualDeps) {
   fail(`runtime-deps badge says ${badgeDeps}, package.json has ${actualDeps} — update README line with \`runtime%20deps-${actualDeps}-informational\``)
@@ -61,10 +62,10 @@ if (badgeDeps !== actualDeps) {
 console.log(`[verify-badges] OK: runtime deps = ${actualDeps}`)
 
 // --- check 2: test count ---
-// Match any of: tests-600%2B, tests-624, tests-600+
-const testsMatch = readme.match(/tests-(\d+)(?:%2B|\+)?-/)
-if (!testsMatch) abort('could not find tests badge in README')
-const badgeTests = Number(testsMatch[1])
+const testsMatches = [...readme.matchAll(/tests-(\d+)-/g)]
+if (testsMatches.length === 0) abort('could not find tests badge in README')
+if (testsMatches.length > 1) abort(`tests badge appears ${testsMatches.length} times in README — expected exactly 1`)
+const badgeTests = Number(testsMatches[0][1])
 
 // Skip the actual npm test run if SKIP_TEST_RUN is set (fast path for non-release checks)
 if (process.env.SKIP_TEST_RUN === '1') {
@@ -74,7 +75,13 @@ if (process.env.SKIP_TEST_RUN === '1') {
 
 let testOutput
 try {
-  testOutput = execSync('npm test 2>&1', { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  // Force spec reporter: execSync is not a TTY, so Node.js test runner defaults to TAP
+  // format which doesn't emit 'ℹ tests N' lines. NODE_OPTIONS propagates to all tsx subprocesses.
+  const env = {
+    ...process.env,
+    NODE_OPTIONS: [process.env.NODE_OPTIONS, '--test-reporter=spec'].filter(Boolean).join(' '),
+  }
+  testOutput = execSync('npm test 2>&1', { cwd: ROOT, encoding: 'utf8', env, maxBuffer: 20 * 1024 * 1024 })
 } catch (e) {
   // npm test can exit nonzero on informational output; capture stdout anyway
   testOutput = (e.stdout || '') + (e.stderr || '')
@@ -88,7 +95,6 @@ if (testCounts.length === 0) abort('no `ℹ tests N` lines in npm test output')
 
 const actualTests = testCounts.reduce((a, b) => a + b, 0)
 
-// Allow exact match OR "X+" where X <= actual (the "+" form is aspirational)
 const exactMatch = actualTests === badgeTests
 if (!exactMatch) {
   fail(`tests badge says ${badgeTests}, npm test ran ${actualTests} — update README with \`tests-${actualTests}-brightgreen\``)

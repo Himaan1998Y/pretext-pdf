@@ -1,4 +1,7 @@
-/** Error codes for PretextPdfError */
+/**
+ * Error codes for PretextPdfError.
+ * @public
+ */
 export type ErrorCode =
   | 'VALIDATION_ERROR'
   | 'FONT_LOAD_FAILED'
@@ -45,6 +48,10 @@ export type ErrorCode =
   | 'CHART_RENDER_FAILED'
   | 'MARKDOWN_DEP_MISSING'
 
+/**
+ * Thrown by all pretext-pdf operations on failure.
+ * @public
+ */
 export class PretextPdfError extends Error {
   readonly code: ErrorCode
 

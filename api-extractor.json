@@ -1,0 +1,47 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/api-extractor/v7/api-extractor.schema.json",
+  "mainEntryPointFilePath": "./dist/index.d.ts",
+  "bundledPackages": [],
+
+  "compiler": {
+    "tsconfigFilePath": "./tsconfig.json"
+  },
+
+  "apiReport": {
+    "enabled": true,
+    "reportFileName": "pretext-pdf.api.md",
+    "reportFolder": "./etc/",
+    "reportTempFolder": "./temp/"
+  },
+
+  "docModel": {
+    "enabled": false
+  },
+
+  "dtsRollup": {
+    "enabled": false
+  },
+
+  "tsdocMetadata": {
+    "enabled": false
+  },
+
+  "messages": {
+    "compilerMessageReporting": {
+      "default": {
+        "logLevel": "none"
+      }
+    },
+    "extractorMessageReporting": {
+      "ae-missing-release-tag": {
+        "logLevel": "warning"
+      },
+      "ae-forgotten-export": {
+        "logLevel": "warning"
+      },
+      "default": {
+        "logLevel": "warning"
+      }
+    }
+  }
+}

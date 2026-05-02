@@ -5,9 +5,11 @@
 
 import { PDFDocument, PDFFont, PDFName, rgb, degrees } from '@cantoo/pdf-lib'
 import type {
-  PagedBlock, FontMap, ImageMap, PageGeometry,
   FootnoteDefElement, HeaderFooterSpec, PdfDocument, RichParagraphElement
 } from './types.js'
+import type {
+  PagedBlock, FontMap, ImageMap, PageGeometry
+} from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 import {
   drawJustifiedLine,

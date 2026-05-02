@@ -14,6 +14,7 @@ coverage/
 # Example & test output
 output/
 test-output/
+test-output.txt
 *.pdf
 
 # IDE
