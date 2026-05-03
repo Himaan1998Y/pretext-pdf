@@ -1148,8 +1148,10 @@ export interface ValidationResult {
   valid: boolean
   /** All validation errors found (empty when valid is true) */
   errors: ValidationError[]
-  /** Total number of errors (convenience alias for errors.length) */
+  /** Total number of validation issues. May exceed errors.length when errors are capped at 20. */
   errorCount: number
+  /** Total number of warning-severity issues (derived from the parsed errors array) */
+  warningCount: number
 }
 
 // ─── Logger ───────────────────────────────────────────────────────────────────

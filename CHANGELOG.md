@@ -7,6 +7,34 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.0.5] — 2026-05-04
+
+Schema coverage completion, `ValidationResult.warningCount`, and README API docs.
+
+### Added
+
+- **`ValidationResult.warningCount`** — `validateDocument()` now returns `warningCount` alongside
+  `errorCount`. Computed by filtering `errors[]` by `severity === 'warning'`. MCP consumers no
+  longer need to derive it client-side.
+
+- **JSON Schema: remaining field coverage** — `src/schema.ts` now covers all previously missing
+  fields across 9 element types:
+  - `inlineSpanSchema`: `dir`
+  - `paragraphSchema`: `columns`, `columnGap`, `tabularNumbers`, `hyphenate`
+  - `headingSchema`: `tabularNumbers`, `hyphenate`
+  - `blockquoteSchema`: `lineHeight`, `padding`, `paddingH`, `paddingV`, `underline`, `strikethrough`
+  - `calloutSchema`: `titleColor`, `fontWeight`, `lineHeight`, `padding`, `paddingH`, `paddingV`
+  - `listSchema`: `lineHeight`, `markerWidth`, `itemSpaceAfter`, `nestedNumberingStyle`; nested
+    items now carry `dir` and have a typed inner schema
+  - `tocSchema`: `titleFontSize`, `levelIndent`, `leader`, `entrySpacing`
+  - `formFieldSchema`: `borderColor`, `backgroundColor`, `keepTogether`, `defaultSelected`
+  - `richParagraphSchema`: `columns`, `columnGap`, `tabularNumbers`
+
+- **README: `validateDocument` and `pretext-pdf/schema` documented** — both entry points now have
+  `### API reference` sections with code examples.
+
+---
+
 ## [1.0.4] — 2026-05-04
 
 Schema export hardening: post-release audit fixes addressing coverage gaps and a

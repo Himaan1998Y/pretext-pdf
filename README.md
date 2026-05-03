@@ -433,6 +433,35 @@ const pdf = await createPdf({ pageSize: 'A4' })
 
 ### `fromPdfmake(doc, opts?)` *(from `pretext-pdf/compat`)*
 
+### `validateDocument(doc, opts?)` — non-throwing validation
+
+```typescript
+import { validateDocument } from 'pretext-pdf'
+
+const result = validateDocument(doc, { strict: true })
+// result: { valid, errors[], errorCount, warningCount }
+
+if (!result.valid) {
+  for (const err of result.errors) {
+    console.log(`${err.severity} at ${err.path}: ${err.message}`)
+    if (err.suggestion) console.log(`  → did you mean '${err.suggestion}'?`)
+  }
+}
+```
+
+Unlike `validate()` which throws, `validateDocument()` always returns. Useful for MCP tools and agent preflight checks.
+
+### `pdfDocumentSchema` *(from `pretext-pdf/schema`)*
+
+Machine-readable JSON Schema for the `PdfDocument` type. Intended for editor tooling, MCP clients, and LLM context injection.
+
+```typescript
+import { pdfDocumentSchema } from 'pretext-pdf/schema'
+
+// Use with ajv, json-schema-to-typescript, Smithery UI, or inject into LLM context:
+const schemaString = JSON.stringify(pdfDocumentSchema, null, 2)
+```
+
 ---
 
 ## Strict validation

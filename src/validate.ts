@@ -538,13 +538,15 @@ export function validateDocument(
 ): ValidationResult {
   try {
     validate(doc as PdfDocument, { strict: options?.strict ?? false, ...(options?.logger !== undefined ? { logger: options.logger } : {}) })
-    return { valid: true, errors: [], errorCount: 0 }
+    return { valid: true, errors: [], errorCount: 0, warningCount: 0 }
   } catch (err) {
     if (err instanceof PretextPdfError) {
       const errors = parseValidationErrorsStructured(err.message, err.code)
+      const warnings = errors.filter((e) => e.severity === 'warning')
+      const warningCount = warnings.length
       const countMatch = err.message.match(/Strict validation failed \((\d+) issue/)
       const errorCount = countMatch?.[1] != null ? parseInt(countMatch[1]!, 10) : errors.length
-      return { valid: false, errors, errorCount }
+      return { valid: false, errors, errorCount, warningCount }
     }
     throw err
   }
