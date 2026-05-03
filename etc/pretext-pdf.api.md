@@ -848,6 +848,7 @@ export interface ValidationResult {
     errorCount: number;
     errors: ValidationError[];
     valid: boolean;
+    warningCount: number;
 }
 
 // @public (undocumented)
