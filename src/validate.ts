@@ -95,8 +95,8 @@ function assertUnknownProps(
   for (const key of Object.keys(obj)) {
     if (!allowed.has(key)) {
       const suggestion = closestMatch(key, allowed)
-      const hint = suggestion ? ` did you mean "${suggestion}"` : ''
-      errors.push(`${path}.${key}: unknown property.${hint}`)
+      const hint = suggestion ? `; did you mean "${suggestion}"` : ''
+      errors.push(`${path}.${key}: unknown property${hint}`)
     }
   }
 }
@@ -253,8 +253,8 @@ export function validate(doc: PdfDocument, options?: RenderOptions): void {
     if (dps.fontSize !== undefined && (typeof dps.fontSize !== 'number' || dps.fontSize <= 0 || dps.fontSize > 500 || !isFinite(dps.fontSize))) {
       throw new PretextPdfError('VALIDATION_ERROR', 'doc.defaultParagraphStyle.fontSize must be a number > 0 and <= 500')
     }
-    if (dps.lineHeight !== undefined && (typeof dps.lineHeight !== 'number' || dps.lineHeight <= 0 || dps.lineHeight > 20 || !isFinite(dps.lineHeight))) {
-      throw new PretextPdfError('VALIDATION_ERROR', 'doc.defaultParagraphStyle.lineHeight must be a number > 0 and <= 20')
+    if (dps.lineHeight !== undefined && (typeof dps.lineHeight !== 'number' || dps.lineHeight <= 0 || !isFinite(dps.lineHeight))) {
+      throw new PretextPdfError('VALIDATION_ERROR', 'doc.defaultParagraphStyle.lineHeight must be a positive finite number')
     }
     if (dps.color !== undefined && !HEX_COLOR_REGEX.test(dps.color)) {
       throw new PretextPdfError('VALIDATION_ERROR', `doc.defaultParagraphStyle.color must be a 6-digit hex string like '#000000'. Got: '${dps.color}'`)
@@ -548,7 +548,8 @@ export function validateDocument(
       const errorCount = countMatch?.[1] != null ? parseInt(countMatch[1]!, 10) : errors.length
       return { valid: false, errors, errorCount, warningCount }
     }
-    throw err
+    const msg = err instanceof Error ? err.message : String(err)
+    return { valid: false, errors: [{ path: 'document', message: `Unexpected validation error: ${msg}`, severity: 'error' as const, code: 'VALIDATION_ERROR' as const }], errorCount: 1, warningCount: 0 }
   }
 }
 
@@ -770,9 +771,6 @@ function validateElement(
         if (el.lineHeight < effectiveFontSize) {
           throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (paragraph): lineHeight (${el.lineHeight}) is less than fontSize (${effectiveFontSize}). Lines would overlap. Set lineHeight >= fontSize.`)
         }
-        if (el.lineHeight > 20) {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (paragraph): 'lineHeight' must be <= 20`)
-        }
       }
       if (el.bgColor !== undefined && !HEX_COLOR_REGEX.test(el.bgColor)) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (paragraph): 'bgColor' must be a 6-digit hex string like '#f0f0f0'. Got: '${el.bgColor}'`)
@@ -840,9 +838,6 @@ function validateElement(
         const effectiveFontSize = el.fontSize ?? 12
         if (el.lineHeight < effectiveFontSize) {
           throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (heading): lineHeight (${el.lineHeight}) is less than fontSize (${effectiveFontSize}). Lines would overlap.`)
-        }
-        if (el.lineHeight > 20) {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (heading): 'lineHeight' must be <= 20`)
         }
       }
       if (el.align !== undefined && !['left', 'center', 'right', 'justify'].includes(el.align)) {
@@ -935,8 +930,8 @@ function validateElement(
       const headerRowCount = el.headerRows !== undefined
         ? el.headerRows
         : el.rows.filter(r => r.isHeader).length
-      if (headerRowCount >= el.rows.length) {
-        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): table must have at least 1 non-header body row. headerRows=${headerRowCount}, total rows=${el.rows.length}`)
+      if (headerRowCount > el.rows.length) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): headerRows (${headerRowCount}) exceeds total row count (${el.rows.length})`)
       }
 
       // Build span occupancy grid for colspan validation (rowspan cells occupy future rows)
@@ -1568,25 +1563,25 @@ function validateElement(
       const ff = el as import('./types.js').FormFieldElement
       const fieldTypes = ['text', 'checkbox', 'radio', 'dropdown', 'button']
       if (!fieldTypes.includes(ff.fieldType)) {
-        throw new PretextPdfError('VALIDATION_ERROR', `[${index}] form-field.fieldType must be one of: ${fieldTypes.join(', ')}`)
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): fieldType must be one of: ${fieldTypes.join(', ')}`)
       }
       if (!ff.name || ff.name.trim() === '') {
-        throw new PretextPdfError('VALIDATION_ERROR', `[${index}] form-field.name is required and must be a non-empty string`)
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): name is required and must be a non-empty string`)
       }
       if ((ff.fieldType === 'radio' || ff.fieldType === 'dropdown') && (!ff.options || ff.options.length === 0)) {
-        throw new PretextPdfError('VALIDATION_ERROR', `[${index}] form-field of type "${ff.fieldType}" requires a non-empty options array`)
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): type "${ff.fieldType}" requires a non-empty options array`)
       }
       if (ff.width !== undefined && (typeof ff.width !== 'number' || ff.width <= 0)) {
-        throw new PretextPdfError('VALIDATION_ERROR', `[${index}] form-field.width must be a positive number`)
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): width must be a positive number`)
       }
       if (ff.height !== undefined && (typeof ff.height !== 'number' || ff.height <= 0)) {
-        throw new PretextPdfError('VALIDATION_ERROR', `[${index}] form-field.height must be a positive number`)
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): height must be a positive number`)
       }
       if (ff.borderColor !== undefined && !/^#[0-9A-Fa-f]{6}$/.test(ff.borderColor)) {
-        throw new PretextPdfError('VALIDATION_ERROR', `[${index}] form-field.borderColor must be a 6-digit hex color`)
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): borderColor must be a 6-digit hex color`)
       }
       if (ff.backgroundColor !== undefined && !/^#[0-9A-Fa-f]{6}$/.test(ff.backgroundColor)) {
-        throw new PretextPdfError('VALIDATION_ERROR', `[${index}] form-field.backgroundColor must be a 6-digit hex color`)
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): backgroundColor must be a 6-digit hex color`)
       }
       break
     }
@@ -1630,7 +1625,7 @@ function validateElement(
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group): 'float' must be 'left' or 'right'`)
       }
       // Validate floatWidth
-      if (fg.floatWidth !== undefined && (typeof fg.floatWidth !== 'number' || fg.floatWidth <= 0 || fg.floatWidth < 30)) {
+      if (fg.floatWidth !== undefined && (typeof fg.floatWidth !== 'number' || fg.floatWidth < 30)) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group): 'floatWidth' must be a number >= 30`)
       }
       // Validate floatGap

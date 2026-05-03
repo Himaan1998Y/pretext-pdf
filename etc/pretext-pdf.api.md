@@ -155,7 +155,7 @@ export interface CommentElement {
     type: 'comment';
 }
 
-// Warning: (ae-incompatible-release-tags) The symbol "ContentElement" is marked as @public, but its signature references "TocEntryElement" which is marked as @internal
+// Warning: (ae-forgotten-export) The symbol "TocEntryElement" needs to be exported by the entry point index.d.ts
 //
 // @public (undocumented)
 export type ContentElement = ParagraphElement | HeadingElement | SpacerElement | TableElement | ImageElement | SvgElement | QrCodeElement | BarcodeElement | ChartElement | ListElement | HorizontalRuleElement | PageBreakElement | CodeBlockElement | RichParagraphElement | BlockquoteElement | TocElement | TocEntryElement | CommentElement | FormFieldElement | CalloutElement | FootnoteDefElement | FloatGroupElement;
@@ -644,43 +644,6 @@ export type RenderOptions = {
     logger?: Logger;
 };
 
-// Warning: (ae-internal-missing-underscore) The name "RichFragment" should be prefixed with an underscore because the declaration is marked as @internal
-//
-// @internal
-export interface RichFragment {
-    // (undocumented)
-    color: string;
-    // (undocumented)
-    fontKey: string;
-    // (undocumented)
-    fontSize: number;
-    footnoteRef?: string;
-    // (undocumented)
-    href?: string;
-    letterSpacing?: number;
-    // (undocumented)
-    strikethrough?: boolean;
-    // (undocumented)
-    text: string;
-    // (undocumented)
-    underline?: boolean;
-    // (undocumented)
-    url?: string;
-    width: number;
-    x: number;
-    yOffset?: number;
-}
-
-// Warning: (ae-internal-missing-underscore) The name "RichLine" should be prefixed with an underscore because the declaration is marked as @internal
-//
-// @internal
-export interface RichLine {
-    // (undocumented)
-    fragments: RichFragment[];
-    lineHeight: number;
-    totalWidth: number;
-}
-
 // @public
 export interface RichParagraphElement {
     align?: 'left' | 'center' | 'right' | 'justify';
@@ -800,28 +763,6 @@ export interface TocElement {
     titleFontSize?: number;
     // (undocumented)
     type: 'toc';
-}
-
-// Warning: (ae-internal-missing-underscore) The name "TocEntryElement" should be prefixed with an underscore because the declaration is marked as @internal
-//
-// @internal (undocumented)
-export interface TocEntryElement {
-    // (undocumented)
-    fontFamily: string;
-    // (undocumented)
-    fontWeight: number;
-    // (undocumented)
-    leader: string;
-    // (undocumented)
-    level: 1 | 2 | 3 | 4;
-    // (undocumented)
-    levelIndent: number;
-    // (undocumented)
-    pageNumber: number;
-    // (undocumented)
-    text: string;
-    // (undocumented)
-    type: 'toc-entry';
 }
 
 // @public

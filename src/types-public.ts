@@ -647,9 +647,9 @@ export interface QrCodeElement {
   size?: number
   /** QR error correction level. Default: 'M' */
   errorCorrectionLevel?: 'L' | 'M' | 'Q' | 'H'
-  /** Module colour as 6-digit hex. Default: '#000000' */
+  /** Module color as 6-digit hex. Default: '#000000' */
   foreground?: string
-  /** Background colour as 6-digit hex. Default: '#ffffff' */
+  /** Background color as 6-digit hex. Default: '#ffffff' */
   background?: string
   /** Quiet-zone modules around the symbol. Default: 4 */
   margin?: number
@@ -1125,7 +1125,7 @@ export interface TocEntryElement {
  * @public
  */
 export interface ValidationError {
-  /** JSONPath-style location — e.g. "doc.pageSize" or "doc.content[3].colour" */
+  /** JSONPath-style location — e.g. "doc.pageSize" or "doc.content[3].color" */
   path: string
   /** Human-readable description of the issue */
   message: string
@@ -1150,7 +1150,7 @@ export interface ValidationResult {
   errors: ValidationError[]
   /** Total number of validation issues. May exceed errors.length when errors are capped at 20. */
   errorCount: number
-  /** Total number of warning-severity issues (derived from the parsed errors array) */
+  /** Warning-severity issue count. Reserved for future use — the validator currently emits only errors, so this is always 0. */
   warningCount: number
 }
 

@@ -92,6 +92,7 @@ Optional peer dependencies — install only what you use:
 | `vega` + `vega-lite` | `chart` element |
 | `marked` | `pretext-pdf/markdown` entry point and `--markdown` CLI flag |
 | `@signpdf/signpdf` | PKCS#7 cryptographic signing |
+| `highlight.js` | `code` element syntax highlighting (requires `language` field on code element) |
 
 > **Encryption is built-in** since v0.4.0 — no extra install.
 
@@ -290,7 +291,7 @@ Drop into any MCP-aware AI agent in 60 seconds:
 }
 ```
 
-Exposes: `generate_pdf`, `generate_invoice`, `generate_report`, `generate_from_markdown`, `list_element_types`. Versioned alongside this library — see [`pretext-pdf-mcp`](https://www.npmjs.com/package/pretext-pdf-mcp).
+Exposes: `generate_pdf`, `generate_invoice`, `generate_report`, `generate_from_markdown`, `list_element_types`, `validate_document`. Versioned alongside this library — see [`pretext-pdf-mcp`](https://www.npmjs.com/package/pretext-pdf-mcp).
 
 ---
 

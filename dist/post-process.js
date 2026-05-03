@@ -48,7 +48,7 @@ export async function applySignature(pdfBytes, sig) {
         signedBuffer = await signer.sign(Buffer.from(pdfWithPlaceholder), p12Buffer, sig.passphrase !== undefined ? { passphrase: sig.passphrase } : undefined);
     }
     catch (e) {
-        throw new PretextPdfError('SIGNATURE_FAILED', 'PDF signing failed — check P12 certificate path, format, and passphrase');
+        throw new PretextPdfError('SIGNATURE_FAILED', `PDF signing failed: ${e instanceof Error ? e.message : String(e)}`);
     }
     return new Uint8Array(signedBuffer);
 }

@@ -7,6 +7,64 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.0.6] — 2026-05-04
+
+Audit bug fixes: validator correctness, internal export hygiene, schema gaps, README accuracy.
+
+### Fixed
+
+- **lineHeight upper-bound cap removed** — `validate()` no longer rejects `lineHeight > 20`. The
+  field is in points (pt), not a multiplier; 36pt is valid for a large heading. The `> 20` cap in
+  `paragraph`, `heading`, and `defaultParagraphStyle` validators has been removed. The lower-bound
+  check (lineHeight >= fontSize) is preserved.
+
+- **form-field error messages use `${prefix}` format** — Error messages from the `form-field` case
+  now follow the `content[N] (form-field): ...` format used by all other element types, instead of
+  the old `[N] form-field.` prefix.
+
+- **`assertUnknownProps` hint punctuation fixed** — The "unknown property" message previously
+  produced `unknown property. did you mean "color"` (period before hint). Fixed to
+  `unknown property; did you mean "color"` — no period, semicolon separator.
+
+- **British "colour" → "color" in JSDoc** — Two `QrCodeElement` field comments
+  (`foreground`, `background`) and the `ValidationError.path` JSDoc example corrected.
+
+- **`TocEntryElement`, `RichLine`, `RichFragment` removed from public exports** — These types are
+  marked `@internal` in `types-public.ts` and should not be part of the npm API surface. Removed
+  from `src/index.ts`.
+
+- **Signature error includes original cause** — `SIGNATURE_FAILED` now preserves the underlying
+  error message: `PDF signing failed: <original message>` instead of a static string.
+
+- **Header-only table now valid** — `validate()` previously rejected tables where all rows are
+  headers (`headerRowCount === rows.length`). Changed `>=` to `>`: tables where every row is a
+  header are valid (useful for column-label-only tables).
+
+- **Dead sub-condition removed in `float-group` floatWidth guard** — `fg.floatWidth <= 0` was a
+  dead branch (any value `<= 0` is already `< 30`). Removed to clarify intent.
+
+- **`warningCount` JSDoc updated** — Documents that the validator currently only emits errors, so
+  `warningCount` is always 0 (reserved for future use).
+
+- **`validateDocument` no longer re-throws unexpected errors** — Non-`PretextPdfError` exceptions
+  (e.g. circular JSON, unexpected runtime errors) are now caught and returned as a structured
+  `ValidationResult` instead of propagating. `validateDocument` now always returns, never throws.
+
+### Changed (Schema additions — `pretext-pdf/schema`)
+
+- `qrCodeSchema`: added `margin` field.
+- `imageSchema`: added `floatFontSize`, `floatFontFamily`, `floatColor` fields.
+- `codeSchema`: added `dir` and `highlightTheme` fields.
+- `tableSchema`: added `dir`, `headerRows`, and cell-level `dir`, `fontFamily`, `fontSize`,
+  `tabularNumbers` fields.
+
+### Docs
+
+- README: `highlight.js` added to optional peer dependencies table.
+- README: `validate_document` added to MCP server tool list.
+
+---
+
 ## [1.0.5] — 2026-05-04
 
 Schema coverage completion, `ValidationResult.warningCount`, and README API docs.

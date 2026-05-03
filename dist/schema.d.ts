@@ -401,6 +401,19 @@ export declare const pdfDocumentSchema: {
                             };
                             readonly description: "Rich-text spans rendered alongside the image. Alternative to floatText.";
                         };
+                        readonly floatFontSize: {
+                            readonly type: "number";
+                            readonly description: "Font size for floatText in pt.";
+                        };
+                        readonly floatFontFamily: {
+                            readonly type: "string";
+                            readonly description: "Font family for floatText.";
+                        };
+                        readonly floatColor: {
+                            readonly type: "string";
+                            readonly pattern: "^#[0-9A-Fa-f]{6}$";
+                            readonly description: "6-digit hex color e.g. #FF0000";
+                        };
                     };
                 }, {
                     readonly type: "object";
@@ -489,6 +502,12 @@ export declare const pdfDocumentSchema: {
                                                     readonly type: "number";
                                                     readonly enum: readonly [400, 700];
                                                 };
+                                                readonly fontFamily: {
+                                                    readonly type: "string";
+                                                };
+                                                readonly fontSize: {
+                                                    readonly type: "number";
+                                                };
                                                 readonly color: {
                                                     readonly type: "string";
                                                     readonly pattern: "^#[0-9A-Fa-f]{6}$";
@@ -504,6 +523,14 @@ export declare const pdfDocumentSchema: {
                                                 };
                                                 readonly rowspan: {
                                                     readonly type: "number";
+                                                };
+                                                readonly dir: {
+                                                    readonly type: "string";
+                                                    readonly enum: readonly ["ltr", "rtl", "auto"];
+                                                };
+                                                readonly tabularNumbers: {
+                                                    readonly type: "boolean";
+                                                    readonly description: "Render digits at fixed slot width.";
                                                 };
                                             };
                                         };
@@ -545,6 +572,14 @@ export declare const pdfDocumentSchema: {
                         readonly spaceBefore: {
                             readonly type: "number";
                             readonly description: "Space in points (pt)";
+                        };
+                        readonly dir: {
+                            readonly type: "string";
+                            readonly enum: readonly ["ltr", "rtl", "auto"];
+                        };
+                        readonly headerRows: {
+                            readonly type: "number";
+                            readonly description: "Number of header rows (repeated on continuation pages).";
                         };
                     };
                 }, {
@@ -771,6 +806,61 @@ export declare const pdfDocumentSchema: {
                         readonly language: {
                             readonly type: "string";
                             readonly description: "e.g. 'javascript', 'typescript', 'python'";
+                        };
+                        readonly dir: {
+                            readonly type: "string";
+                            readonly enum: readonly ["ltr", "rtl", "auto"];
+                        };
+                        readonly highlightTheme: {
+                            readonly type: "object";
+                            readonly description: "Custom syntax highlight colors (6-digit hex). Overrides default GitHub-light theme.";
+                            readonly properties: {
+                                readonly keyword: {
+                                    readonly type: "string";
+                                    readonly pattern: "^#[0-9A-Fa-f]{6}$";
+                                    readonly description: "6-digit hex color e.g. #FF0000";
+                                };
+                                readonly string: {
+                                    readonly type: "string";
+                                    readonly pattern: "^#[0-9A-Fa-f]{6}$";
+                                    readonly description: "6-digit hex color e.g. #FF0000";
+                                };
+                                readonly comment: {
+                                    readonly type: "string";
+                                    readonly pattern: "^#[0-9A-Fa-f]{6}$";
+                                    readonly description: "6-digit hex color e.g. #FF0000";
+                                };
+                                readonly number: {
+                                    readonly type: "string";
+                                    readonly pattern: "^#[0-9A-Fa-f]{6}$";
+                                    readonly description: "6-digit hex color e.g. #FF0000";
+                                };
+                                readonly function: {
+                                    readonly type: "string";
+                                    readonly pattern: "^#[0-9A-Fa-f]{6}$";
+                                    readonly description: "6-digit hex color e.g. #FF0000";
+                                };
+                                readonly punctuation: {
+                                    readonly type: "string";
+                                    readonly pattern: "^#[0-9A-Fa-f]{6}$";
+                                    readonly description: "6-digit hex color e.g. #FF0000";
+                                };
+                                readonly type: {
+                                    readonly type: "string";
+                                    readonly pattern: "^#[0-9A-Fa-f]{6}$";
+                                    readonly description: "6-digit hex color e.g. #FF0000";
+                                };
+                                readonly built_in: {
+                                    readonly type: "string";
+                                    readonly pattern: "^#[0-9A-Fa-f]{6}$";
+                                    readonly description: "6-digit hex color e.g. #FF0000";
+                                };
+                                readonly literal: {
+                                    readonly type: "string";
+                                    readonly pattern: "^#[0-9A-Fa-f]{6}$";
+                                    readonly description: "6-digit hex color e.g. #FF0000";
+                                };
+                            };
                         };
                     };
                 }, {
@@ -1074,6 +1164,10 @@ export declare const pdfDocumentSchema: {
                             readonly type: "string";
                             readonly pattern: "^#[0-9A-Fa-f]{6}$";
                             readonly description: "6-digit hex color e.g. #FF0000";
+                        };
+                        readonly margin: {
+                            readonly type: "number";
+                            readonly description: "Quiet-zone modules around the symbol. Default: 4";
                         };
                         readonly align: {
                             readonly type: "string";

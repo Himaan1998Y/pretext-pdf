@@ -65,7 +65,7 @@ export async function applySignature(
   } catch (e) {
     throw new PretextPdfError(
       'SIGNATURE_FAILED',
-      'PDF signing failed — check P12 certificate path, format, and passphrase'
+      `PDF signing failed: ${e instanceof Error ? e.message : String(e)}`
     )
   }
 

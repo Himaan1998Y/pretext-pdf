@@ -839,17 +839,17 @@ describe('Phase 10 — Wave 2: numeric bounds validation', () => {
     )
   })
 
-  test('throws VALIDATION_ERROR for paragraph lineHeight > 20', async () => {
-    await expectError(
-      () => render({ content: [{ type: 'paragraph', text: 'hi', fontSize: 12, lineHeight: 21 }] }),
-      'VALIDATION_ERROR'
+  test('accepts paragraph lineHeight > 20 (pt-based, valid for large headings)', async () => {
+    // lineHeight is in pt, not a multiplier — 36pt is valid for a large heading
+    await assert.doesNotReject(
+      () => render({ content: [{ type: 'paragraph', text: 'hi', fontSize: 12, lineHeight: 36 }] })
     )
   })
 
-  test('throws VALIDATION_ERROR for heading lineHeight > 20', async () => {
-    await expectError(
-      () => render({ content: [{ type: 'heading', level: 1, text: 'hi', fontSize: 12, lineHeight: 21 }] }),
-      'VALIDATION_ERROR'
+  test('accepts heading lineHeight > 20 (pt-based, valid for large headings)', async () => {
+    // lineHeight is in pt — h1 at 28pt with lineHeight 36pt is perfectly valid
+    await assert.doesNotReject(
+      () => render({ content: [{ type: 'heading', level: 1, text: 'hi', fontSize: 28, lineHeight: 36 }] })
     )
   })
 

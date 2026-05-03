@@ -159,6 +159,9 @@ const imageSchema = {
         floatWidth: { type: 'number', description: 'Image column width in pt. Default: 35% of content width.' },
         floatGap: { type: 'number', description: 'Gap between image and text columns in pt. Default: 12' },
         floatSpans: { type: 'array', items: inlineSpanSchema, description: 'Rich-text spans rendered alongside the image. Alternative to floatText.' },
+        floatFontSize: { type: 'number', description: 'Font size for floatText in pt.' },
+        floatFontFamily: { type: 'string', description: 'Font family for floatText.' },
+        floatColor: colorSchema,
     },
 };
 const svgSchema = {
@@ -206,10 +209,14 @@ const tableSchema = {
                                 text: { type: 'string' },
                                 align: alignNoJustify,
                                 fontWeight: fontWeightSchema,
+                                fontFamily: { type: 'string' },
+                                fontSize: { type: 'number' },
                                 color: colorSchema,
                                 bgColor: colorSchema,
                                 colspan: { type: 'number' },
                                 rowspan: { type: 'number' },
+                                dir: dirSchema,
+                                tabularNumbers: { type: 'boolean', description: 'Render digits at fixed slot width.' },
                             },
                         },
                     },
@@ -225,6 +232,8 @@ const tableSchema = {
         cellPaddingV: { type: 'number', description: 'Vertical cell padding in pt. Default: 6' },
         spaceAfter: spaceSchema,
         spaceBefore: spaceSchema,
+        dir: dirSchema,
+        headerRows: { type: 'number', description: 'Number of header rows (repeated on continuation pages).' },
     },
 };
 const listSchema = {
@@ -313,6 +322,22 @@ const codeSchema = {
         spaceBefore: spaceSchema,
         keepTogether: { type: 'boolean' },
         language: { type: 'string', description: "e.g. 'javascript', 'typescript', 'python'" },
+        dir: dirSchema,
+        highlightTheme: {
+            type: 'object',
+            description: 'Custom syntax highlight colors (6-digit hex). Overrides default GitHub-light theme.',
+            properties: {
+                keyword: colorSchema,
+                string: colorSchema,
+                comment: colorSchema,
+                number: colorSchema,
+                function: colorSchema,
+                punctuation: colorSchema,
+                type: colorSchema,
+                built_in: colorSchema,
+                literal: colorSchema,
+            },
+        },
     },
 };
 const calloutSchema = {
@@ -402,6 +427,7 @@ const qrCodeSchema = {
         errorCorrectionLevel: { type: 'string', enum: ['L', 'M', 'Q', 'H'] },
         foreground: colorSchema,
         background: colorSchema,
+        margin: { type: 'number', description: 'Quiet-zone modules around the symbol. Default: 4' },
         align: alignNoJustify,
         spaceBefore: spaceSchema,
         spaceAfter: spaceSchema,
