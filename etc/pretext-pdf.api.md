@@ -399,6 +399,12 @@ export interface ListItem {
     text: string;
 }
 
+// @public
+export interface Logger {
+    // (undocumented)
+    warn(message: string, ...args: unknown[]): void;
+}
+
 // @public (undocumented)
 export interface Margins {
     // (undocumented)
@@ -635,6 +641,7 @@ export function render(doc: PdfDocument, options?: RenderOptions): Promise<Uint8
 export type RenderOptions = {
     strict?: boolean;
     plugins?: PluginDefinition[];
+    logger?: Logger;
 };
 
 // Warning: (ae-internal-missing-underscore) The name "RichFragment" should be prefixed with an underscore because the declaration is marked as @internal
@@ -819,6 +826,28 @@ export interface TocEntryElement {
 
 // @public
 export function validate(doc: PdfDocument, options?: RenderOptions): void;
+
+// @public
+export function validateDocument(doc: unknown, options?: {
+    strict?: boolean;
+}): ValidationResult;
+
+// @public
+export interface ValidationError {
+    code: string;
+    message: string;
+    path: string;
+    severity: 'error' | 'warning';
+    suggestion?: string;
+    unknownProp?: string;
+}
+
+// @public
+export interface ValidationResult {
+    errorCount: number;
+    errors: ValidationError[];
+    valid: boolean;
+}
 
 // @public (undocumented)
 export interface WatermarkSpec {
