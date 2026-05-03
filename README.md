@@ -51,6 +51,7 @@
 - [Security](#security)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
+- [Changelog](CHANGELOG.md)
 - [Credits](#credits)
 
 ---
@@ -81,12 +82,13 @@ npm install pretext-pdf
 ```
 
 > **ESM only** — use `import`, not `require`. Requires Node.js ≥ 18.
+> **CommonJS projects:** use `const { render } = await import('pretext-pdf')` — static `require()` will not work.
 
 Optional peer dependencies — install only what you use:
 
 | Peer | When you need it |
 |---|---|
-| `@napi-rs/canvas` | SVG / qr-code / barcode / chart elements (Node only — browser uses `OffscreenCanvas`) |
+| `@napi-rs/canvas` | SVG and chart elements only (Node; browser uses `OffscreenCanvas`). `qr-code` and `barcode` are canvas-free — pure JS. |
 | `qrcode` | `qr-code` element |
 | `bwip-js` | `barcode` element (100+ symbologies) |
 | `vega` + `vega-lite` | `chart` element |
@@ -329,6 +331,7 @@ paragraph    heading(1-4)   spacer       hr           page-break
 table        image          svg          list         code
 blockquote   rich-paragraph callout      comment      form-field
 toc          qr-code        barcode      chart        footnote-def
+float-group
 ```
 
 | Element | What it does |
@@ -338,7 +341,8 @@ toc          qr-code        barcode      chart        footnote-def
 | `table` | Fixed/proportional/auto columns, colspan, rowspan, repeating headers across page breaks |
 | `image` | PNG/JPG/WebP with sizing, alignment, float left/right with `floatText` or rich `floatSpans` |
 | `list` | Ordered/unordered, recursive nesting, `nestedNumberingStyle: 'restart' \| 'continue'` |
-| `code` | Monospace block with background and padding |
+| `code` | Monospace code block with background, padding, optional syntax highlighting via `highlight.js` (`language` field required), `dir` for RTL code |
+| `float-group` | Image float with wrapped text — image anchored left or right with `floatText` or `floatSpans` flowing alongside |
 | `blockquote` | Left border + background |
 | `rich-paragraph` | Mixed bold/italic/color/size/super/subscript spans with inline hyperlinks |
 | `svg` | Embedded SVG graphics with auto-sizing from viewBox |
@@ -478,7 +482,7 @@ const pdf = await render(doc, { strict: true })
 In strict mode:
 
 - **Unknown properties are rejected** with a `VALIDATION_ERROR` that includes:
-  - Property name and location (JSONPath-like: `content[3].table.rows[0].cells[1].align`)
+  - Property name and location (JSONPath-like: `doc.content[3].table.rows[0].cells[1].align`)
   - Typo suggestions via Levenshtein distance (edit distance ≤2)
   - All violations collected before throwing, with a 20-error cap + overflow indicator
 
@@ -486,8 +490,8 @@ Example error:
 
 ```
 VALIDATION_ERROR:
-  unknown property 'fontSizee' at content[0].fontSizee (did you mean fontsize, fontSize?)
-  unknown property 'colorr' at content[1].inline.colorr (did you mean color?)
+  unknown property 'fontSizee' at doc.content[0].fontSizee; did you mean "fontSize"?
+  unknown property 'colorr' at doc.content[1].inline.colorr; did you mean "color"?
 ```
 
 Strict validation is useful for:
@@ -778,7 +782,8 @@ Mandatory runtime dependencies:
 
 - `@cantoo/pdf-lib` — PDF assembly
 - `@chenglou/pretext` — text-layout engine
-- `@fontsource/inter` + `@pdf-lib/fontkit` — bundled Inter + font subsetting
+- `@fontsource/inter` + `@fontsource-variable/inter` — bundled Inter (static + variable)
+- `@pdf-lib/fontkit` — font subsetting
 - `bidi-js` — bidirectional text resolution
 - `hypher` + `hyphenation.en-us` — hyphenation
 
@@ -822,7 +827,7 @@ For documents with 10,000+ elements, set `NODE_OPTIONS=--max-old-space-size=4096
 
 ## Tests
 
-676 tests with 100% pass rate:
+691 tests with 100% pass rate:
 
 ```bash
 npm test              # Full suite (contract + unit + e2e + phases + 2f stress)
@@ -867,8 +872,10 @@ See [SECURITY.md](SECURITY.md) for disclosure policy.
 | 8A–H | Annotations, forms, assembly, callouts, signatures, metadata, hyperlinks, inline formatting | ✅ |
 | 9A–C | Cryptographic signatures (PKCS#7), image floats, font subsetting | ✅ |
 | 10A–D | QR codes, barcodes, Vega-Lite charts, Markdown, templates | ✅ |
-| 11+ | Performance enhancements, hardening | ✅ |
+| 11+ | Performance enhancements, security hardening | ✅ |
 | **0.9.0** | **CLI, pdfmake compat shim, GFM tables + task lists** | ✅ |
+| **1.0.0** | **Plugin API (custom element types), strict validation, `PdfBuilder` fluent API** | ✅ |
+| **1.0.2–1.0.6** | **`validateDocument()`, JSON Schema export, full schema coverage, audit fixes** | ✅ |
 | Future | Variable fonts, OpenType features, PDF/A, PDF/UA accessibility | 🔜 |
 
 See [docs/ROADMAP.md](docs/ROADMAP.md).
