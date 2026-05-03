@@ -128,7 +128,7 @@ Enhancements: JSON Schema export, simplified marked peer dep range, and internal
 ### Added
 
 - **`pretext-pdf/schema` entry point** — exports `pdfDocumentSchema`, a machine-readable JSON Schema
-  object describing the full `PdfDocument` type. Covers all 19 element types and 18 top-level
+  object describing the full `PdfDocument` type. Covers all 22 element types and 18 top-level
   document properties. Intended for editor tooling, MCP clients, and Smithery UI form generation.
 
   ```typescript
@@ -153,6 +153,7 @@ Enhancements: JSON Schema export, simplified marked peer dep range, and internal
 ## [1.0.2] — 2026-05-03
 
 ### Added
+
 - `validateDocument(doc, options?)` — non-throwing validation API that returns a structured `ValidationResult` with typed `ValidationError[]` instead of throwing. Each error includes `path`, `message`, `code`, `severity`, and `suggestion` fields.
 - `ValidationError` and `ValidationResult` exported from the public API surface.
 - `Logger` interface and `logger?: Logger` in `RenderOptions` — route diagnostic warnings through a custom logger instead of `console.warn`.
@@ -469,25 +470,12 @@ Three additive enhancements that broaden the package's surface without growing i
 
 ---
 
-## [0.7.1] — 2026-04-19
-
-### Changed
-
-- **Upstream pretext pinned to `f2014338487a`** — picks up unreleased CJK opening-bracket annotation fix, Hangul jamo line-walker alignment fix, and two internal line-object churn reductions. No public API changes.
-
-### Fixed
-
-- **List nesting depth enforced at validation** — `ListItem.items` (2nd-level items) now correctly rejects any further `.items` property, matching the documented 2-level maximum. Previously the validation silently passed 3-level data which could cause undefined render behaviour.
-- **3 phase-11 list tests corrected** — test data incorrectly contained 3-level nesting while named "2-level"; data trimmed to match documented contract.
-
----
-
 ## [0.7.2] — 2026-04-20
 
-Phase 11 cross-cutting enhancements. This section was left as `[Unreleased]` in earlier
-entries and is being attributed retroactively to 0.7.2 for historical accuracy.
+Phase 11 cross-cutting enhancements. Retroactively attributed to 0.7.2; these features were
+originally left as `[Unreleased]` and published out of chronological order after 0.7.1.
 
-### Added (Phase 11 — Cross-cutting Enhancements)
+### Added
 
 - **`floatSpans` on image elements** — rich-text alternative to plain `floatText`. Accepts `InlineSpan[]` for mixed bold/italic/color/link captions beside float images. Mutually exclusive with `floatText` (validated).
 - **2-level list nesting** — `ListItem.items` now supports one further level of nesting (depth 0 → 1 → 2). Unordered marker: `▪`. Ordered: inherits parent counter or restarts via `nestedNumberingStyle: 'restart'`.
@@ -500,7 +488,7 @@ entries and is being attributed retroactively to 0.7.2 for historical accuracy.
 - **`smallCaps` + `letterSpacing` per span** — `InlineSpan.smallCaps` and `InlineSpan.letterSpacing` now respected in `rich-paragraph` rendering.
 - **Per-span `fontSize`** — `InlineSpan.fontSize` overrides the element-level font size for that span. Enables mixed-size text in a single paragraph.
 
-### Fixed (Phase 11)
+### Fixed
 
 - `resolveTokens()` used `.replace()` (replaces first occurrence only) — changed to `.replaceAll()` for all four tokens.
 - Table span grid: continuation-row cursor was advancing by 1 instead of `colspan` when skipping a spanned column — now advances by full span width.
@@ -510,11 +498,18 @@ entries and is being attributed retroactively to 0.7.2 for historical accuracy.
 - Table grid-line renderer pre-computes active boundary set — eliminates O(rows × cols) inner loop for large tables.
 - `addLinkAnnotation()` re-validates URL scheme at render time (defense-in-depth; `validate.ts` is the primary gate).
 
-### Planned (Phase 9+)
+---
 
-- Phase 9A: Digital signatures (cryptographic PKCS#7 via `@signpdf/signpdf`)
-- Phase 9B: Image floats (text flowing alongside images — requires paginator rewrite)
-- Phase 9C: Font subsetting pre-computation (explicit glyph hints for icon fonts)
+## [0.7.1] — 2026-04-19
+
+### Changed
+
+- **Upstream pretext pinned to `f2014338487a`** — picks up unreleased CJK opening-bracket annotation fix, Hangul jamo line-walker alignment fix, and two internal line-object churn reductions. No public API changes.
+
+### Fixed
+
+- **List nesting depth enforced at validation** — `ListItem.items` (2nd-level items) now correctly rejects any further `.items` property, matching the documented 2-level maximum. Previously the validation silently passed 3-level data which could cause undefined render behaviour.
+- **3 phase-11 list tests corrected** — test data incorrectly contained 3-level nesting while named "2-level"; data trimmed to match documented contract.
 
 ---
 
