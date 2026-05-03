@@ -266,7 +266,7 @@ function collectNeededFonts(doc: PdfDocument): Map<string, FontSpec & { src: str
 
 /** Load font bytes from file path, Uint8Array, or bundled Inter */
 async function loadFontBytes(
-  spec: { family: string; weight?: number; src: string | Uint8Array | 'bundled' },
+  spec: { family: string; weight?: number; style?: 'normal' | 'italic'; src: string | Uint8Array | 'bundled' },
   allowedFileDirs?: string[]
 ): Promise<Uint8Array> {
   if (spec.src instanceof Uint8Array) {
@@ -281,7 +281,7 @@ async function loadFontBytes(
       )
     }
     const weight = spec.weight ?? 400
-    const style = (spec as { style?: string }).style ?? 'normal'
+    const style = spec.style ?? 'normal'
     let paths: string[]
     if (style === 'italic') {
       paths = weight >= 600 ? BUNDLED_INTER_BOLD_ITALIC_PATHS : BUNDLED_INTER_ITALIC_PATHS

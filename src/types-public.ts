@@ -6,6 +6,7 @@
  * Internal pipeline types (MeasuredBlock, RenderedPage, etc.) live in types-internal.ts.
  */
 import type { NamedPageSize } from './page-sizes.js'
+import type { ErrorCode } from './errors.js'
 
 // ─── Public Input Types ───────────────────────────────────────────────────────
 
@@ -1135,7 +1136,7 @@ export interface ValidationError {
   /** Severity of the issue */
   severity: 'error' | 'warning'
   /** Machine-readable error code */
-  code: string
+  code: ErrorCode
 }
 
 /**

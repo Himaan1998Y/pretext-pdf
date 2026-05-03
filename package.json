@@ -1,6 +1,6 @@
 {
   "name": "pretext-pdf",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Declarative JSON → PDF generation with professional typography. Built on pretext's precision text layout engine.",
   "keywords": [
     "pdf",
@@ -65,13 +65,17 @@
       "types": "./dist/plugin-types.d.ts",
       "import": "./dist/plugin-types.js"
     },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "import": "./dist/schema.js"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
     "build": "tsc",
     "api:extract": "api-extractor run --local",
     "api:check": "api-extractor run",
-    "test:unit": "tsx --test test/validate.test.ts test/builder.test.ts test/rich-text.test.ts test/layout-contract.test.ts test/hard-text-contract.test.ts test/validate-strict.test.ts",
+    "test:unit": "tsx --test test/validate.test.ts test/validate-document.test.ts test/builder.test.ts test/rich-text.test.ts test/layout-contract.test.ts test/hard-text-contract.test.ts test/validate-strict.test.ts",
     "test:validate": "tsx --test test/validate.test.ts test/builder.test.ts",
     "test:e2e": "tsx --test test/e2e.test.ts",
     "test:phase-3": "tsx --test test/signatures-validation.test.ts",
@@ -133,7 +137,7 @@
     "@signpdf/signpdf": "^3.3.0",
     "bwip-js": "^4.0.0",
     "highlight.js": "^11.0.0",
-    "marked": "^9.0.0 || ^10.0.0 || ^11.0.0 || ^12.0.0 || ^13.0.0 || ^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0",
+    "marked": ">=9.0.0",
     "qrcode": "^1.5.0",
     "vega": "^5.0.0 || ^6.0.0",
     "vega-lite": "^5.0.0 || ^6.0.0"

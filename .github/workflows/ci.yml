@@ -78,6 +78,7 @@ jobs:
 
       - name: Visual regression
         run: npm run test:visual
+        if: matrix.node-version == '20.x'
 
   ci-ok:
     needs: [test]

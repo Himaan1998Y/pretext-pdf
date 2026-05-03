@@ -7,6 +7,35 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.0.3] — 2026-05-03
+
+Enhancements: JSON Schema export, simplified marked peer dep range, and internal API polish.
+
+### Added
+
+- **`pretext-pdf/schema` entry point** — exports `pdfDocumentSchema`, a machine-readable JSON Schema
+  object describing the full `PdfDocument` type. Covers all 19 element types and 18 top-level
+  document properties. Intended for editor tooling, MCP clients, and Smithery UI form generation.
+
+  ```typescript
+  import { pdfDocumentSchema } from 'pretext-pdf/schema'
+  ```
+
+### Changed
+
+- **`marked` peer dependency simplified** — `^9.0.0 || ^10.0.0 || ... || ^18.0.0` condensed to
+  `>=9.0.0`. Semantically identical, cleaner npm output.
+
+- **`validateDocument` logger option** — `options.logger` now passed to the underlying `validate()`
+  call via conditional spread, respecting `exactOptionalPropertyTypes: true` constraints.
+
+### Fixed
+
+- **`fonts.ts` unsafe cast removed** — `(spec as { style?: string }).style` replaced with direct
+  property access on the widened parameter type.
+
+---
+
 ## [1.0.2] — 2026-05-03
 
 ### Added

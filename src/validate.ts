@@ -1,5 +1,6 @@
-import type { PdfDocument, ContentElement, FontSpec, CommentElement, RenderOptions, ValidationError, ValidationResult } from './types.js'
+import type { PdfDocument, ContentElement, FontSpec, CommentElement, RenderOptions, ValidationError, ValidationResult, Logger } from './types.js'
 import { PretextPdfError } from './errors.js'
+import type { ErrorCode } from './errors.js'
 import { resolvePageDimensions } from './page-sizes.js'
 import { ALLOWED_PROPS, ALLOWED_PROPS_SUB } from './allowed-props.js'
 import { ELEMENT_TYPES } from './element-types.js'
@@ -527,21 +528,23 @@ export function validate(doc: PdfDocument, options?: RenderOptions): void {
  * The existing {@link validate} function throws on first error and is unchanged.
  *
  * @param doc - The document to validate (typed as `unknown` to accept unverified input)
- * @param options - `{ strict?: boolean }` — when true (default), also checks for unknown properties
+ * @param options - `{ strict?: boolean; logger?: Logger }` — strict defaults to false (matches render() behavior); logger routes diagnostic warnings away from console.warn
  * @returns {@link ValidationResult} with `valid`, `errors[]`, and `errorCount`
  * @public
  */
 export function validateDocument(
   doc: unknown,
-  options?: { strict?: boolean }
+  options?: { strict?: boolean; logger?: Logger }
 ): ValidationResult {
   try {
-    validate(doc as PdfDocument, { strict: options?.strict ?? true })
+    validate(doc as PdfDocument, { strict: options?.strict ?? false, ...(options?.logger !== undefined ? { logger: options.logger } : {}) })
     return { valid: true, errors: [], errorCount: 0 }
   } catch (err) {
     if (err instanceof PretextPdfError) {
       const errors = parseValidationErrorsStructured(err.message, err.code)
-      return { valid: false, errors, errorCount: errors.length }
+      const countMatch = err.message.match(/Strict validation failed \((\d+) issue/)
+      const errorCount = countMatch?.[1] != null ? parseInt(countMatch[1]!, 10) : errors.length
+      return { valid: false, errors, errorCount }
     }
     throw err
   }
@@ -561,8 +564,7 @@ function parseValidationErrorsStructured(message: string, code: string): Validat
       const suggMatch = rest.match(/did you mean "([^"]+)"/)
       const suggestion = suggMatch ? suggMatch[1] : undefined
       const isUnknown = rest.includes('unknown property')
-      const parts = path.split('.')
-      const unknownProp = isUnknown ? parts[parts.length - 1] : undefined
+      const unknownProp = isUnknown ? (/\.([^.[]+)$/.exec(path)?.[1] ?? path) : undefined
       return {
         path,
         message: rest,
@@ -573,10 +575,14 @@ function parseValidationErrorsStructured(message: string, code: string): Validat
       }
     })
   }
+  const colonIdx = message.indexOf(':')
+  const hasPathPrefix = colonIdx > 0 && /^[a-z]/i.test(message.slice(0, colonIdx).trim())
+  const path = hasPathPrefix ? message.slice(0, colonIdx).trim() : 'document'
+  const msgText = hasPathPrefix ? message.slice(colonIdx + 1).trim() : message
   return [{
-    path: 'document',
-    message,
-    code: code ?? 'VALIDATION_ERROR',
+    path,
+    message: msgText,
+    code: code as ErrorCode,
     severity: 'error' as const,
   }]
 }
