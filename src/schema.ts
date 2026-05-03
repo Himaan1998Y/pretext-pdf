@@ -18,6 +18,27 @@ const colorSchema = { type: 'string', pattern: '^#[0-9A-Fa-f]{6}$', description:
 const dirSchema = { type: 'string', enum: ['ltr', 'rtl', 'auto'] } as const
 const spaceSchema = { type: 'number', description: 'Space in points (pt)' } as const
 
+const inlineSpanSchema = {
+  type: 'object',
+  required: ['text'],
+  properties: {
+    text: { type: 'string' },
+    fontFamily: { type: 'string' },
+    fontWeight: fontWeightSchema,
+    fontStyle: { type: 'string', enum: ['normal', 'italic'] },
+    color: colorSchema,
+    fontSize: { type: 'number' },
+    underline: { type: 'boolean' },
+    strikethrough: { type: 'boolean' },
+    url: { type: 'string' },
+    href: { type: 'string' },
+    verticalAlign: { type: 'string', enum: ['superscript', 'subscript'] },
+    smallCaps: { type: 'boolean' },
+    letterSpacing: { type: 'number' },
+    footnoteRef: { type: 'string' },
+  },
+} as const
+
 // ─── Element schemas ──────────────────────────────────────────────────────────
 
 const paragraphSchema = {
@@ -80,6 +101,16 @@ const headingSchema = {
     url: { type: 'string', format: 'uri' },
     letterSpacing: { type: 'number' },
     smallCaps: { type: 'boolean' },
+    annotation: {
+      type: 'object',
+      required: ['contents'],
+      properties: {
+        contents: { type: 'string' },
+        author: { type: 'string' },
+        color: colorSchema,
+        open: { type: 'boolean' },
+      },
+    },
   },
 } as const
 
@@ -99,8 +130,10 @@ const hrSchema = {
     type: { type: 'string', const: 'hr' },
     thickness: { type: 'number' },
     color: colorSchema,
-    spaceBefore: spaceSchema,
-    spaceAfter: spaceSchema,
+    spaceAbove: { type: 'number', description: 'Space above line in pt. Default: 12. Primary field.' },
+    spaceBelow: { type: 'number', description: 'Space below line in pt. Default: 12. Primary field.' },
+    spaceBefore: { type: 'number', description: 'Alias for spaceAbove (primary).' },
+    spaceAfter: { type: 'number', description: 'Alias for spaceBelow (primary).' },
   },
 } as const
 
@@ -126,6 +159,9 @@ const imageSchema = {
     spaceBefore: spaceSchema,
     float: { type: 'string', enum: ['left', 'right'] },
     floatText: { type: 'string' },
+    floatWidth: { type: 'number', description: 'Image column width in pt. Default: 35% of content width.' },
+    floatGap: { type: 'number', description: 'Gap between image and text columns in pt. Default: 12' },
+    floatSpans: { type: 'array', items: inlineSpanSchema, description: 'Rich-text spans rendered alongside the image. Alternative to floatText.' },
   },
 } as const
 
@@ -190,6 +226,8 @@ const tableSchema = {
     borderWidth: { type: 'number' },
     headerBgColor: colorSchema,
     fontSize: { type: 'number' },
+    cellPaddingH: { type: 'number', description: 'Horizontal cell padding in pt. Default: 8' },
+    cellPaddingV: { type: 'number', description: 'Vertical cell padding in pt. Default: 6' },
     spaceAfter: spaceSchema,
     spaceBefore: spaceSchema,
   },
@@ -280,27 +318,6 @@ const calloutSchema = {
     spaceAfter: spaceSchema,
     keepTogether: { type: 'boolean' },
     dir: dirSchema,
-  },
-} as const
-
-const inlineSpanSchema = {
-  type: 'object',
-  required: ['text'],
-  properties: {
-    text: { type: 'string' },
-    fontFamily: { type: 'string' },
-    fontWeight: fontWeightSchema,
-    fontStyle: { type: 'string', enum: ['normal', 'italic'] },
-    color: colorSchema,
-    fontSize: { type: 'number' },
-    underline: { type: 'boolean' },
-    strikethrough: { type: 'boolean' },
-    url: { type: 'string' },
-    href: { type: 'string' },
-    verticalAlign: { type: 'string', enum: ['superscript', 'subscript'] },
-    smallCaps: { type: 'boolean' },
-    letterSpacing: { type: 'number' },
-    footnoteRef: { type: 'string' },
   },
 } as const
 
@@ -429,10 +446,52 @@ const formFieldSchema = {
   },
 } as const
 
+const floatGroupSchema = {
+  type: 'object',
+  required: ['type', 'image', 'float', 'content'],
+  properties: {
+    type: { type: 'string', const: 'float-group' },
+    image: {
+      type: 'object',
+      required: ['src'],
+      properties: {
+        src: { type: 'string', description: 'Absolute file path or URL' },
+        format: { type: 'string', enum: ['png', 'jpg', 'auto'] },
+        height: { type: 'number' },
+      },
+    },
+    float: { type: 'string', enum: ['left', 'right'] },
+    floatWidth: { type: 'number', description: 'Image column width in pt. Default: 35% of content width.' },
+    floatGap: { type: 'number', description: 'Gap between image and text columns in pt. Default: 12' },
+    content: {
+      type: 'array',
+      description: 'Content elements rendered in the text column (paragraph, heading, rich-paragraph).',
+      items: { type: 'object' },
+    },
+    spaceBefore: spaceSchema,
+    spaceAfter: spaceSchema,
+  },
+} as const
+
+const chartSchema = {
+  type: 'object',
+  required: ['type', 'spec'],
+  properties: {
+    type: { type: 'string', const: 'chart' },
+    spec: { type: 'object', description: 'Vega-Lite JSON specification. Requires vega and vega-lite peer deps.' },
+    width: { type: 'number' },
+    height: { type: 'number' },
+    caption: { type: 'string', description: 'Optional figure caption rendered below the chart.' },
+    align: alignNoJustify,
+    spaceBefore: spaceSchema,
+    spaceAfter: spaceSchema,
+  },
+} as const
+
 // ─── Top-level document schema ────────────────────────────────────────────────
 
 export const pdfDocumentSchema = {
-  $schema: 'https://json-schema.org/draft/2020-12',
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
   title: 'PdfDocument',
   description: 'Top-level descriptor for a pretext-pdf document.',
   type: 'object',
@@ -462,6 +521,8 @@ export const pdfDocumentSchema = {
           barcodeSchema,
           commentSchema,
           formFieldSchema,
+          floatGroupSchema,
+          chartSchema,
         ],
       },
     },
@@ -549,6 +610,40 @@ export const pdfDocumentSchema = {
         fontFamily: { type: 'string' },
         fontWeight: fontWeightSchema,
         color: colorSchema,
+      },
+    },
+
+    sections: {
+      type: 'array',
+      description: 'Page-range overrides for header/footer. First matching section wins. Falls back to doc.header/footer.',
+      items: {
+        type: 'object',
+        properties: {
+          fromPage: { type: 'number', description: 'First page (1-based, inclusive). Default: 1' },
+          toPage: { type: 'number', description: 'Last page (1-based, inclusive). Default: Infinity' },
+          header: {
+            type: 'object',
+            properties: {
+              text: { type: 'string' },
+              fontSize: { type: 'number' },
+              align: alignNoJustify,
+              fontFamily: { type: 'string' },
+              fontWeight: fontWeightSchema,
+              color: colorSchema,
+            },
+          },
+          footer: {
+            type: 'object',
+            properties: {
+              text: { type: 'string' },
+              fontSize: { type: 'number' },
+              align: alignNoJustify,
+              fontFamily: { type: 'string' },
+              fontWeight: fontWeightSchema,
+              color: colorSchema,
+            },
+          },
+        },
       },
     },
 

@@ -7,6 +7,34 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.0.4] — 2026-05-04
+
+Schema export hardening: post-release audit fixes addressing coverage gaps and a
+malformed dialect URI.
+
+### Fixed
+
+- **`pretext-pdf/schema`: `$schema` dialect URI corrected** — was
+  `https://json-schema.org/draft/2020-12` (not a registered URI), now
+  `https://json-schema.org/draft/2020-12/schema`. Strict JSON Schema validators
+  (AJV, Smithery, VS Code) will now correctly identify the dialect.
+- **`pretext-pdf/schema`: `hr` element spacing fields** — `spaceAbove` and
+  `spaceBelow` (the primary documented fields, default 12) were missing.
+  `spaceBefore` and `spaceAfter` are now correctly marked as aliases.
+- **`pretext-pdf/schema`: `float-group` and `chart` element types** — both
+  first-class public element types were missing from the `content.items.anyOf`
+  list. Schema-driven tooling will now know they exist.
+
+### Added (schema coverage)
+
+- `pdfDocumentSchema.sections` — page-range header/footer overrides
+- `headingSchema.annotation` — annotation field (was already on paragraph)
+- `tableSchema.cellPaddingH` / `cellPaddingV` — primary table density controls
+- `imageSchema.floatWidth` / `floatGap` / `floatSpans` — column-layout controls
+  for floated images
+
+---
+
 ## [1.0.3] — 2026-05-03
 
 Enhancements: JSON Schema export, simplified marked peer dep range, and internal API polish.
