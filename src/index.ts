@@ -7,6 +7,9 @@ import { applyPostProcessing } from './post-process.js'
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export type {
+  ValidationError,
+  ValidationResult,
+  Logger,
   PdfDocument,
   DocumentMetadata,
   ContentElement,
@@ -56,7 +59,7 @@ export type { ErrorCode } from './errors.js'
 export type { NamedPageSize } from './page-sizes.js'
 export { createPdf } from './builder.js'
 export type { PdfBuilder, PdfBuilderOptions } from './builder.js'
-export { validate } from './validate.js'
+export { validate, validateDocument } from './validate.js'
 
 let _fnSetCounter = 0
 

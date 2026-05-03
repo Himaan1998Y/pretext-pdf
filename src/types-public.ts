@@ -1117,6 +1117,51 @@ export interface TocEntryElement {
   fontWeight: number
 }
 
+// ─── Validation API ───────────────────────────────────────────────────────────
+
+/**
+ * A single validation issue returned by {@link validateDocument}.
+ * @public
+ */
+export interface ValidationError {
+  /** JSONPath-style location — e.g. "doc.pageSize" or "doc.content[3].colour" */
+  path: string
+  /** Human-readable description of the issue */
+  message: string
+  /** The unknown property name, when code is UNKNOWN_PROPERTY */
+  unknownProp?: string
+  /** Levenshtein-nearest valid property name, when available */
+  suggestion?: string
+  /** Severity of the issue */
+  severity: 'error' | 'warning'
+  /** Machine-readable error code */
+  code: string
+}
+
+/**
+ * Return value of {@link validateDocument}.
+ * @public
+ */
+export interface ValidationResult {
+  /** True when the document passed validation with zero errors */
+  valid: boolean
+  /** All validation errors found (empty when valid is true) */
+  errors: ValidationError[]
+  /** Total number of errors (convenience alias for errors.length) */
+  errorCount: number
+}
+
+// ─── Logger ───────────────────────────────────────────────────────────────────
+
+/**
+ * Optional logger interface for routing pretext-pdf diagnostic messages.
+ * When not provided, diagnostics are written to console.warn.
+ * @public
+ */
+export interface Logger {
+  warn(message: string, ...args: unknown[]): void
+}
+
 // ─── Render options ───────────────────────────────────────────────────────────
 
 /** @public */
@@ -1129,4 +1174,9 @@ export type RenderOptions = {
    * @beta
    */
   plugins?: import('./plugin-types.js').PluginDefinition[]
+  /**
+   * Optional logger for diagnostic messages. When provided, pretext-pdf routes
+   * all advisory warnings through logger.warn instead of console.warn.
+   */
+  logger?: Logger
 }

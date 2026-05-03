@@ -7,6 +7,9 @@
  */
 
 export type {
+  ValidationError,
+  ValidationResult,
+  Logger,
   PdfDocument,
   DocumentMetadata,
   Margins,

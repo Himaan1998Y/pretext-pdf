@@ -7,6 +7,16 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.0.2] — 2026-05-03
+
+### Added
+- `validateDocument(doc, options?)` — non-throwing validation API that returns a structured `ValidationResult` with typed `ValidationError[]` instead of throwing. Each error includes `path`, `message`, `code`, `severity`, and `suggestion` fields.
+- `ValidationError` and `ValidationResult` exported from the public API surface.
+- `Logger` interface and `logger?: Logger` in `RenderOptions` — route diagnostic warnings through a custom logger instead of `console.warn`.
+- Inter italic font support (Inter-400-italic, Inter-700-italic) via bundled `@fontsource/inter` — italic markdown and `fontStyle: 'italic'` now work without manual font setup.
+
+---
+
 ## [1.0.1] — 2026-05-02
 
 Patch: strict mode correctness fixes. No API changes.

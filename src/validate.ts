@@ -1,4 +1,4 @@
-import type { PdfDocument, ContentElement, FontSpec, CommentElement, RenderOptions } from './types.js'
+import type { PdfDocument, ContentElement, FontSpec, CommentElement, RenderOptions, ValidationError, ValidationResult } from './types.js'
 import { PretextPdfError } from './errors.js'
 import { resolvePageDimensions } from './page-sizes.js'
 import { ALLOWED_PROPS, ALLOWED_PROPS_SUB } from './allowed-props.js'
@@ -136,7 +136,7 @@ const STAR_WIDTH_REGEX = /^(\d*\.?\d+)?\*$/
 const BUNDLED_FAMILIES = new Set(['Inter'])
 
 /** Font variants (family-weight-style) always available without explicit doc.fonts entry */
-const BUNDLED_VARIANTS = new Set(['Inter-400-normal', 'Inter-700-normal'])
+const BUNDLED_VARIANTS = new Set(['Inter-400-normal', 'Inter-700-normal', 'Inter-400-italic', 'Inter-700-italic'])
 
 /**
  * Validate a PdfDocument and throw a {@link PretextPdfError} if any errors are found.
@@ -171,7 +171,7 @@ export function validate(doc: PdfDocument, options?: RenderOptions): void {
     throw new PretextPdfError('VALIDATION_ERROR', `document.content has ${doc.content.length} elements (hard limit: 50,000). Split into multiple documents.`)
   }
   if (doc.content.length > 10_000) {
-    console.warn(`[pretext-pdf] Performance advisory: document.content has ${doc.content.length} elements (recommended max: 10,000). Large documents may be slow.`)
+    ;(options?.logger?.warn ?? console.warn)(`[pretext-pdf] Performance advisory: document.content has ${doc.content.length} elements (recommended max: 10,000). Large documents may be slow.`)
   }
 
   // page size
@@ -518,6 +518,67 @@ export function validate(doc: PdfDocument, options?: RenderOptions): void {
     const msg = formatErrors(errors)
     throw new PretextPdfError('VALIDATION_ERROR', msg)
   }
+}
+
+/**
+ * Validate a pretext-pdf document and return a structured result instead of throwing.
+ *
+ * Use this when you want to inspect all validation errors programmatically.
+ * The existing {@link validate} function throws on first error and is unchanged.
+ *
+ * @param doc - The document to validate (typed as `unknown` to accept unverified input)
+ * @param options - `{ strict?: boolean }` — when true (default), also checks for unknown properties
+ * @returns {@link ValidationResult} with `valid`, `errors[]`, and `errorCount`
+ * @public
+ */
+export function validateDocument(
+  doc: unknown,
+  options?: { strict?: boolean }
+): ValidationResult {
+  try {
+    validate(doc as PdfDocument, { strict: options?.strict ?? true })
+    return { valid: true, errors: [], errorCount: 0 }
+  } catch (err) {
+    if (err instanceof PretextPdfError) {
+      const errors = parseValidationErrorsStructured(err.message, err.code)
+      return { valid: false, errors, errorCount: errors.length }
+    }
+    throw err
+  }
+}
+
+/** Parse a PretextPdfError message into structured ValidationError entries */
+function parseValidationErrorsStructured(message: string, code: string): ValidationError[] {
+  if (message.startsWith('Strict validation failed')) {
+    const lines = message
+      .split('\n')
+      .slice(1) // skip "Strict validation failed (N issues):" header
+      .filter(l => Boolean(l.trim()) && !l.startsWith('...'))
+    return lines.map(line => {
+      const colonIdx = line.indexOf(':')
+      const path = colonIdx > 0 ? line.slice(0, colonIdx).trim() : 'document'
+      const rest = colonIdx > 0 ? line.slice(colonIdx + 1).trim() : line.trim()
+      const suggMatch = rest.match(/did you mean "([^"]+)"/)
+      const suggestion = suggMatch ? suggMatch[1] : undefined
+      const isUnknown = rest.includes('unknown property')
+      const parts = path.split('.')
+      const unknownProp = isUnknown ? parts[parts.length - 1] : undefined
+      return {
+        path,
+        message: rest,
+        code: 'UNKNOWN_PROPERTY',
+        severity: 'error' as const,
+        ...(unknownProp !== undefined && { unknownProp }),
+        ...(suggestion !== undefined && { suggestion }),
+      }
+    })
+  }
+  return [{
+    path: 'document',
+    message,
+    code: code ?? 'VALIDATION_ERROR',
+    severity: 'error' as const,
+  }]
 }
 
 /**

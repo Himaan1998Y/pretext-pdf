@@ -2,34 +2,21 @@
 
 ## Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.3.x   | Yes                |
-| < 0.3   | No                 |
+| Version | Supported |
+|---------|-----------|
+| 1.x     | ✅ Yes     |
+| < 1.0   | ❌ No      |
 
 ## Reporting a Vulnerability
 
-**Please do not report security vulnerabilities through public GitHub issues.**
+Please **do not** open a public GitHub issue for security vulnerabilities.
 
-Email **himaan4149@gmail.com** with:
+To report a security issue, email: akashchikara1998@gmail.com
 
-1. Description of the vulnerability
-2. Steps to reproduce
-3. Potential impact
-4. Suggested fix (if any)
+Include:
+- Description of the vulnerability
+- Steps to reproduce
+- Potential impact
+- Suggested fix (optional)
 
-You will receive a response within **48 hours**. If the issue is confirmed, we will:
-
-1. Acknowledge the report
-2. Release a patch as soon as possible
-3. Credit you in the CHANGELOG (unless you prefer anonymity)
-
-## Scope
-
-This library generates PDF files from user-provided JSON data. Security considerations include:
-
-- **PDF injection**: Malicious content in `text` fields that could exploit PDF viewer vulnerabilities
-- **Path traversal**: Malicious paths in `src` fields for fonts or images
-- **Resource exhaustion**: Extremely large documents consuming excessive memory
-
-We take all reports seriously. Thank you for helping keep pretext-pdf secure.
+You will receive a response within 72 hours. If the issue is confirmed, a patch will be released as soon as possible. You will be credited in the changelog unless you prefer to remain anonymous.

@@ -213,11 +213,10 @@ describe('validate — rich-paragraph', () => {
     )
   })
 
-  test('throws ITALIC_FONT_NOT_LOADED for italic span without font', async () => {
-    await expectError(
-      () => render({ content: [{ type: 'rich-paragraph', spans: [{ text: 'italic', fontStyle: 'italic' }] }] }),
-      'ITALIC_FONT_NOT_LOADED'
-    )
+  test('Inter italic span renders without error (bundled via @fontsource/inter)', async () => {
+    // Inter italic is now bundled — this should NOT throw
+    const result = await render({ content: [{ type: 'rich-paragraph', spans: [{ text: 'italic', fontStyle: 'italic' }] }] })
+    assert.ok(result instanceof Uint8Array && result.length > 0, 'Expected non-empty PDF bytes')
   })
 
   test('throws VALIDATION_ERROR for invalid fontWeight', async () => {

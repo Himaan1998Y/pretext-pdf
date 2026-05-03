@@ -55,6 +55,20 @@ const BUNDLED_INTER_BOLD_PATHS: string[] = IS_NODE ? [
   resolveInterFile('inter-all-700-normal.woff2'),
 ].filter(Boolean) as string[] : []
 
+/** Path to bundled Inter 400 italic font */
+const BUNDLED_INTER_ITALIC_PATHS: string[] = IS_NODE ? [
+  path.join(__dirname, '..', 'fonts', 'Inter-Italic.ttf'),
+  resolveInterFile('inter-latin-400-italic.woff2'),
+  resolveInterFile('inter-all-400-italic.woff2'),
+].filter(Boolean) as string[] : []
+
+/** Path to bundled Inter 700 italic font */
+const BUNDLED_INTER_BOLD_ITALIC_PATHS: string[] = IS_NODE ? [
+  path.join(__dirname, '..', 'fonts', 'Inter-BoldItalic.ttf'),
+  resolveInterFile('inter-latin-700-italic.woff2'),
+  resolveInterFile('inter-all-700-italic.woff2'),
+].filter(Boolean) as string[] : []
+
 /**
  * Stage 2: Load and embed all fonts.
  * - Scans document for all font references
@@ -266,7 +280,14 @@ async function loadFontBytes(
         `Bundled Inter font is not available in the browser. Supply font bytes via doc.fonts: [{ family: 'Inter', weight: 400, src: <Uint8Array> }, { family: 'Inter', weight: 700, src: <Uint8Array> }]`
       )
     }
-    const paths = (spec.weight ?? 400) >= 600 ? BUNDLED_INTER_BOLD_PATHS : BUNDLED_INTER_PATHS
+    const weight = spec.weight ?? 400
+    const style = (spec as { style?: string }).style ?? 'normal'
+    let paths: string[]
+    if (style === 'italic') {
+      paths = weight >= 600 ? BUNDLED_INTER_BOLD_ITALIC_PATHS : BUNDLED_INTER_ITALIC_PATHS
+    } else {
+      paths = weight >= 600 ? BUNDLED_INTER_BOLD_PATHS : BUNDLED_INTER_PATHS
+    }
     for (const p of paths) {
       if (fs.existsSync(p)) {
         try {

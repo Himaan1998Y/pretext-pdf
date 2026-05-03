@@ -725,23 +725,18 @@ describe('e2e — rich text (rich-paragraph)', () => {
     writeOutput('e2e-p3-rich-text.pdf', pdf)
   })
 
-  test('rich-paragraph validation: throws ITALIC_FONT_NOT_LOADED for italic without font', async () => {
-    await assert.rejects(
-      () => render({
-        content: [{
-          type: 'rich-paragraph',
-          spans: [
-            { text: 'Normal and ' },
-            { text: 'italic', fontStyle: 'italic' },
-          ],
-        }],
-      }),
-      (err: unknown) => {
-        assert.ok(err instanceof PretextPdfError)
-        assert.equal(err.code, 'ITALIC_FONT_NOT_LOADED')
-        return true
-      }
-    )
+  test('rich-paragraph with Inter italic renders without error (bundled via @fontsource/inter)', async () => {
+    // Inter italic is now bundled — should render successfully
+    const pdf = await render({
+      content: [{
+        type: 'rich-paragraph',
+        spans: [
+          { text: 'Normal and ' },
+          { text: 'italic', fontStyle: 'italic' },
+        ],
+      }],
+    })
+    assert.ok(pdf instanceof Uint8Array && pdf.length > 0)
   })
 
   test('rich-paragraph multi-line wrapping renders correctly', async () => {
