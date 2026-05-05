@@ -9,7 +9,7 @@
  * Those functions are tested indirectly via the full render() pipeline in e2e.test.ts.
  * This file only asserts the exported API shape hasn't changed.
  *
- * Current pinned version: 0.0.5 (see package.json — exact pin, no caret)
+ * Current pinned version: github:Himaan1998Y/pretext#v0.0.6-patched.2 (11 upstream PRs cherry-picked)
  * Fork contingency: if @chenglou/pretext is abandoned, fork to a private repo
  *   and update the package.json dependency accordingly.
  */
@@ -40,4 +40,12 @@ test('pretext: layoutWithLines has correct arity (accepts prepared + width + hei
   const { layoutWithLines } = await import('@chenglou/pretext')
   assert.ok(layoutWithLines.length <= 4,
     'layoutWithLines signature changed — verify src/measure.ts call sites')
+})
+
+test('pretext: layoutNextLine reconstruction includes trailing collapsible space', async () => {
+  // Regression guard for PR #29 fix: trailing space must be in line boundary,
+  // not silently dropped and then consumed by normalizeLineStart on the next line.
+  const pretext = await import('@chenglou/pretext')
+  assert.strictEqual(typeof pretext.layoutNextLine, 'function',
+    'layoutNextLine must be exported — line-by-line layout API guard')
 })

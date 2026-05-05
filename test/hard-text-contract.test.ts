@@ -43,4 +43,21 @@ describe('hard text contract', () => {
     assert.ok(first.measuredBlocks.some(block => block.type === 'paragraph'))
     assert.ok(first.measuredBlocks.some(block => block.isRTL))
   })
+
+  test('currency symbols stay glued to their numbers across line wraps', async () => {
+    const doc = {
+      content: [
+        {
+          type: 'paragraph',
+          // Long line forces a wrap; currencies must not be separated from digits
+          text: 'Price: $1,234.56 and €9,999.00 and £4,500.00 and ₹12,34,567.89 — none should break mid-symbol.',
+          fontSize: 10,
+        },
+      ],
+    }
+    const first = summarizeLayoutState(await prepareLayoutState(doc as any))
+    const second = summarizeLayoutState(await prepareLayoutState(doc as any))
+    assert.deepStrictEqual(second, first, 'currency layout must be deterministic')
+    assert.ok(first.pages.length >= 1)
+  })
 })

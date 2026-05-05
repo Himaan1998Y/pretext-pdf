@@ -7,6 +7,37 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.0.7] — 2026-05-05
+
+Picks up pretext fork v0.0.6-patched.2: 8 additional upstream PRs (11 total).
+
+### Fixed
+
+- **German low opening quote `„` no longer breaks at line-start on hyphenation path** —
+  `KINSOKU_START_FORBIDDEN` in `src/measure-text.ts` now includes U+201E (`„`), matching
+  pretext PR #165 which fixed the non-hyphenation path. Previously `„` could appear
+  at the start of a wrapped line when hyphenation was active.
+
+- **Currency symbols stay glued to adjacent numbers** — Upstream PR #105 (cherry-picked in
+  `v0.0.6-patched.2`) prevents `$`, `€`, `£`, `₹` etc. from line-breaking away from
+  the number they annotate.
+
+- **Trailing collapsible-space reconstruction fixed** — Upstream PR #29 fix (extended in
+  v0.0.6-patched.2): a word followed by a space that exactly fills `maxWidth` no longer
+  drops the space from line boundary cursors, preventing Arabic/mixed-script text from
+  losing inter-word spaces during reconstruction.
+
+### Changed
+
+- **`@chenglou/pretext` dependency** — Bumped from `v0.0.6-patched` to `v0.0.6-patched.2`
+  (GitHub fork, 11 upstream PRs total). Adds: CJK overflow prevention (PR #132),
+  fit-advance cache fix (PR #161), rich inline stats unification (PR #138),
+  chunk layout side table O(1) lookup (PR #140), bidi surrogate handling (PR #3),
+  skip no-op merge passes (PR #119), currency stickiness (PR #105),
+  German quote fix (PR #165), and trailing-space reconstruction (PR #29).
+
+---
+
 ## [1.0.6] — 2026-05-04
 
 Audit bug fixes: validator correctness, internal export hygiene, schema gaps, README accuracy.

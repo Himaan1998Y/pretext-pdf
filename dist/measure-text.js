@@ -125,6 +125,7 @@ const KINSOKU_START_FORBIDDEN = new Set([
     '\uFF01', '\uFF09', '\uFF0C', '\uFF0E', // fullwidth ! ) , .
     '\uFF1A', '\uFF1B', '\uFF1F', // fullwidth : ; ?
     '\u30FB', // katakana middle dot
+    '\u201E', // \u201E German low opening quote (PR #165)
 ]);
 /**
  * Lazily-created segmenter for Thai/Lao. Intl.Segmenter is built into Node.js 16+.
