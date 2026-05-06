@@ -1,6 +1,6 @@
 import { PDFDocument, PDFName, PDFString, PDFNull } from '@cantoo/pdf-lib'
 import type {
-  PdfDocument
+  PdfDocument, Logger
 } from './types.js'
 import type {
   PaginatedDocument, PagedBlock,
@@ -48,8 +48,10 @@ export async function renderDocument(
   imageMap: ImageMap,
   pdfDoc: PDFDocument,
   geo: PageGeometry,
-  plugins?: PluginDefinition[]
+  plugins?: PluginDefinition[],
+  logger?: Logger
 ): Promise<Uint8Array> {
+  const warn = logger ? logger.warn.bind(logger) : console.warn.bind(console)
   const { pageWidth, pageHeight, margins, contentWidth } = geo
 
   // Pre-compute token values that don't change per page
@@ -76,7 +78,7 @@ export async function renderDocument(
           const ffEl = blockEl as import('./types.js').FormFieldElement
           const action = doc.onFormFieldError ? doc.onFormFieldError(ffEl.name, e as Error) : 'skip'
           if (action === 'throw') throw e
-          console.warn(`[pretext-pdf] Form field "${ffEl.name}" failed to render: ${(e as Error).message}`)
+          warn(`[pretext-pdf] Form field "${ffEl.name}" failed to render: ${(e as Error).message}`)
         }
       } else {
         renderBlock(pdfPage, pagedBlock, geo, fontMap, imageMap, pdfDoc, paginatedDoc.footnoteNumbering, plugins)

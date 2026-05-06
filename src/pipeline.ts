@@ -72,11 +72,12 @@ export async function stageLoadAssets(
   doc: PdfDocument,
   pdfDoc: PDFDocument,
   contentWidth: number,
-  plugins?: import('./plugin-types.js').PluginDefinition[]
+  plugins?: import('./plugin-types.js').PluginDefinition[],
+  logger?: import('./types-public.js').Logger,
 ): Promise<{ fontMap: FontMap; imageMap: ImageMap }> {
   const [fontMap, imageMap] = await Promise.all([
     loadFonts(doc, pdfDoc),
-    loadImages(doc, pdfDoc, contentWidth, plugins),
+    loadImages(doc, pdfDoc, contentWidth, plugins, logger),
   ])
   return { fontMap, imageMap }
 }
@@ -156,9 +157,10 @@ export async function stageRender(
   imageMap: ImageMap,
   pdfDoc: PDFDocument,
   geo: PageGeometry,
-  plugins?: import('./plugin-types.js').PluginDefinition[]
+  plugins?: import('./plugin-types.js').PluginDefinition[],
+  logger?: import('./types-public.js').Logger,
 ): Promise<Uint8Array> {
-  return renderDocument(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo, plugins)
+  return renderDocument(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo, plugins, logger)
 }
 
 // ─── Composed pipeline ────────────────────────────────────────────────────────
@@ -175,13 +177,14 @@ export async function runPipeline(doc: PdfDocument, options?: RenderOptions): Pr
   }
 
   const plugins = options?.plugins
+  const logger = options?.logger
 
   stageValidate(doc, options)
 
   const { pdfDoc, geo: partialGeo, defaultFont } = await stageInit(doc)
-  const { fontMap, imageMap } = await stageLoadAssets(doc, pdfDoc, partialGeo.contentWidth, plugins)
+  const { fontMap, imageMap } = await stageLoadAssets(doc, pdfDoc, partialGeo.contentWidth, plugins, logger)
   const geo = await stageFinalizeGeo(doc, partialGeo, defaultFont)
   const measuredBlocks = await stageMeasure(doc, geo.contentWidth, imageMap, geo.contentHeight, plugins)
   const paginatedDoc = stagePaginate(measuredBlocks, geo.contentHeight, doc)
-  return stageRender(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo, plugins)
+  return stageRender(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo, plugins, logger)
 }

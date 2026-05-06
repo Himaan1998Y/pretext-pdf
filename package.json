@@ -1,6 +1,6 @@
 {
   "name": "pretext-pdf",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Generate PDFs from JSON — declarative, serverless, no Chromium. TypeScript-first with professional typography. Ideal for invoices, reports, and AI agents.",
   "keywords": [
     "pdf",
@@ -88,7 +88,7 @@
     "build": "tsc",
     "api:extract": "api-extractor run --local",
     "api:check": "api-extractor run",
-    "test:unit": "tsx --test test/validate.test.ts test/validate-document.test.ts test/builder.test.ts test/rich-text.test.ts test/layout-contract.test.ts test/hard-text-contract.test.ts test/validate-strict.test.ts",
+    "test:unit": "tsx --test test/validate.test.ts test/validate-document.test.ts test/builder.test.ts test/rich-text.test.ts test/layout-contract.test.ts test/hard-text-contract.test.ts test/validate-strict.test.ts test/logger-routing.test.ts",
     "test:validate": "tsx --test test/validate.test.ts test/builder.test.ts",
     "test:e2e": "tsx --test test/e2e.test.ts",
     "test:phase-3": "tsx --test test/signatures-validation.test.ts",
@@ -202,7 +202,6 @@
     "vega-lite": "^6.4.2"
   },
   "optionalDependencies": {
-    "@napi-rs/canvas": "^0.1.57",
     "pixelmatch": "^7.1.0",
     "pngjs": "^7.0.0"
   }

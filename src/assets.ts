@@ -1,5 +1,5 @@
 import { PDFDocument } from '@cantoo/pdf-lib'
-import type { PdfDocument, ImageElement, SvgElement, QrCodeElement, BarcodeElement, ChartElement } from './types.js'
+import type { PdfDocument, ImageElement, SvgElement, QrCodeElement, BarcodeElement, ChartElement, Logger } from './types.js'
 import type { ImageMap } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 import type { PluginDefinition } from './plugin-types.js'
@@ -383,7 +383,8 @@ async function loadSvgAsImage(
  * Images that fail to load (network error, file not found, unreachable URL) are
  * logged as warnings but do not crash the document — the document renders without that image.
  */
-export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentWidth: number, plugins?: PluginDefinition[]): Promise<ImageMap> {
+export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentWidth: number, plugins?: PluginDefinition[], logger?: Logger): Promise<ImageMap> {
+  const warn = logger ? logger.warn.bind(logger) : console.warn.bind(console)
   const imageMap: ImageMap = new Map()
   const allowedDirs = doc.allowedFileDirs
 
@@ -426,7 +427,7 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
       const err = result.reason instanceof Error ? result.reason : new Error(String(result.reason))
       const action = doc.onImageLoadError ? doc.onImageLoadError(entry.el.src, err) : 'skip'
       if (action === 'throw') throw err
-      console.warn(`[pretext-pdf] Image load skipped: ${err.message}`)
+      warn(`[pretext-pdf] Image load skipped: ${err.message}`)
       continue
     }
 
@@ -441,7 +442,7 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
       const error = err instanceof Error ? err : new Error(String(err))
       const action = doc.onImageLoadError ? doc.onImageLoadError(entry.el.src, error) : 'skip'
       if (action === 'throw') throw error
-      console.warn(`[pretext-pdf] Image embed failed: key "${key}" (format: '${resolvedFormat}')`)
+      warn(`[pretext-pdf] Image embed failed: key "${key}" (format: '${resolvedFormat}')`)
       // Continue without this image rather than crashing
     }
   }
@@ -464,7 +465,7 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
         imageMap.set(key, pdfImage)
       } catch (err) {
         if (err instanceof PretextPdfError) throw err
-        console.warn(`[pretext-pdf] QR code skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`)
+        warn(`[pretext-pdf] QR code skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`)
       }
     } else if (el.type === 'barcode') {
       const key = `barcode-${i}`
@@ -476,7 +477,7 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
         imageMap.set(key, pdfImage)
       } catch (err) {
         if (err instanceof PretextPdfError) throw err
-        console.warn(`[pretext-pdf] Barcode skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`)
+        warn(`[pretext-pdf] Barcode skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`)
       }
     } else if (el.type === 'chart') {
       const key = `chart-${i}`
@@ -488,7 +489,7 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
         imageMap.set(key, pdfImage)
       } catch (err) {
         if (err instanceof PretextPdfError) throw err
-        console.warn(`[pretext-pdf] Chart skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`)
+        warn(`[pretext-pdf] Chart skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`)
       }
     }
   }
@@ -506,7 +507,7 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
         }
       } catch (err) {
         if (err instanceof PretextPdfError) throw err
-        console.warn(`[pretext-pdf] Plugin '${plugin.type}' loadAsset failed at index ${i}: ${err instanceof Error ? err.message : String(err)}`)
+        warn(`[pretext-pdf] Plugin '${plugin.type}' loadAsset failed at index ${i}: ${err instanceof Error ? err.message : String(err)}`)
       }
     }
   }
@@ -532,7 +533,7 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
       imageMap.set('watermark', pdfImage)
     } catch (err) {
       if (err instanceof PretextPdfError && err.code === 'PATH_TRAVERSAL') throw err
-      console.warn(`[pretext-pdf] Watermark image skipped: ${err instanceof Error ? err.message : String(err)}`)
+      warn(`[pretext-pdf] Watermark image skipped: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 

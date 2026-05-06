@@ -9,7 +9,7 @@
 [![npm downloads](https://img.shields.io/npm/dw/pretext-pdf)](https://www.npmjs.com/package/pretext-pdf)
 [![CI](https://github.com/Himaan1998Y/pretext-pdf/actions/workflows/ci.yml/badge.svg)](https://github.com/Himaan1998Y/pretext-pdf/actions)
 [![TypeScript](https://img.shields.io/badge/typescript-strict-blue)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-693-brightgreen)](#tests)
+[![Tests](https://img.shields.io/badge/tests-695-brightgreen)](#tests)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Bundle](https://img.shields.io/badge/runtime%20deps-8-informational)](#runtime-footprint)
 
@@ -134,6 +134,18 @@ const pdf = await render({
 
 writeFileSync('invoice.pdf', pdf)
 ```
+
+> **Security — file-path access**
+> By default, `render()` will read any absolute file path supplied in `image.src`, `svg.src`,
+> or watermark image fields. If your document JSON originates from user input, an LLM,
+> or any external source, set `allowedFileDirs` to restrict reads to a known directory:
+>
+> ```typescript
+> await render(doc, { allowedFileDirs: ['/srv/safe/assets/'] })
+> ```
+>
+> Paths outside the listed directories throw `PATH_TRAVERSAL`. HTTPS image URLs are
+> always validated against an SSRF blocklist regardless of this setting.
 
 ### CLI
 

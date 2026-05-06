@@ -7,6 +7,44 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.0.8] — 2026-05-06
+
+Public API contract integrity: the `RenderOptions.logger` option now actually does what
+its JSDoc has always promised, and `@napi-rs/canvas` no longer auto-installs.
+
+### Fixed
+
+- **`RenderOptions.logger` now routes warnings from asset loading and rendering** —
+  Previously only validation warnings respected the `logger` option. Now all advisory
+  warnings from `loadImages` (image load, image embed, QR/barcode/chart skipped, plugin
+  loadAsset failed, watermark image skipped — 7 call sites) and `renderDocument` (form
+  field render failure) flow through `logger.warn` when one is provided. Bidi-js fallback
+  warnings from RTL reordering remain on `console.warn`; the JSDoc on `RenderOptions.logger`
+  has been updated to document the actual scope honestly.
+
+- **Missing `[pretext-pdf]` log prefix on bidi-js error path** — One `console.warn` in
+  `measure-text.ts` was logging without the canonical `[pretext-pdf]` prefix, making it
+  hard to identify the library as the source in consumer logs. Now consistent.
+
+### Changed
+
+- **`@napi-rs/canvas` removed from `optionalDependencies`** — Was double-listed in both
+  `peerDependencies` (with `optional: true`) and `optionalDependencies`. The latter caused
+  npm to attempt installing the native canvas binary on every install, including in
+  edge/serverless environments where the platform may not be supported and the dep is
+  not needed. Now only listed under `peerDependencies` — install it explicitly when you
+  need SVG/QR/barcode/chart rasterization in Node.
+
+### Documentation
+
+- **README — security callout for `allowedFileDirs`** — Added a prominent callout in the
+  Quick Start section. The default behavior allows `image.src` and `svg.src` to read any
+  absolute file path, which is a path-traversal vector when document JSON originates from
+  user input or an LLM. The callout now appears immediately after the first `render()`
+  example.
+
+---
+
 ## [1.0.7] — 2026-05-05
 
 Picks up pretext fork v0.0.6-patched.2: 8 additional upstream PRs (11 total).
