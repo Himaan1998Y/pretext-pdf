@@ -13,7 +13,7 @@ npm test
 ## Running Tests
 
 ```bash
-npm test              # Run all test suites (676 tests)
+npm test              # Run all test suites
 npm run build         # TypeScript compilation
 npm run test:unit     # Unit tests only
 npm run test:e2e      # E2E tests only

@@ -7,6 +7,50 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.0.9] — 2026-05-06
+
+Test coverage Phase 2: filling blind spots in the CLI, the pdfmake compat shim, and
+the performance regression guard. Adds c8 coverage tooling for measurability.
+
+### Added
+
+- **`test/cli.test.ts`** (+13 tests) — End-to-end coverage for the `pretext-pdf` CLI binary,
+  spawning `dist/cli.js` as a subprocess. Covers argument parsing (`--version`, `--help`,
+  `-i/-o/--markdown/--code-font`, positional fallback, unknown flags), JSON and Markdown
+  input modes, stdin/stdout piping, and exit codes 0/1/2.
+
+- **`test/compat.test.ts`** (+34 tests) — Coverage for the pdfmake → pretext-pdf
+  translation shim (`fromPdfmake`). Covers page setup (pageSize string and object,
+  pageMargins scalar/2-tuple/4-tuple, orientation), styles (defaultStyle, named styles,
+  headingMap override), all content node types (string, `text`, `ul`/`ol` with nesting,
+  `table` with header rows, `image`, `qr`, `pageBreak`, `stack`), header/footer string
+  forms, integration render, and unsupported nodes (`columns`, `canvas`).
+
+- **c8 coverage tooling** — `npm run coverage` (text + lcov reporters) and
+  `npm run coverage:check` (75/65/75 thresholds, non-blocking in CI initially).
+  Configuration in `.c8rc.json` excludes type-only files and CLI from instrumentation.
+  Coverage step added to CI as `continue-on-error: true` while baseline thresholds
+  are calibrated.
+
+### Fixed
+
+- **`test/benchmark-baseline.test.ts`: regression guard now actually guards** —
+  Replaced the prior "TODO: enable when baseline is calibrated" stub (which collected
+  timings but asserted nothing) with a real 3x-baseline-with-500ms-floor budget per
+  corpus. Missing corpora in the baseline JSON now `assert.fail()` instead of silently
+  defaulting to a zero budget that would mask any regression.
+
+- **CONTRIBUTING.md: removed stale "(676 tests)" annotation** — Test count drift bait;
+  the README badge already auto-verifies via `verify:badges`.
+
+### Changed
+
+- **Test runner now builds first** — Added `pretest:unit: npm run build` so contributors
+  running `npm run test:unit` always get a fresh dist; the new CLI tests spawn the
+  compiled binary and would otherwise fail with a confusing module-not-found error.
+
+---
+
 ## [1.0.8] — 2026-05-06
 
 Public API contract integrity: the `RenderOptions.logger` option now actually does what

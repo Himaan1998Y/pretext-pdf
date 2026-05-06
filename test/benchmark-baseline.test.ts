@@ -29,30 +29,35 @@ describe('benchmark baseline snapshot', () => {
     }
   })
 
-  it('performance comparison (baseline needs real-world data)', async () => {
+  it('per-corpus render times stay within 3x of baseline (regression guard)', async () => {
     const baselinePath = join(process.cwd(), 'benchmarks', 'benchmark-baseline.json')
     const raw = readFileSync(baselinePath, 'utf8')
     const baseline = JSON.parse(raw) as {
       version: number
-      corpora: Array<{ id: string; category: string; title: string; stages: Record<string, number> }>
+      corpora: Array<{ id: string; stages: { totalMs: number } }>
     }
+    const baselineMap = new Map(baseline.corpora.map(c => [c.id, c.stages.totalMs]))
 
-    const corpora = getBenchmarkCorpora()
+    // 3x slack absorbs CI runner variance while still catching catastrophic regressions
+    // (e.g. an O(n²) bug that would 10x render time). Tighten if/when CI is more deterministic.
+    const SLACK = 3.0
+    const FLOOR_MS = 500 // never assert below 500ms — per-corpus baselines may be near-zero on dev hardware
 
-    // Collect current timings but don't assert yet — baseline needs real-world data
-    const currentTimings: Record<string, number> = {}
-    for (const corpus of corpora) {
-      const startTime = performance.now()
-      const doc = corpus.document()
-      await render(doc)
-      const elapsed = performance.now() - startTime
-      currentTimings[corpus.id] = elapsed
+    for (const corpus of getBenchmarkCorpora()) {
+      const baselineMs = baselineMap.get(corpus.id)
+      if (baselineMs === undefined) {
+        assert.fail(`${corpus.id} is not in benchmarks/benchmark-baseline.json — regenerate the baseline file before adding new corpora`)
+      }
+      const budgetMs = Math.max(baselineMs * SLACK, FLOOR_MS)
+
+      const start = performance.now()
+      await render(corpus.document())
+      const elapsed = performance.now() - start
+
+      assert.ok(
+        elapsed < budgetMs,
+        `${corpus.id}: ${elapsed.toFixed(0)}ms exceeds budget ${budgetMs.toFixed(0)}ms (baseline ${baselineMs}ms × ${SLACK})`
+      )
     }
-
-    // Verify data was collected
-    assert.ok(Object.keys(currentTimings).length > 0, 'Should collect performance data')
-
-    // TODO: Enable performance regression detection once baseline is calibrated with real timings
-    // For now, this test verifies the infrastructure is in place and benchmarks can run to completion
   })
 })

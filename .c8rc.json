@@ -1,0 +1,19 @@
+{
+  "all": true,
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "src/cli.ts",
+    "src/types-public.ts",
+    "src/types-internal.ts",
+    "src/types.ts",
+    "src/schema.ts",
+    "src/element-types.ts",
+    "src/allowed-props.ts",
+    "src/benchmarks/**",
+    "src/node-polyfill.ts"
+  ],
+  "extension": [".ts"],
+  "reporter": ["text", "lcov"],
+  "report-dir": "coverage",
+  "skip-full": false
+}

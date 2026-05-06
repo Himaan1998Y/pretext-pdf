@@ -53,6 +53,11 @@ jobs:
       - name: All phase tests (phases 2–9)
         run: npm run test:phases
 
+      - name: Coverage report (non-blocking — calibrating thresholds before enforcing)
+        if: matrix.node-version == '20.x'
+        run: npm run coverage
+        continue-on-error: true
+
       - name: Smoke test examples (Phase 7)
         run: |
           npm run example:watermark
