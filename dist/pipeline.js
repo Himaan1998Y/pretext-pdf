@@ -56,10 +56,10 @@ export async function stageInit(doc) {
     };
 }
 // ─── Stage 2b: Load assets (fonts + images in parallel) ──────────────────────
-export async function stageLoadAssets(doc, pdfDoc, contentWidth, plugins) {
+export async function stageLoadAssets(doc, pdfDoc, contentWidth, plugins, logger) {
     const [fontMap, imageMap] = await Promise.all([
         loadFonts(doc, pdfDoc),
-        loadImages(doc, pdfDoc, contentWidth, plugins),
+        loadImages(doc, pdfDoc, contentWidth, plugins, logger),
     ]);
     return { fontMap, imageMap };
 }
@@ -90,8 +90,8 @@ export function stagePaginate(measuredBlocks, contentHeight, doc) {
     return runFootnoteTwoPass(measuredBlocks, contentHeight, paginateConfig, doc);
 }
 // ─── Stage 5: Render ──────────────────────────────────────────────────────────
-export async function stageRender(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo, plugins) {
-    return renderDocument(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo, plugins);
+export async function stageRender(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo, plugins, logger) {
+    return renderDocument(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo, plugins, logger);
 }
 // ─── Composed pipeline ────────────────────────────────────────────────────────
 /**
@@ -105,12 +105,13 @@ export async function runPipeline(doc, options) {
         await installNodePolyfill();
     }
     const plugins = options?.plugins;
+    const logger = options?.logger;
     stageValidate(doc, options);
     const { pdfDoc, geo: partialGeo, defaultFont } = await stageInit(doc);
-    const { fontMap, imageMap } = await stageLoadAssets(doc, pdfDoc, partialGeo.contentWidth, plugins);
+    const { fontMap, imageMap } = await stageLoadAssets(doc, pdfDoc, partialGeo.contentWidth, plugins, logger);
     const geo = await stageFinalizeGeo(doc, partialGeo, defaultFont);
     const measuredBlocks = await stageMeasure(doc, geo.contentWidth, imageMap, geo.contentHeight, plugins);
     const paginatedDoc = stagePaginate(measuredBlocks, geo.contentHeight, doc);
-    return stageRender(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo, plugins);
+    return stageRender(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo, plugins, logger);
 }
 //# sourceMappingURL=pipeline.js.map

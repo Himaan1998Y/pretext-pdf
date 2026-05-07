@@ -322,7 +322,8 @@ async function loadSvgAsImage(svg, widthPt, heightPt, pdfDoc) {
  * Images that fail to load (network error, file not found, unreachable URL) are
  * logged as warnings but do not crash the document — the document renders without that image.
  */
-export async function loadImages(doc, pdfDoc, contentWidth, plugins) {
+export async function loadImages(doc, pdfDoc, contentWidth, plugins, logger) {
+    const warn = logger ? logger.warn.bind(logger) : console.warn.bind(console);
     const imageMap = new Map();
     const allowedDirs = doc.allowedFileDirs;
     // Collect all ImageElement entries with their content index for stable keys
@@ -361,7 +362,7 @@ export async function loadImages(doc, pdfDoc, contentWidth, plugins) {
             const action = doc.onImageLoadError ? doc.onImageLoadError(entry.el.src, err) : 'skip';
             if (action === 'throw')
                 throw err;
-            console.warn(`[pretext-pdf] Image load skipped: ${err.message}`);
+            warn(`[pretext-pdf] Image load skipped: ${err.message}`);
             continue;
         }
         const { el, key, bytes } = result.value;
@@ -377,7 +378,7 @@ export async function loadImages(doc, pdfDoc, contentWidth, plugins) {
             const action = doc.onImageLoadError ? doc.onImageLoadError(entry.el.src, error) : 'skip';
             if (action === 'throw')
                 throw error;
-            console.warn(`[pretext-pdf] Image embed failed: key "${key}" (format: '${resolvedFormat}')`);
+            warn(`[pretext-pdf] Image embed failed: key "${key}" (format: '${resolvedFormat}')`);
             // Continue without this image rather than crashing
         }
     }
@@ -402,7 +403,7 @@ export async function loadImages(doc, pdfDoc, contentWidth, plugins) {
             catch (err) {
                 if (err instanceof PretextPdfError)
                     throw err;
-                console.warn(`[pretext-pdf] QR code skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`);
+                warn(`[pretext-pdf] QR code skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`);
             }
         }
         else if (el.type === 'barcode') {
@@ -417,7 +418,7 @@ export async function loadImages(doc, pdfDoc, contentWidth, plugins) {
             catch (err) {
                 if (err instanceof PretextPdfError)
                     throw err;
-                console.warn(`[pretext-pdf] Barcode skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`);
+                warn(`[pretext-pdf] Barcode skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`);
             }
         }
         else if (el.type === 'chart') {
@@ -432,7 +433,7 @@ export async function loadImages(doc, pdfDoc, contentWidth, plugins) {
             catch (err) {
                 if (err instanceof PretextPdfError)
                     throw err;
-                console.warn(`[pretext-pdf] Chart skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`);
+                warn(`[pretext-pdf] Chart skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`);
             }
         }
     }
@@ -452,7 +453,7 @@ export async function loadImages(doc, pdfDoc, contentWidth, plugins) {
             catch (err) {
                 if (err instanceof PretextPdfError)
                     throw err;
-                console.warn(`[pretext-pdf] Plugin '${plugin.type}' loadAsset failed at index ${i}: ${err instanceof Error ? err.message : String(err)}`);
+                warn(`[pretext-pdf] Plugin '${plugin.type}' loadAsset failed at index ${i}: ${err instanceof Error ? err.message : String(err)}`);
             }
         }
     }
@@ -481,7 +482,7 @@ export async function loadImages(doc, pdfDoc, contentWidth, plugins) {
         catch (err) {
             if (err instanceof PretextPdfError && err.code === 'PATH_TRAVERSAL')
                 throw err;
-            console.warn(`[pretext-pdf] Watermark image skipped: ${err instanceof Error ? err.message : String(err)}`);
+            warn(`[pretext-pdf] Watermark image skipped: ${err instanceof Error ? err.message : String(err)}`);
         }
     }
     return imageMap;

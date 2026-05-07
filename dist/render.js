@@ -11,7 +11,8 @@ import { addStickyNoteAnnotation } from './render-utils.js';
  * pdfDoc is NOT created here — it comes from index.ts with fonts already embedded.
  * imageMap contains pre-embedded PDFImage instances.
  */
-export async function renderDocument(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo, plugins) {
+export async function renderDocument(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo, plugins, logger) {
+    const warn = logger ? logger.warn.bind(logger) : console.warn.bind(console);
     const { pageWidth, pageHeight, margins, contentWidth } = geo;
     // Pre-compute token values that don't change per page
     const rawDate = doc.renderDate ? (doc.renderDate instanceof Date ? doc.renderDate : new Date(doc.renderDate)) : new Date();
@@ -37,7 +38,7 @@ export async function renderDocument(paginatedDoc, doc, fontMap, imageMap, pdfDo
                     const action = doc.onFormFieldError ? doc.onFormFieldError(ffEl.name, e) : 'skip';
                     if (action === 'throw')
                         throw e;
-                    console.warn(`[pretext-pdf] Form field "${ffEl.name}" failed to render: ${e.message}`);
+                    warn(`[pretext-pdf] Form field "${ffEl.name}" failed to render: ${e.message}`);
                 }
             }
             else {

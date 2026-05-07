@@ -6,7 +6,7 @@ const LINK_COLOR_DEFAULT = '#0070f3';
 let _pretext = null;
 async function getPretext() {
     if (!_pretext) {
-        _pretext = await import('@chenglou/pretext');
+        _pretext = await import('./vendor/pretext/layout.js');
     }
     return _pretext;
 }

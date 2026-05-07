@@ -7,6 +7,38 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.1.0] — 2026-05-07
+
+Vendor `@chenglou/pretext` source directly into the package, eliminating the
+GitHub URL dependency and all associated install risks (mutable tags, npm audit
+gaps, network-only install, no SRI).
+
+### Changed
+
+- **`@chenglou/pretext` is now vendored** — The upstream text-layout engine
+  (`src/vendor/pretext/`) is compiled as part of pretext-pdf itself. Consumers
+  no longer need to install `@chenglou/pretext`; the GitHub URL dependency has
+  been removed from `package.json`. The vendored snapshot is pinned to
+  `v0.0.6-patched.2` (commit `658edfec`) with 9 upstream PRs cherry-picked on
+  top of the `v0.0.6` release. See `UPSTREAM.md` for the full patch inventory
+  and upgrade procedure.
+
+### Added
+
+- **`UPSTREAM.md`** — Authoritative attribution and upgrade guide for the
+  vendored `@chenglou/pretext` source. Documents provenance, the 9 cherry-picked
+  upstream PRs (#3, #29, #105, #119, #132, #138, #140, #161, #165), which
+  commits are excluded from vendoring (fork infra), and the procedure for
+  updating when upstream publishes a new release.
+
+### Removed
+
+- **`@chenglou/pretext` dependency** — Removed from `dependencies`. The library
+  source is now bundled inside the package at `dist/vendor/pretext/`. No runtime
+  behavior change; the same patched code is used.
+
+---
+
 ## [1.0.9] — 2026-05-06
 
 Test coverage Phase 2: filling blind spots in the CLI, the pdfmake compat shim, and

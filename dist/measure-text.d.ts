@@ -11,7 +11,7 @@ export type HyphenatorOpts = {
 type HypherInstance = {
     hyphenate(word: string): string[];
 };
-export declare function getPretext(): Promise<typeof import("@chenglou/pretext")>;
+export declare function getPretext(): Promise<typeof import("./vendor/pretext/layout.js")>;
 export declare function getHyphenator(language: string): Promise<HypherInstance>;
 /**
  * Detect text direction and apply Unicode Bidi Algorithm (TR9) for visual reordering.

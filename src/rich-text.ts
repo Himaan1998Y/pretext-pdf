@@ -6,11 +6,11 @@ import { LINE_HEIGHT_BODY } from './render-utils.js'
 const LINK_COLOR_DEFAULT = '#0070f3'
 
 /** Lazily-loaded Pretext module */
-let _pretext: typeof import('@chenglou/pretext') | null = null
+let _pretext: typeof import('./vendor/pretext/layout.js') | null = null
 
 async function getPretext() {
   if (!_pretext) {
-    _pretext = await import('@chenglou/pretext')
+    _pretext = await import('./vendor/pretext/layout.js')
   }
   return _pretext
 }

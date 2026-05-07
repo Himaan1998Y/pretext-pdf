@@ -1069,8 +1069,16 @@ export type RenderOptions = {
      */
     plugins?: import('./plugin-types.js').PluginDefinition[];
     /**
-     * Optional logger for diagnostic messages. When provided, pretext-pdf routes
-     * all advisory warnings through logger.warn instead of console.warn.
+     * Optional logger for diagnostic messages. When provided, advisory warnings
+     * from validation, asset loading (images, QR, barcodes, charts, plugins,
+     * watermarks), and rendering (form fields) are routed through `logger.warn`
+     * instead of `console.warn`.
+     *
+     * @remarks
+     * Bidi-js fallback warnings from RTL reordering still go to `console.warn`
+     * directly. They are extremely rare (only fire when bidi-js itself errors)
+     * and routing them requires changes to deferred internal modules. This will
+     * be addressed in a future minor release.
      */
     logger?: Logger;
 };

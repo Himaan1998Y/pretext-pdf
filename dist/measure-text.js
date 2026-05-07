@@ -7,7 +7,7 @@ import { PretextPdfError } from './errors.js';
 let _pretext = null;
 export async function getPretext() {
     if (!_pretext) {
-        _pretext = await import('@chenglou/pretext');
+        _pretext = await import('./vendor/pretext/layout.js');
     }
     return _pretext;
 }
@@ -69,7 +69,7 @@ export async function detectAndReorderRTL(text, dirOverride) {
         return { visual, isRTL: true, logical: text };
     }
     catch (err) {
-        console.warn('bidi-js error during RTL reordering:', err);
+        console.warn('[pretext-pdf] bidi-js error during RTL reordering:', err);
         return { visual: text, isRTL: false, logical: text };
     }
 }

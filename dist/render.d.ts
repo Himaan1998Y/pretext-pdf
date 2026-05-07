@@ -1,5 +1,5 @@
 import { PDFDocument } from '@cantoo/pdf-lib';
-import type { PdfDocument } from './types.js';
+import type { PdfDocument, Logger } from './types.js';
 import type { PaginatedDocument, FontMap, ImageMap, PageGeometry } from './types-internal.js';
 import type { PluginDefinition } from './plugin-types.js';
 /**
@@ -10,5 +10,5 @@ import type { PluginDefinition } from './plugin-types.js';
  * pdfDoc is NOT created here — it comes from index.ts with fonts already embedded.
  * imageMap contains pre-embedded PDFImage instances.
  */
-export declare function renderDocument(paginatedDoc: PaginatedDocument, doc: PdfDocument, fontMap: FontMap, imageMap: ImageMap, pdfDoc: PDFDocument, geo: PageGeometry, plugins?: PluginDefinition[]): Promise<Uint8Array>;
+export declare function renderDocument(paginatedDoc: PaginatedDocument, doc: PdfDocument, fontMap: FontMap, imageMap: ImageMap, pdfDoc: PDFDocument, geo: PageGeometry, plugins?: PluginDefinition[], logger?: Logger): Promise<Uint8Array>;
 //# sourceMappingURL=render.d.ts.map

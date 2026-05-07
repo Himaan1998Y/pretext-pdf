@@ -10,11 +10,11 @@ export type HyphenatorOpts = { instance: HypherInstance; minWordLength: number; 
 type HypherInstance = { hyphenate(word: string): string[] }
 
 /** Lazily-loaded Pretext module — must be imported AFTER polyfill is installed */
-let _pretext: typeof import('@chenglou/pretext') | null = null
+let _pretext: typeof import('./vendor/pretext/layout.js') | null = null
 
 export async function getPretext() {
   if (!_pretext) {
-    _pretext = await import('@chenglou/pretext')
+    _pretext = await import('./vendor/pretext/layout.js')
   }
   return _pretext
 }

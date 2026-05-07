@@ -1,5 +1,5 @@
 import { PDFDocument } from '@cantoo/pdf-lib';
-import type { PdfDocument } from './types.js';
+import type { PdfDocument, Logger } from './types.js';
 import type { ImageMap } from './types-internal.js';
 import type { PluginDefinition } from './plugin-types.js';
 /**
@@ -28,5 +28,5 @@ export declare function assertSafeUrl(url: string, errorCode: 'IMAGE_LOAD_FAILED
  * Images that fail to load (network error, file not found, unreachable URL) are
  * logged as warnings but do not crash the document — the document renders without that image.
  */
-export declare function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentWidth: number, plugins?: PluginDefinition[]): Promise<ImageMap>;
+export declare function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentWidth: number, plugins?: PluginDefinition[], logger?: Logger): Promise<ImageMap>;
 //# sourceMappingURL=assets.d.ts.map
