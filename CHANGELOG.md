@@ -7,6 +7,34 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.1.1] — 2026-05-08
+
+### Fixed
+
+- **`validateDocument` fallback parser: path extraction** — `parseValidationErrorsStructured`
+  now correctly falls back to `path: "document"` for single-throw errors whose message
+  contains a sentence (e.g. `"margins.left must be a non-negative finite number. Got: -1"`).
+  Previously the heuristic accepted any text-before-colon that started with a letter,
+  producing a corrupted path like `"margins.left must be a non-negative finite number. Got"`.
+  Fix: reject candidates that contain `". "` (period + space), which only appears in
+  prose sentences, never in path expressions like `content[0] (paragraph) spans[0].href`.
+
+- **README `runtime%20deps` badge** — Updated from `8` to `7` to reflect the removal
+  of `@chenglou/pretext` from `dependencies` in v1.1.0.
+
+- **`SECURITY.md` personal email removed** — Replaced `akashchikara1998@gmail.com`
+  with the GitHub private vulnerability reporting URL.
+
+### Changed
+
+- **CI matrix: Node 18.x removed** — Node 18 reached End of Life in April 2025.
+  The CI matrix now targets Node 20.x and 22.x only. The `engines.node` field in
+  `package.json` is updated to `>=20.0.0`. The Node 18 matrix slot was causing
+  flaky benchmark failures (EOL runners are slower) that killed the `&&` test chain
+  and caused the badge verifier to see a truncated test count.
+
+---
+
 ## [1.1.0] — 2026-05-07
 
 Vendor `@chenglou/pretext` source directly into the package, eliminating the

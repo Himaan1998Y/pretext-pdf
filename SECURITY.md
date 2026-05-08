@@ -11,9 +11,11 @@
 
 Please **do not** open a public GitHub issue for security vulnerabilities.
 
-To report a security issue, email: akashchikara1998@gmail.com
+To report a security issue, use GitHub's private vulnerability reporting:
+<https://github.com/Himaan1998Y/pretext-pdf/security/advisories/new>
 
 Include:
+
 - Description of the vulnerability
 - Steps to reproduce
 - Potential impact

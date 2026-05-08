@@ -525,8 +525,11 @@ function parseValidationErrorsStructured(message, code) {
         });
     }
     const colonIdx = message.indexOf(':');
-    const hasPathPrefix = colonIdx > 0 && /^[a-z]/i.test(message.slice(0, colonIdx).trim());
-    const path = hasPathPrefix ? message.slice(0, colonIdx).trim() : 'document';
+    // A valid path (e.g. "content[0] (paragraph) spans[0].href") never contains ". " (period + space).
+    // Prose fragments like "margins.left must be a non-negative finite number. Got" do, so we reject them.
+    const candidate = message.slice(0, colonIdx).trim();
+    const hasPathPrefix = colonIdx > 0 && !/\. /.test(candidate);
+    const path = hasPathPrefix ? candidate : 'document';
     const msgText = hasPathPrefix ? message.slice(colonIdx + 1).trim() : message;
     return [{
             path,

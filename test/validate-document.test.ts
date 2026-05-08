@@ -226,6 +226,30 @@ describe('validateDocument — result shape', () => {
   })
 })
 
+// ─── Test 11: Fallback parser path extraction — sentence-with-colon bug ─────────
+
+describe('validateDocument — fallback parser: margin error path', () => {
+  test('margins.left: -1 error has path="document", not the full sentence fragment', () => {
+    const result = validateDocument({
+      content: [{ type: 'paragraph', text: 'x' }],
+      // @ts-expect-error intentional — negative margin triggers fallback error path
+      margins: { left: -1 },
+    })
+    assert.equal(result.valid, false)
+    assert.ok(result.errors.length > 0, 'should have at least one error')
+    const err = result.errors[0]!
+    // Before fix: path was "margins.left must be a non-negative finite number. Got"
+    // After fix: path must be a valid dot-path like "margins.left" or fall back to "document"
+    const hasSpaces = err.path.includes(' ')
+    assert.ok(!hasSpaces, `path must not contain spaces (sentence fragment leaked). Got: "${err.path}"`)
+    // message must include the actual value, not just "-1" in isolation
+    assert.ok(
+      err.message.length > 2,
+      `message should be descriptive, got: "${err.message}"`
+    )
+  })
+})
+
 // ─── Additional: errorCount == errors.length when under 20 errors ─────────────
 
 describe('validateDocument — errorCount matches errors.length for small error sets', () => {
