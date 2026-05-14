@@ -7,14 +7,7 @@ import type { PluginDefinition } from './plugin-types.js';
  * No-op when allowedFileDirs is unset (backwards-compatible default).
  */
 export declare function assertPathAllowed(resolvedPath: string, allowedDirs: string[] | undefined, label: string): void;
-/**
- * Validate a remote URL before fetching:
- * - Rejects http:// (plaintext only)
- * - Rejects private/internal IP ranges (SSRF prevention), including IPv4-mapped IPv6
- *   forms like [::ffff:127.0.0.1] which would otherwise bypass dotted-decimal regexes.
- * Throws IMAGE_LOAD_FAILED or SVG_LOAD_FAILED on violations.
- */
-export declare function assertSafeUrl(url: string, errorCode: 'IMAGE_LOAD_FAILED' | 'SVG_LOAD_FAILED', label: string): void;
+export declare function assertSafeUrl(url: string, errorCode: 'IMAGE_LOAD_FAILED' | 'SVG_LOAD_FAILED', label: string): Promise<void>;
 /**
  * Stage 2b: Load and embed all images into pdfDoc.
  * Runs after loadFonts(), receives the same pdfDoc.

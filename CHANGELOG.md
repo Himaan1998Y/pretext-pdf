@@ -7,6 +7,40 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.1.2] — 2026-05-08
+
+### Fixed
+
+- **Silent font-subset failure** (`src/fonts.ts`) — Bare `catch {}` on `pdfFont.encodeText()`
+  silently swallowed glyph-encoding errors, producing wrong characters with no signal.
+  Now logs a `console.warn` so callers know which font key failed.
+
+- **Explicit RTL direction silently flipping to LTR** (`src/measure-text.ts`) — When
+  `dir:'rtl'` was set and `bidi-js` threw during reordering, the fallback incorrectly
+  returned `isRTL: false`, causing Arabic/Hebrew paragraphs to align and wrap as LTR.
+  The fallback now preserves `isRTL: true` so the layout engine honours the explicit
+  direction even without bidi reordering.
+
+- **SSRF DNS rebinding window** (`src/assets.ts`) — `assertSafeUrl()` was synchronous.
+  An attacker with TTL=0 DNS could pass the hostname check then rebind to `169.254.x.x`
+  between the check and the actual `fetch()` call. The function is now async and
+  pre-resolves hostnames via `dns.lookup()` before the private-range check, closing
+  the TOCTOU window. Falls back gracefully when DNS is unavailable (fetch will also
+  fail in that case). All call sites updated to `await assertSafeUrl()`.
+
+- **Concurrent PDFDocument mutation race** (`src/pipeline.ts`) — `loadFonts` and
+  `loadImages` were run with `Promise.all()` over the same `PDFDocument` instance.
+  Both mutate the cross-reference table, causing intermittent xref corruption under
+  load. Now sequenced: `loadFonts` completes before `loadImages` begins.
+
+- **Test suite cascade: 692 tests silently dropped on benchmark failure** (`package.json`,
+  `scripts/test-all.mjs`) — The `&&`-chained `npm test` command aborted all downstream
+  stages when `test:contract` failed. Replaced with a Node.js runner that executes all
+  4 stages and collects failures. Benchmark is now in a separate `test:benchmark` script
+  (not in `test:contract`) with `FLOOR_MS` raised to 5s to absorb dev-hardware variance.
+
+---
+
 ## [1.1.1] — 2026-05-08
 
 ### Fixed

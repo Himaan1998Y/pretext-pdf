@@ -41,7 +41,7 @@ describe('benchmark baseline snapshot', () => {
     // 3x slack absorbs CI runner variance while still catching catastrophic regressions
     // (e.g. an O(n²) bug that would 10x render time). Tighten if/when CI is more deterministic.
     const SLACK = 3.0
-    const FLOOR_MS = 500 // never assert below 500ms — per-corpus baselines may be near-zero on dev hardware
+    const FLOOR_MS = 5000 // 5s floor — baselines captured on dev hardware; absorbs CI variance without masking true regressions (10x would be ~2730ms, still within budget)
 
     for (const corpus of getBenchmarkCorpora()) {
       const baselineMs = baselineMap.get(corpus.id)

@@ -1,4 +1,5 @@
 import { PDFDocument } from '@cantoo/pdf-lib'
+import { promises as dnsPromises } from 'node:dns'
 import type { PdfDocument, ImageElement, SvgElement, QrCodeElement, BarcodeElement, ChartElement, Logger } from './types.js'
 import type { ImageMap } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
@@ -33,7 +34,25 @@ export function assertPathAllowed(resolvedPath: string, allowedDirs: string[] | 
  *   forms like [::ffff:127.0.0.1] which would otherwise bypass dotted-decimal regexes.
  * Throws IMAGE_LOAD_FAILED or SVG_LOAD_FAILED on violations.
  */
-export function assertSafeUrl(url: string, errorCode: 'IMAGE_LOAD_FAILED' | 'SVG_LOAD_FAILED', label: string): void {
+function isPrivateAddress(h: string, raw: string): boolean {
+  return (
+    h === 'localhost' ||
+    h === '0.0.0.0' ||
+    h === '::' ||                  // IPv6 unspecified address (== 0.0.0.0)
+    h === '::1' ||
+    raw === '::1' || raw === '::' || // also catch un-normalized IPv6 forms
+    /^127\./.test(h) ||
+    /^10\./.test(h) ||
+    /^192\.168\./.test(h) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
+    /^169\.254\./.test(h) ||      // link-local / AWS IMDS
+    /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(h) || // CGNAT RFC 6598
+    raw.startsWith('fc') || raw.startsWith('fd') ||        // IPv6 ULA fc00::/7
+    /^fe[89ab]/i.test(raw)                                 // IPv6 link-local fe80::/10
+  )
+}
+
+export async function assertSafeUrl(url: string, errorCode: 'IMAGE_LOAD_FAILED' | 'SVG_LOAD_FAILED', label: string): Promise<void> {
   let parsed: URL
   try {
     parsed = new URL(url)
@@ -64,23 +83,26 @@ export function assertSafeUrl(url: string, errorCode: 'IMAGE_LOAD_FAILED' | 'SVG
     h = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`
   }
 
-  const isPrivate =
-    h === 'localhost' ||
-    h === '0.0.0.0' ||
-    h === '::' ||                  // IPv6 unspecified address (== 0.0.0.0)
-    h === '::1' ||
-    raw === '::1' || raw === '::' || // also catch un-normalized IPv6 forms
-    /^127\./.test(h) ||
-    /^10\./.test(h) ||
-    /^192\.168\./.test(h) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
-    /^169\.254\./.test(h) ||      // link-local / AWS IMDS
-    /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(h) || // CGNAT RFC 6598
-    raw.startsWith('fc') || raw.startsWith('fd') ||        // IPv6 ULA fc00::/7
-    /^fe[89ab]/i.test(raw)                                 // IPv6 link-local fe80::/10
-
-  if (isPrivate) {
+  if (isPrivateAddress(h, raw)) {
     throw new PretextPdfError(errorCode, `${label}: connections to private or internal addresses are not allowed`)
+  }
+
+  // DNS pre-resolution: re-verify the resolved IP to close the TOCTOU rebinding window.
+  // An attacker with TTL=0 DNS can pass the hostname check above then rebind to 169.254.x.x
+  // between this check and the actual fetch() call. Only applies to hostnames, not IP literals.
+  const isIpLiteral = /^\d{1,3}(\.\d{1,3}){3}$/.test(parsed.hostname) || parsed.hostname.startsWith('[')
+  if (!isIpLiteral && parsed.hostname) {
+    try {
+      const { address } = await dnsPromises.lookup(parsed.hostname)
+      const resolvedH = address.toLowerCase()
+      if (isPrivateAddress(resolvedH, resolvedH)) {
+        throw new PretextPdfError(errorCode, `${label}: hostname resolves to a private address`)
+      }
+    } catch (err) {
+      if (err instanceof PretextPdfError) throw err
+      // DNS network error: proceed with hostname-level check only.
+      // If DNS is unavailable, fetch() will also fail, so rebinding is not possible.
+    }
   }
 }
 
@@ -99,7 +121,7 @@ async function fetchWithTimeout(
   const MAX_REDIRECTS = 3
   let currentUrl = url
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    if (hop > 0) assertSafeUrl(currentUrl, errorCode, label)
+    if (hop > 0) await assertSafeUrl(currentUrl, errorCode, label)
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 10_000)
     let res: Response
@@ -206,7 +228,7 @@ async function resolveSvgContent(el: SvgElement, allowedFileDirs?: string[]): Pr
   }
 
   if (el.src.startsWith('https://') || el.src.startsWith('http://')) {
-    assertSafeUrl(el.src, 'SVG_LOAD_FAILED', 'SVG')
+    await assertSafeUrl(el.src, 'SVG_LOAD_FAILED', 'SVG')
     let resp: Response
     try {
       resp = await fetchWithTimeout(el.src, 'SVG_LOAD_FAILED', 'SVG')
@@ -576,7 +598,8 @@ async function loadImageBytes(el: ImageElement, key: string, allowedDirs?: strin
   }
 
   if (src.startsWith('https://') || src.startsWith('http://')) {
-    assertSafeUrl(src, 'IMAGE_LOAD_FAILED', `Image "${key}"`)
+    await assertSafeUrl(src, 'IMAGE_LOAD_FAILED', `Image "${key}"`)
+
     let resp: Response
     try {
       resp = await fetchWithTimeout(src, 'IMAGE_LOAD_FAILED', `Image "${key}"`)

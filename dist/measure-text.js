@@ -47,7 +47,7 @@ export async function detectAndReorderRTL(text, dirOverride) {
         }
         catch (err) {
             console.error('[pretext-pdf] bidi-js RTL reordering failed — rendering logical order as fallback:', err);
-            return { visual: text, isRTL: false, logical: text };
+            return { visual: text, isRTL: true, logical: text };
         }
     }
     // Step 2: Auto-detect dominant direction (full RTL block coverage, UAX #9)

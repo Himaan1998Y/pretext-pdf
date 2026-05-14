@@ -75,10 +75,9 @@ export async function stageLoadAssets(
   plugins?: import('./plugin-types.js').PluginDefinition[],
   logger?: import('./types-public.js').Logger,
 ): Promise<{ fontMap: FontMap; imageMap: ImageMap }> {
-  const [fontMap, imageMap] = await Promise.all([
-    loadFonts(doc, pdfDoc),
-    loadImages(doc, pdfDoc, contentWidth, plugins, logger),
-  ])
+  // Sequential: both mutate pdfDoc's cross-reference table — concurrent mutation causes intermittent xref corruption.
+  const fontMap = await loadFonts(doc, pdfDoc)
+  const imageMap = await loadImages(doc, pdfDoc, contentWidth, plugins, logger)
   return { fontMap, imageMap }
 }
 

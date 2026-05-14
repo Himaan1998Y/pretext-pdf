@@ -1,3 +1,4 @@
+import { promises as dnsPromises } from 'node:dns';
 import { PretextPdfError } from './errors.js';
 import { findPlugin, runPluginLoadAsset } from './plugin-registry.js';
 // ─── Security helpers ─────────────────────────────────────────────────────────
@@ -24,7 +25,23 @@ export function assertPathAllowed(resolvedPath, allowedDirs, label) {
  *   forms like [::ffff:127.0.0.1] which would otherwise bypass dotted-decimal regexes.
  * Throws IMAGE_LOAD_FAILED or SVG_LOAD_FAILED on violations.
  */
-export function assertSafeUrl(url, errorCode, label) {
+function isPrivateAddress(h, raw) {
+    return (h === 'localhost' ||
+        h === '0.0.0.0' ||
+        h === '::' || // IPv6 unspecified address (== 0.0.0.0)
+        h === '::1' ||
+        raw === '::1' || raw === '::' || // also catch un-normalized IPv6 forms
+        /^127\./.test(h) ||
+        /^10\./.test(h) ||
+        /^192\.168\./.test(h) ||
+        /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
+        /^169\.254\./.test(h) || // link-local / AWS IMDS
+        /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(h) || // CGNAT RFC 6598
+        raw.startsWith('fc') || raw.startsWith('fd') || // IPv6 ULA fc00::/7
+        /^fe[89ab]/i.test(raw) // IPv6 link-local fe80::/10
+    );
+}
+export async function assertSafeUrl(url, errorCode, label) {
     let parsed;
     try {
         parsed = new URL(url);
@@ -53,21 +70,27 @@ export function assertSafeUrl(url, errorCode, label) {
         const lo = parseInt(v4Hex[2], 16);
         h = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
     }
-    const isPrivate = h === 'localhost' ||
-        h === '0.0.0.0' ||
-        h === '::' || // IPv6 unspecified address (== 0.0.0.0)
-        h === '::1' ||
-        raw === '::1' || raw === '::' || // also catch un-normalized IPv6 forms
-        /^127\./.test(h) ||
-        /^10\./.test(h) ||
-        /^192\.168\./.test(h) ||
-        /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
-        /^169\.254\./.test(h) || // link-local / AWS IMDS
-        /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(h) || // CGNAT RFC 6598
-        raw.startsWith('fc') || raw.startsWith('fd') || // IPv6 ULA fc00::/7
-        /^fe[89ab]/i.test(raw); // IPv6 link-local fe80::/10
-    if (isPrivate) {
+    if (isPrivateAddress(h, raw)) {
         throw new PretextPdfError(errorCode, `${label}: connections to private or internal addresses are not allowed`);
+    }
+    // DNS pre-resolution: re-verify the resolved IP to close the TOCTOU rebinding window.
+    // An attacker with TTL=0 DNS can pass the hostname check above then rebind to 169.254.x.x
+    // between this check and the actual fetch() call. Only applies to hostnames, not IP literals.
+    const isIpLiteral = /^\d{1,3}(\.\d{1,3}){3}$/.test(parsed.hostname) || parsed.hostname.startsWith('[');
+    if (!isIpLiteral && parsed.hostname) {
+        try {
+            const { address } = await dnsPromises.lookup(parsed.hostname);
+            const resolvedH = address.toLowerCase();
+            if (isPrivateAddress(resolvedH, resolvedH)) {
+                throw new PretextPdfError(errorCode, `${label}: hostname resolves to a private address`);
+            }
+        }
+        catch (err) {
+            if (err instanceof PretextPdfError)
+                throw err;
+            // DNS network error: proceed with hostname-level check only.
+            // If DNS is unavailable, fetch() will also fail, so rebinding is not possible.
+        }
     }
 }
 /**
@@ -82,7 +105,7 @@ async function fetchWithTimeout(url, errorCode, label) {
     let currentUrl = url;
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
         if (hop > 0)
-            assertSafeUrl(currentUrl, errorCode, label);
+            await assertSafeUrl(currentUrl, errorCode, label);
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 10_000);
         let res;
@@ -185,7 +208,7 @@ async function resolveSvgContent(el, allowedFileDirs) {
         throw new PretextPdfError('SVG_LOAD_FAILED', "SvgElement requires either 'svg' (inline string) or 'src' (file path or https:// URL)");
     }
     if (el.src.startsWith('https://') || el.src.startsWith('http://')) {
-        assertSafeUrl(el.src, 'SVG_LOAD_FAILED', 'SVG');
+        await assertSafeUrl(el.src, 'SVG_LOAD_FAILED', 'SVG');
         let resp;
         try {
             resp = await fetchWithTimeout(el.src, 'SVG_LOAD_FAILED', 'SVG');
@@ -519,7 +542,7 @@ async function loadImageBytes(el, key, allowedDirs) {
         throw new PretextPdfError('IMAGE_LOAD_FAILED', `Image "${key}": 'src' must be a non-empty string path, URL, or Uint8Array`);
     }
     if (src.startsWith('https://') || src.startsWith('http://')) {
-        assertSafeUrl(src, 'IMAGE_LOAD_FAILED', `Image "${key}"`);
+        await assertSafeUrl(src, 'IMAGE_LOAD_FAILED', `Image "${key}"`);
         let resp;
         try {
             resp = await fetchWithTimeout(src, 'IMAGE_LOAD_FAILED', `Image "${key}"`);

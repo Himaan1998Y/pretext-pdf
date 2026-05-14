@@ -1,7 +1,7 @@
 /**
- * Regression tests for v0.8.3 SSRF hardening in src/assets.ts.
+ * Regression tests for SSRF hardening in src/assets.ts.
  *
- * Two fixes:
+ * Three fixes:
  * 1. IPv4-mapped IPv6 addresses ([::ffff:127.0.0.1]) bypassed the dotted-decimal
  *    private-IP regex chain in assertSafeUrl. Patched by normalizing the
  *    `::ffff:` prefix to its underlying IPv4 form before regex matching.
@@ -9,6 +9,8 @@
  *    URL could 302 to http://127.0.0.1:8080/private and bypass the upfront
  *    assertSafeUrl. Patched by switching to `redirect: 'manual'` and
  *    re-validating each Location with assertSafeUrl, max 3 hops.
+ * 3. DNS rebinding TOCTOU: assertSafeUrl is now async and pre-resolves hostnames
+ *    via dns.lookup() so the resolved IP is checked before fetch() re-resolves.
  */
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
@@ -26,8 +28,8 @@ describe('v0.8.3 — SSRF: IPv4-mapped IPv6 bypass', () => {
   ]
 
   for (const [host, label] of cases) {
-    test(`blocks ${label}: ${host}`, () => {
-      assert.throws(
+    test(`blocks ${label}: ${host}`, async () => {
+      await assert.rejects(
         () => assertSafeUrl(`https://${host}/admin`, 'IMAGE_LOAD_FAILED', 'Image'),
         /private or internal addresses/,
         `Expected ${host} to be blocked but it was allowed`
@@ -35,27 +37,27 @@ describe('v0.8.3 — SSRF: IPv4-mapped IPv6 bypass', () => {
     })
   }
 
-  test('blocks the IPv6 unspecified address ::', () => {
-    assert.throws(
+  test('blocks the IPv6 unspecified address ::', async () => {
+    await assert.rejects(
       () => assertSafeUrl('https://[::]/admin', 'IMAGE_LOAD_FAILED', 'Image'),
       /private or internal addresses/
     )
   })
 
-  test('blocks the IPv6 loopback ::1 (regression)', () => {
-    assert.throws(
+  test('blocks the IPv6 loopback ::1 (regression)', async () => {
+    await assert.rejects(
       () => assertSafeUrl('https://[::1]/admin', 'IMAGE_LOAD_FAILED', 'Image'),
       /private or internal addresses/
     )
   })
 
-  test('still allows ordinary public hostnames', () => {
-    assert.doesNotThrow(() => assertSafeUrl('https://example.com/img.png', 'IMAGE_LOAD_FAILED', 'Image'))
-    assert.doesNotThrow(() => assertSafeUrl('https://cdn.cloudflare.com/x.svg', 'SVG_LOAD_FAILED', 'SVG'))
+  test('still allows ordinary public hostnames', async () => {
+    await assert.doesNotReject(() => assertSafeUrl('https://example.com/img.png', 'IMAGE_LOAD_FAILED', 'Image'))
+    await assert.doesNotReject(() => assertSafeUrl('https://cdn.cloudflare.com/x.svg', 'SVG_LOAD_FAILED', 'SVG'))
   })
 
-  test('still rejects http:// regardless of host', () => {
-    assert.throws(
+  test('still rejects http:// regardless of host', async () => {
+    await assert.rejects(
       () => assertSafeUrl('http://example.com/img.png', 'IMAGE_LOAD_FAILED', 'Image'),
       /HTTPS/
     )

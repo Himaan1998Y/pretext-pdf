@@ -138,7 +138,9 @@ export async function loadFonts(
   for (const [key, text] of textByFont) {
     const pdfFont = fontMap.get(key)
     if (pdfFont && text.length > 0) {
-      try { pdfFont.encodeText(text) } catch { /* non-fatal: missing glyphs fall through */ }
+      try { pdfFont.encodeText(text) } catch (err) {
+        console.warn(`[pretext-pdf] font subset warning for "${key}": ${(err as Error).message ?? err}`)
+      }
     }
   }
 

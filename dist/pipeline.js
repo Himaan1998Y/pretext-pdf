@@ -57,10 +57,9 @@ export async function stageInit(doc) {
 }
 // ─── Stage 2b: Load assets (fonts + images in parallel) ──────────────────────
 export async function stageLoadAssets(doc, pdfDoc, contentWidth, plugins, logger) {
-    const [fontMap, imageMap] = await Promise.all([
-        loadFonts(doc, pdfDoc),
-        loadImages(doc, pdfDoc, contentWidth, plugins, logger),
-    ]);
+    // Sequential: both mutate pdfDoc's cross-reference table — concurrent mutation causes intermittent xref corruption.
+    const fontMap = await loadFonts(doc, pdfDoc);
+    const imageMap = await loadImages(doc, pdfDoc, contentWidth, plugins, logger);
     return { fontMap, imageMap };
 }
 // ─── Stage 2c: Finalize geometry (header/footer heights) ─────────────────────

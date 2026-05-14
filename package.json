@@ -1,6 +1,6 @@
 {
   "name": "pretext-pdf",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Generate PDFs from JSON — declarative, serverless, no Chromium. TypeScript-first with professional typography. Ideal for invoices, reports, and AI agents.",
   "keywords": [
     "pdf",
@@ -108,9 +108,10 @@
     "test:8e": "tsx --test test/signatures-visual.test.ts",
     "test:8b": "tsx --test test/forms.test.ts",
     "test:plugin": "tsx --test test/plugin-registry.test.ts",
-    "test:contract": "tsx --test test/pretext-api-contract.test.ts test/benchmark-baseline.test.ts test/drift-guards.test.ts test/plugin-registry.test.ts test/benchmark-corpora.test.ts test/smoke-staging.test.ts test/table-determinism.test.ts",
+    "test:contract": "tsx --test test/pretext-api-contract.test.ts test/drift-guards.test.ts test/plugin-registry.test.ts test/benchmark-corpora.test.ts test/smoke-staging.test.ts test/table-determinism.test.ts",
+    "test:benchmark": "tsx --test test/benchmark-baseline.test.ts",
     "test:2f": "cross-env NODE_OPTIONS=--max-old-space-size=4096 tsx --test test/stress.test.ts",
-    "test": "npm run test:contract && npm run test:unit && npm run test:e2e && npm run test:phases",
+    "test": "node scripts/test-all.mjs",
     "coverage": "c8 --reporter=text --reporter=lcov npm test",
     "coverage:check": "c8 check-coverage --lines 75 --branches 65 --functions 75",
     "verify:badges": "cross-env SKIP_TEST_RUN=1 node scripts/verify-badges.js",

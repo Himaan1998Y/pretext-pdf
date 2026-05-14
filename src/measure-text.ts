@@ -63,7 +63,7 @@ export async function detectAndReorderRTL(
       return { visual, isRTL: true, logical: text }
     } catch (err) {
       console.error('[pretext-pdf] bidi-js RTL reordering failed — rendering logical order as fallback:', err)
-      return { visual: text, isRTL: false, logical: text }
+      return { visual: text, isRTL: true, logical: text }
     }
   }
 

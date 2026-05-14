@@ -117,7 +117,9 @@ export async function loadFonts(doc, pdfDoc) {
             try {
                 pdfFont.encodeText(text);
             }
-            catch { /* non-fatal: missing glyphs fall through */ }
+            catch (err) {
+                console.warn(`[pretext-pdf] font subset warning for "${key}": ${err.message ?? err}`);
+            }
         }
     }
     // Set default font
