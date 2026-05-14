@@ -1646,6 +1646,9 @@ function validateElement(
       if (!Array.isArray(fg.content) || fg.content.length === 0) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group): 'content' must be a non-empty array`)
       }
+      if (fg.content.length > 100) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group): 'content' exceeds maximum of 100 items (${fg.content.length} provided) — prevents DoS via resource exhaustion`)
+      }
       for (let i = 0; i < fg.content.length; i++) {
         const item = fg.content[i]!
         if (!['paragraph', 'heading', 'rich-paragraph'].includes(item.type)) {

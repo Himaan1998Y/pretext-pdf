@@ -32,6 +32,37 @@ describe('validate — content array', () => {
   })
 })
 
+// ─── Nesting and recursion limits ────────────────────────────────────────────
+
+describe('validate — nesting depth', () => {
+  test('throws VALIDATION_ERROR when float-group.content exceeds 100 items (DoS prevention)', async () => {
+    // Create a float-group with 101+ nested paragraphs
+    const deepContent = Array(101).fill({ type: 'paragraph' as const, text: 'text' })
+    await expectError(() => render({
+      content: [{
+        type: 'float-group' as const,
+        float: 'left' as const,
+        image: { src: 'https://example.com/img.jpg' },
+        content: deepContent
+      }]
+    }), 'VALIDATION_ERROR')
+  })
+
+  test('accepts float-group.content with exactly 100 items', async () => {
+    const { validateDocument } = await import('../dist/index.js')
+    const content = Array(100).fill({ type: 'paragraph' as const, text: 'text' })
+    const result = validateDocument({
+      content: [{
+        type: 'float-group' as const,
+        float: 'left' as const,
+        image: { src: new Uint8Array([1, 2, 3]) },
+        content
+      }]
+    })
+    assert.equal(result.valid, true)
+  })
+})
+
 // ─── Font validation ──────────────────────────────────────────────────────────
 
 describe('validate — fonts', () => {
