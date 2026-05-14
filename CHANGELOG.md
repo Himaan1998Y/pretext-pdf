@@ -7,6 +7,24 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.1.3] — 2026-05-15
+
+### Fixed
+
+- **Type safety in validateDocument** (`src/validate.ts`) — Replaced unchecked `as PdfDocument` cast with `isValidPdfDocumentLike()` type guard. Returns proper error when input is not a plain object.
+
+- **Prototype pollution in mergeStyles** (`src/compat.ts`) — `Object.assign(merged, s)` allowed user-supplied pdfmake JSON to pollute the prototype chain. Replaced with `copySafeStyleProperties()` that whitelists only known safe style keys (fontSize, bold, italics, color, alignment, font).
+
+- **Path traversal in digital signatures** (`src/post-process.ts`) — P12 certificate path bypassed the `allowedFileDirs` security check. Now validates path via `assertPathAllowed()` before reading, preventing directory traversal attacks via signature feature.
+
+- **Fragile errorCount regex in validateDocument** (`src/validate.ts`) — Original regex could match anywhere in error message. Refined to header-only pattern (`^Strict validation failed`) to extract true error count even when >20 errors are returned (capped array but accurate count in message).
+
+- **Fake test coverage** (`test/validate-document.test.ts`) — Removed describe block with `assert.ok(true, 'TODO')` placeholder. Replaced with documentation explaining why the non-PretextPdfError code path is manually audited.
+
+- **Missing LICENSE for vendored code** (`src/vendor/pretext/LICENSE`) — Added MIT license file with attribution to upstream pretext library and this fork, satisfying legal compliance for vendored dependencies.
+
+---
+
 ## [1.1.2] — 2026-05-08
 
 ### Fixed
