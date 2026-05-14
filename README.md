@@ -135,6 +135,25 @@ const pdf = await render({
 writeFileSync('invoice.pdf', pdf)
 ```
 
+> **Validation — when documents come from external sources**
+>
+> If your document JSON originates from user input, an LLM agent, an API response, or any external source, call `validate()` or `validateDocument()` first:
+>
+> ```typescript
+> import { validate, render } from 'pretext-pdf'
+> // LLM-generated documents or user input: validate before rendering
+> validate(untrustedDoc) // Throws if invalid
+> const pdf = await render(untrustedDoc)
+> // Or use validateDocument() for non-throwing validation:
+> const result = validateDocument(untrustedDoc)
+> if (!result.valid) {
+>   console.error('Invalid document:', result.errors)
+>   return
+> }
+> ```
+>
+> Validation prevents injection attacks, catches shape errors early, and gives better error messages than render() alone.
+
 > **Security — file-path access**
 > By default, `render()` will read any absolute file path supplied in `image.src`, `svg.src`,
 > or watermark image fields. If your document JSON originates from user input, an LLM,
