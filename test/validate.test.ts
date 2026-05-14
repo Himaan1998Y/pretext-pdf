@@ -32,6 +32,59 @@ describe('validate — content array', () => {
   })
 })
 
+// ─── Font validation ──────────────────────────────────────────────────────────
+
+describe('validate — fonts', () => {
+  test('throws VALIDATION_ERROR for font src with data: URL', async () => {
+    await expectError(() => render({
+      fonts: [{ family: 'BadFont', src: 'data:font/ttf;base64,AAAA...' }],
+      content: [{ type: 'paragraph', text: 'hi' }]
+    }), 'VALIDATION_ERROR')
+  })
+
+  test('throws VALIDATION_ERROR for font src with http: URL', async () => {
+    await expectError(() => render({
+      fonts: [{ family: 'RemoteFont', src: 'http://example.com/font.ttf' }],
+      content: [{ type: 'paragraph', text: 'hi' }]
+    }), 'VALIDATION_ERROR')
+  })
+
+  test('throws VALIDATION_ERROR for font src with https: URL', async () => {
+    await expectError(() => render({
+      fonts: [{ family: 'RemoteFont', src: 'https://cdn.example.com/font.ttf' }],
+      content: [{ type: 'paragraph', text: 'hi' }]
+    }), 'VALIDATION_ERROR')
+  })
+
+  test('throws VALIDATION_ERROR for font src with javascript: URL', async () => {
+    await expectError(() => render({
+      fonts: [{ family: 'BadFont', src: 'javascript:alert("pwned")' }],
+      content: [{ type: 'paragraph', text: 'hi' }]
+    }), 'VALIDATION_ERROR')
+  })
+
+  test('accepts font src as Uint8Array', async () => {
+    const fontBytes = new Uint8Array([0, 1, 2, 3])
+    const doc = {
+      fonts: [{ family: 'TestFont', src: fontBytes }],
+      content: [{ type: 'paragraph', text: 'hi' }]
+    }
+    // Validation passes (rendering will fail later due to invalid font bytes, but validateDocument() should accept)
+    const { validateDocument } = await import('../dist/index.js')
+    const result = validateDocument(doc)
+    assert.equal(result.valid, true)
+  })
+
+  test('accepts font src as "bundled"', async () => {
+    const { validateDocument } = await import('../dist/index.js')
+    const result = validateDocument({
+      fonts: [{ family: 'Inter', src: 'bundled' }],
+      content: [{ type: 'paragraph', text: 'hi' }]
+    })
+    assert.equal(result.valid, true)
+  })
+})
+
 // ─── Page sizes ───────────────────────────────────────────────────────────────
 
 describe('validate — page sizes', () => {

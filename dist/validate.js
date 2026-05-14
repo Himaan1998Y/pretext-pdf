@@ -1591,5 +1591,17 @@ function validateFontSpec(font) {
     if (font.src === undefined || font.src === null) {
         throw new PretextPdfError('VALIDATION_ERROR', `FontSpec '${font.family}': 'src' is required (file path or Uint8Array)`);
     }
+    // If src is a string, ensure it's not a dangerous URL — only 'bundled' or file paths allowed
+    if (typeof font.src === 'string' && font.src !== 'bundled') {
+        try {
+            const parsed = new URL(font.src);
+            throw new PretextPdfError('VALIDATION_ERROR', `FontSpec '${font.family}': 'src' contains a URL (${parsed.protocol}) — use 'bundled', a file path, or Uint8Array instead`);
+        }
+        catch (err) {
+            // new URL() throws if string is not a valid URL, which is expected for file paths
+            if (err instanceof PretextPdfError)
+                throw err;
+        }
+    }
 }
 //# sourceMappingURL=validate.js.map
