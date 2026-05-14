@@ -3,7 +3,7 @@ import type { PdfDocument } from './types-public.js';
  * Apply PKCS#7 digital signature to pre-rendered PDF bytes.
  * Requires the @signpdf/signpdf peer dependency.
  */
-export declare function applySignature(pdfBytes: Uint8Array, sig: NonNullable<PdfDocument['signature']>): Promise<Uint8Array>;
+export declare function applySignature(pdfBytes: Uint8Array, sig: NonNullable<PdfDocument['signature']>, allowedFileDirs?: string[]): Promise<Uint8Array>;
 /**
  * Apply AES-128 or AES-256 encryption to pre-rendered PDF bytes.
  */

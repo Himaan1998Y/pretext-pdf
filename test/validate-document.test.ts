@@ -121,21 +121,11 @@ describe('validateDocument — errorCount accuracy with >20 errors', () => {
   })
 })
 
-// ─── Test 8: Non-PretextPdfError is re-thrown ────────────────────────────────
-
-describe('validateDocument — non-PretextPdfError is re-thrown', () => {
-  // TODO: This scenario is difficult to trigger with the public API because validate()
-  // only throws PretextPdfError for known conditions. A non-PretextPdfError would
-  // require an internal bug or an injected proxy object that throws a plain Error.
-  // Skipping direct test; the code path at validate.ts:549 (`throw err`) is audited
-  // to confirm it re-throws non-PretextPdfError errors correctly.
-  test('documents this gap as a known untested path', () => {
-    // Confirmed by code review: validateDocument catches PretextPdfError and re-throws
-    // any other error type. This behavior cannot be exercised via the public API without
-    // monkey-patching the validate() internals.
-    assert.ok(true, 'TODO: non-PretextPdfError re-throw path documented as manually audited')
-  })
-})
+// ─── Non-PretextPdfError path ─────────────────────────────────────────────────
+// The scenario where validateDocument catches and re-throws a non-PretextPdfError
+// is difficult to trigger via the public API. The code path at validate.ts:551
+// is manually audited and correct, but skipping a direct test since it requires
+// internal patching to trigger. This gap is documented in the audit trail.
 
 // ─── Test 9: URL-scheme violation → specific path, not 'document' ────────────
 

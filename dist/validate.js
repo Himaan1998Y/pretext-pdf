@@ -470,6 +470,9 @@ export function validate(doc, options) {
         throw new PretextPdfError('VALIDATION_ERROR', msg);
     }
 }
+function isValidPdfDocumentLike(doc) {
+    return doc !== null && typeof doc === 'object' && !Array.isArray(doc);
+}
 /**
  * Validate a pretext-pdf document and return a structured result instead of throwing.
  *
@@ -482,6 +485,9 @@ export function validate(doc, options) {
  * @public
  */
 export function validateDocument(doc, options) {
+    if (!isValidPdfDocumentLike(doc)) {
+        return { valid: false, errors: [{ path: 'document', message: 'Document must be a non-null object', severity: 'error', code: 'VALIDATION_ERROR' }], errorCount: 1, warningCount: 0 };
+    }
     try {
         validate(doc, { strict: options?.strict ?? false, ...(options?.logger !== undefined ? { logger: options.logger } : {}) });
         return { valid: true, errors: [], errorCount: 0, warningCount: 0 };
@@ -491,8 +497,8 @@ export function validateDocument(doc, options) {
             const errors = parseValidationErrorsStructured(err.message, err.code);
             const warnings = errors.filter((e) => e.severity === 'warning');
             const warningCount = warnings.length;
-            const countMatch = err.message.match(/Strict validation failed \((\d+) issue/);
-            const errorCount = countMatch?.[1] != null ? parseInt(countMatch[1], 10) : errors.length;
+            const headerMatch = err.message.match(/^Strict validation failed \((\d+) issue/);
+            const errorCount = headerMatch?.[1] != null ? parseInt(headerMatch[1], 10) : errors.filter((e) => e.severity === 'error').length;
             return { valid: false, errors, errorCount, warningCount };
         }
         const msg = err instanceof Error ? err.message : String(err);

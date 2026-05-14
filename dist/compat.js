@@ -350,7 +350,7 @@ function mergeStyles(ctx, styleNames, node, parent) {
     for (const name of styleNames) {
         const s = ctx.styles[name];
         if (s)
-            Object.assign(merged, s);
+            copySafeStyleProperties(merged, s);
     }
     // Inline node-level overrides win
     if (node.bold !== undefined)
@@ -366,6 +366,15 @@ function mergeStyles(ctx, styleNames, node, parent) {
     if (node.font !== undefined)
         merged.font = node.font;
     return merged;
+}
+/** Copy only known-safe style properties, preventing prototype pollution */
+function copySafeStyleProperties(target, source) {
+    const safeKeys = ['fontSize', 'bold', 'italics', 'color', 'alignment', 'font'];
+    for (const key of safeKeys) {
+        if (key in source && source[key] !== undefined) {
+            target[key] = source[key];
+        }
+    }
 }
 function pdfmakeNodeToListItem(node, ctx) {
     if (typeof node === 'string')

@@ -457,7 +457,7 @@ function mergeStyles(
   const merged: PdfmakeStyle = { ...ctx.defaultStyle, ...(parent ?? {}) }
   for (const name of styleNames) {
     const s = ctx.styles[name]
-    if (s) Object.assign(merged, s)
+    if (s) copySafeStyleProperties(merged, s)
   }
   // Inline node-level overrides win
   if (node.bold !== undefined) merged.bold = node.bold
@@ -467,6 +467,16 @@ function mergeStyles(
   if (node.alignment !== undefined) merged.alignment = node.alignment
   if (node.font !== undefined) merged.font = node.font
   return merged
+}
+
+/** Copy only known-safe style properties, preventing prototype pollution */
+function copySafeStyleProperties(target: PdfmakeStyle, source: any): void {
+  const safeKeys: (keyof PdfmakeStyle)[] = ['fontSize', 'bold', 'italics', 'color', 'alignment', 'font']
+  for (const key of safeKeys) {
+    if (key in source && source[key] !== undefined) {
+      (target as any)[key] = source[key]
+    }
+  }
 }
 
 function pdfmakeNodeToListItem(node: PdfmakeNode, ctx: TranslateCtx): ListItem {

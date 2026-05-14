@@ -521,6 +521,10 @@ export function validate(doc: PdfDocument, options?: RenderOptions): void {
   }
 }
 
+function isValidPdfDocumentLike(doc: unknown): doc is PdfDocument {
+  return doc !== null && typeof doc === 'object' && !Array.isArray(doc)
+}
+
 /**
  * Validate a pretext-pdf document and return a structured result instead of throwing.
  *
@@ -536,16 +540,19 @@ export function validateDocument(
   doc: unknown,
   options?: { strict?: boolean; logger?: Logger }
 ): ValidationResult {
+  if (!isValidPdfDocumentLike(doc)) {
+    return { valid: false, errors: [{ path: 'document', message: 'Document must be a non-null object', severity: 'error' as const, code: 'VALIDATION_ERROR' as const }], errorCount: 1, warningCount: 0 }
+  }
   try {
-    validate(doc as PdfDocument, { strict: options?.strict ?? false, ...(options?.logger !== undefined ? { logger: options.logger } : {}) })
+    validate(doc, { strict: options?.strict ?? false, ...(options?.logger !== undefined ? { logger: options.logger } : {}) })
     return { valid: true, errors: [], errorCount: 0, warningCount: 0 }
   } catch (err) {
     if (err instanceof PretextPdfError) {
       const errors = parseValidationErrorsStructured(err.message, err.code)
       const warnings = errors.filter((e) => e.severity === 'warning')
       const warningCount = warnings.length
-      const countMatch = err.message.match(/Strict validation failed \((\d+) issue/)
-      const errorCount = countMatch?.[1] != null ? parseInt(countMatch[1]!, 10) : errors.length
+      const headerMatch = err.message.match(/^Strict validation failed \((\d+) issue/)
+      const errorCount = headerMatch?.[1] != null ? parseInt(headerMatch[1]!, 10) : errors.filter((e) => e.severity === 'error').length
       return { valid: false, errors, errorCount, warningCount }
     }
     const msg = err instanceof Error ? err.message : String(err)

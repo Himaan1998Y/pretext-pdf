@@ -2,6 +2,7 @@ import path from 'node:path'
 import { PDFDocument } from '@cantoo/pdf-lib'
 import type { PdfDocument } from './types-public.js'
 import { PretextPdfError } from './errors.js'
+import { assertPathAllowed } from './assets.js'
 
 /**
  * Apply PKCS#7 digital signature to pre-rendered PDF bytes.
@@ -9,7 +10,8 @@ import { PretextPdfError } from './errors.js'
  */
 export async function applySignature(
   pdfBytes: Uint8Array,
-  sig: NonNullable<PdfDocument['signature']>
+  sig: NonNullable<PdfDocument['signature']>,
+  allowedFileDirs?: string[]
 ): Promise<Uint8Array> {
   type SignpdfModule = {
     SignPdf: any
@@ -36,8 +38,10 @@ export async function applySignature(
       if (!path.isAbsolute(p12Path)) {
         throw new PretextPdfError('SIGNATURE_P12_LOAD_FAILED', 'P12 path must be absolute')
       }
+      const resolvedPath = path.resolve(p12Path)
+      assertPathAllowed(resolvedPath, allowedFileDirs, 'P12 certificate')
       const { promises: fs } = await import('node:fs')
-      p12Buffer = await fs.readFile(p12Path)
+      p12Buffer = await fs.readFile(resolvedPath)
     }
   } catch (e) {
     if (e instanceof PretextPdfError) throw e
@@ -101,6 +105,6 @@ export async function applyPostProcessing(
   rawBytes: Uint8Array,
   doc: PdfDocument
 ): Promise<Uint8Array> {
-  const signedBytes = doc.signature?.p12 ? await applySignature(rawBytes, doc.signature) : rawBytes
+  const signedBytes = doc.signature?.p12 ? await applySignature(rawBytes, doc.signature, doc.allowedFileDirs) : rawBytes
   return doc.encryption ? await applyEncryption(signedBytes, doc.encryption) : signedBytes
 }
