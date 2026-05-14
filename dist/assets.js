@@ -52,6 +52,9 @@ export async function assertSafeUrl(url, errorCode, label) {
     if (parsed.protocol === 'http:') {
         throw new PretextPdfError(errorCode, `${label}: HTTP URLs are not allowed — use HTTPS`);
     }
+    if (parsed.protocol === 'data:' || parsed.protocol === 'file:' || parsed.protocol === 'javascript:') {
+        throw new PretextPdfError(errorCode, `${label}: ${parsed.protocol} URLs are not allowed — use HTTPS only`);
+    }
     const raw = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, ''); // strip IPv6 brackets
     // Normalize IPv4-mapped IPv6 to its dotted-decimal form so the IPv4
     // private-range regexes catch it. WHATWG URL normalizes `[::ffff:127.0.0.1]`
