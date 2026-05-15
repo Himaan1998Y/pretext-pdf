@@ -147,7 +147,8 @@
     "@pdf-lib/fontkit": "^1.1.1",
     "bidi-js": "^1.0.3",
     "hyphenation.en-us": "^0.2.1",
-    "hypher": "^0.2.5"
+    "hypher": "^0.2.5",
+    "undici": "^6.25.0"
   },
   "peerDependencies": {
     "@napi-rs/canvas": "^0.1.57",
