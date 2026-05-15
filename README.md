@@ -500,6 +500,42 @@ const schemaString = JSON.stringify(pdfDocumentSchema, null, 2)
 
 ---
 
+## Validation
+
+When `document` comes from external sources (API requests, user input, MCP tools, LLM output), **ALWAYS** run `validateDocument(doc)` (or `validate(doc)`) before `render(doc)`:
+
+```typescript
+import { validateDocument, render } from 'pretext-pdf'
+
+const validation = validateDocument(untrustedDoc)
+if (!validation.valid) {
+  return { error: validation.errors }
+}
+const bytes = await render(untrustedDoc)
+```
+
+Skipping validation on untrusted input may cause:
+
+- **Stack overflow on deeply nested malicious input** — Without the depth and
+  cycle guards in `validate()`, cyclic or pathologically nested documents can
+  exhaust the call stack inside the layout engine.
+- **Prototype pollution** — Properties like `__proto__` smuggled through
+  `JSON.parse` can leak into the rendering pipeline if not filtered by the
+  validator's strict checks.
+- **Unexpected runtime errors that surface as 500s** — Renderer assumes
+  well-typed input; passing malformed shapes through `render()` directly will
+  surface as opaque stack traces rather than structured `VALIDATION_ERROR`s.
+
+The validator enforces:
+
+- A nesting depth cap (`MAX_VALIDATION_DEPTH = 32`) at every container entry.
+- Cycle detection on `ListItem.items`, `FloatGroup.content`, `RichParagraph.spans`,
+  and `TableElement.rows`.
+- URL scheme allow-listing (no `javascript:`, `data:`, `vbscript:`).
+- File-path safety for fonts and images (no UNC, no remote URLs).
+
+---
+
 ## Strict validation
 
 By default, `render()` uses permissive validation — unknown properties are silently ignored. Enable strict mode to catch typos and ensure property names match the schema exactly:

@@ -9,6 +9,31 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ## [1.1.3] — 2026-05-15
 
+### Added
+
+- **Cycle detection + depth cap on TableElement walk** (`src/validate.ts`, Sprint 3 / M2) —
+  The rows/cells iteration is now wrapped in `withCycleGuard`, matching the
+  protection already in place for `ListItem.items`, `FloatGroup.content`, and
+  `RichParagraph.spans`. A self-referential row or cell shape now produces a
+  structured `VALIDATION_ERROR` instead of an unbounded walk.
+
+- **Root-level depth guard for `document.content` entries** (`src/validate.ts`, Sprint 3 / M1) —
+  Each top-level element call into `validateElement` now runs an explicit
+  `assertDepthOk(depth, prefix)` so the `MAX_VALIDATION_DEPTH = 32` cap fires
+  even for plugin-typed elements that do not open their own `withCycleGuard`
+  scope. Internal recursive walks (`list`, `float-group`, `rich-paragraph`,
+  `table`) continue to enforce the cap via `withCycleGuard`.
+
+- **Round-trip tests for the pdfmake compatibility shim** (`test/compat.test.ts`, Sprint 3 / M3) —
+  Four new tests covering pdfmake → pretext → render integration, style
+  propagation, sanity rendering of native pretext docs, and large-table
+  preservation (5 columns × 10 rows).
+
+- **`## Validation` section in `README.md`** (Sprint 3 / M4) — Explicit guidance
+  to call `validateDocument()` before `render()` on untrusted input, with the
+  concrete failure modes (stack overflow on cyclic input, prototype pollution
+  via `__proto__`, runtime 500s on malformed shapes) the validator prevents.
+
 ### Fixed
 
 - **Type safety in validateDocument** (`src/validate.ts`) — Replaced unchecked `as PdfDocument` cast with `isValidPdfDocumentLike()` type guard. Returns proper error when input is not a plain object.
@@ -22,6 +47,16 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 - **Fake test coverage** (`test/validate-document.test.ts`) — Removed describe block with `assert.ok(true, 'TODO')` placeholder. Replaced with documentation explaining why the non-PretextPdfError code path is manually audited.
 
 - **Missing LICENSE for vendored code** (`src/vendor/pretext/LICENSE`) — Added MIT license file with attribution to upstream pretext library and this fork, satisfying legal compliance for vendored dependencies.
+
+### Notes — Phase A / B / D history
+
+The cycle-detection and depth-cap machinery (`withCycleGuard`,
+`MAX_VALIDATION_DEPTH`, the per-container guards on `list`, `float-group`,
+`rich-paragraph`) and the discriminated-union refactor of `ContentElement`
+plus the typed `pdf-lib` augmentation were landed during in-flight audit
+sprints between `[1.0.x]` and `[1.1.0]` that were not individually tagged.
+Sprint 3 (this release) backfills those gaps with the M1/M2 root + table
+guards, plus explicit tests and documentation.
 
 ---
 

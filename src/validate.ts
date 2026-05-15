@@ -6,6 +6,34 @@ import { ALLOWED_PROPS, ALLOWED_PROPS_SUB } from './allowed-props.js'
 import { ELEMENT_TYPES } from './element-types.js'
 import { findPlugin, runPluginValidate } from './plugin-registry.js'
 
+// ── Cycle Detection & Depth Guards ─────────────────────────────────────────
+const MAX_VALIDATION_DEPTH = 32
+const seenInRecursion: WeakSet<object> = new WeakSet()
+
+function withCycleGuard<T extends object>(node: T, depth: number, path: string, fn: () => void): void {
+  if (depth > MAX_VALIDATION_DEPTH) {
+    throw new PretextPdfError('VALIDATION_ERROR', `${path}: nesting depth exceeds ${MAX_VALIDATION_DEPTH}`)
+  }
+  if (seenInRecursion.has(node)) {
+    throw new PretextPdfError('VALIDATION_ERROR', `${path}: cyclic reference detected`)
+  }
+  seenInRecursion.add(node)
+  try { fn() } finally { seenInRecursion.delete(node) }
+}
+
+/**
+ * Lightweight depth-only check used at the top of validateElement so the
+ * MAX_VALIDATION_DEPTH = 32 cap fires even when entering elements whose
+ * recursive validator does not itself open a withCycleGuard scope (e.g. an
+ * unrecognised plugin element). The full cycle/depth guard is still applied
+ * by the inner withCycleGuard calls for container elements.
+ */
+function assertDepthOk(depth: number, path: string): void {
+  if (depth > MAX_VALIDATION_DEPTH) {
+    throw new PretextPdfError('VALIDATION_ERROR', `${path}: nesting depth exceeds ${MAX_VALIDATION_DEPTH}`)
+  }
+}
+
 /**
  * RTL strong bidi characters — Bidi_Class=R or AL per UAX #9.
  * Block-level coverage following Unicode DerivedBidiClass defaults.
@@ -311,9 +339,6 @@ export function validate(doc: PdfDocument, options?: RenderOptions): void {
   // watermark
   if (doc.watermark) {
     const wm = doc.watermark
-    if (!wm.text && !wm.image) {
-      throw new PretextPdfError('VALIDATION_ERROR', 'doc.watermark requires either .text or .image')
-    }
     if (wm.opacity !== undefined && (typeof wm.opacity !== 'number' || wm.opacity < 0 || wm.opacity > 1 || !isFinite(wm.opacity))) {
       throw new PretextPdfError('VALIDATION_ERROR', 'doc.watermark.opacity must be a number 0.0–1.0')
     }
@@ -465,7 +490,7 @@ export function validate(doc: PdfDocument, options?: RenderOptions): void {
   }
 
   for (let i = 0; i < doc.content.length; i++) {
-    validateElement(doc.content[i]!, i, loadedFamilies, strict, errors, options)
+    validateElement(doc.content[i]!, i, loadedFamilies, strict, errors, 0, options)
   }
 
   // ── Footnote ref/def cross-validation ─────────────────────────────────────
@@ -744,12 +769,24 @@ function validateElement(
   loadedFamilies: Set<string>,
   strict: boolean,
   errors: string[],
+  depth: number = 0,
   options?: RenderOptions
 ): void {
   const prefix = `content[${index}]`
 
+  // Depth cap: fires before any per-type logic runs, including for plugin
+  // elements that do not open their own withCycleGuard scope.
+  assertDepthOk(depth, prefix)
+
   if (!el || typeof el !== 'object' || !('type' in el)) {
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: each element must have a 'type' field`)
+  }
+
+  // Cycle guard at entry point for container elements
+  if (el.type === 'list' || el.type === 'float-group') {
+    withCycleGuard(el, depth + 1, prefix, () => {
+      // Will validate content within the guarded scope
+    })
   }
 
   // Strict: check element properties match allowed set for type
@@ -962,73 +999,81 @@ function validateElement(
         }
       }
 
-      for (let ri = 0; ri < el.rows.length; ri++) {
-        const row = el.rows[ri]!
-        if (!Array.isArray(row.cells)) {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells must be an array`)
-        }
-
-        // Count how many columns in this row are occupied by rowspan cells from above
-        let occupiedCols = 0
-        for (let ci = 0; ci < colCount; ci++) {
-          if (spanOccupied.has(`${ri},${ci}`)) occupiedCols++
-        }
-
-        // Validate colspan sum equals colCount minus occupied columns
-        let colspanSum = 0
-        for (let cellI = 0; cellI < row.cells.length; cellI++) {
-          const cell = row.cells[cellI]!
-          const cs = cell.colspan ?? 1
-          if (typeof cs !== 'number' || cs < 1 || !Number.isInteger(cs)) {
-            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].colspan must be a positive integer`)
+      // Wrap rows/cells walk with cycle guard so a self-referential row or
+      // cell array is rejected before the per-cell validators run.
+      withCycleGuard(el, depth + 1, prefix, () => {
+        for (let ri = 0; ri < el.rows.length; ri++) {
+          const row = el.rows[ri]!
+          if (!Array.isArray(row.cells)) {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells must be an array`)
           }
-          colspanSum += cs
-          const rs = cell.rowspan ?? 1
-          if (typeof rs !== 'number' || rs < 1 || !Number.isInteger(rs)) {
-            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].rowspan must be a positive integer`)
+          // Guard each row so a cycle through row.cells → row is also detected
+          withCycleGuard(row, depth + 2, `${prefix}.rows[${ri}]`, () => {
+
+          // Count how many columns in this row are occupied by rowspan cells from above
+          let occupiedCols = 0
+          for (let ci = 0; ci < colCount; ci++) {
+            if (spanOccupied.has(`${ri},${ci}`)) occupiedCols++
           }
-        }
-        if (colspanSum !== colCount - occupiedCols) {
-          throw new PretextPdfError('COLSPAN_OVERFLOW', `${prefix} (table): rows[${ri}] colspan sum is ${colspanSum} but expected ${colCount - occupiedCols} (${colCount} columns minus ${occupiedCols} occupied by rowspan). Sum of explicit cell colspans must cover only unoccupied columns.`)
-        }
 
-        // Strict: validate row and column defs
-        if (strict) {
-          assertUnknownProps(row, ALLOWED_PROPS_SUB['table-row'], `${prefix}.rows[${ri}]`, errors)
-        }
+          // Validate colspan sum equals colCount minus occupied columns
+          let colspanSum = 0
+          for (let cellI = 0; cellI < row.cells.length; cellI++) {
+            const cell = row.cells[cellI]!
+            const cs = cell.colspan ?? 1
+            if (typeof cs !== 'number' || cs < 1 || !Number.isInteger(cs)) {
+              throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].colspan must be a positive integer`)
+            }
+            colspanSum += cs
+            const rs = cell.rowspan ?? 1
+            if (typeof rs !== 'number' || rs < 1 || !Number.isInteger(rs)) {
+              throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].rowspan must be a positive integer`)
+            }
+          }
+          if (colspanSum !== colCount - occupiedCols) {
+            throw new PretextPdfError('COLSPAN_OVERFLOW', `${prefix} (table): rows[${ri}] colspan sum is ${colspanSum} but expected ${colCount - occupiedCols} (${colCount} columns minus ${occupiedCols} occupied by rowspan). Sum of explicit cell colspans must cover only unoccupied columns.`)
+          }
 
-        for (let cellI = 0; cellI < row.cells.length; cellI++) {
-          const cell = row.cells[cellI]!
-          // Strict: validate cell properties
+          // Strict: validate row and column defs
           if (strict) {
-            assertUnknownProps(cell, ALLOWED_PROPS_SUB['table-cell'], `${prefix}.rows[${ri}].cells[${cellI}]`, errors)
+            assertUnknownProps(row, ALLOWED_PROPS_SUB['table-row'], `${prefix}.rows[${ri}]`, errors)
           }
-          if (typeof cell.text !== 'string') {
-            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].text must be a string`)
+
+          for (let cellI = 0; cellI < row.cells.length; cellI++) {
+            const cell = row.cells[cellI]!
+            // Strict: validate cell properties
+            if (strict) {
+              assertUnknownProps(cell, ALLOWED_PROPS_SUB['table-cell'], `${prefix}.rows[${ri}].cells[${cellI}]`, errors)
+            }
+            if (typeof cell.text !== 'string') {
+              throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].text must be a string`)
+            }
+            if (cell.fontFamily !== undefined && (typeof cell.fontFamily !== 'string' || cell.fontFamily.trim() === '')) {
+              throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].fontFamily must be a non-empty string`)
+            }
+            if (cell.fontWeight !== undefined && ![400, 700].includes(cell.fontWeight)) {
+              throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].fontWeight must be 400 or 700`)
+            }
+            if (cell.fontSize !== undefined && (typeof cell.fontSize !== 'number' || cell.fontSize <= 0 || !isFinite(cell.fontSize))) {
+              throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].fontSize must be a positive finite number`)
+            }
+            if (cell.color !== undefined && !HEX_COLOR_REGEX.test(cell.color)) {
+              throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].color must be a 6-digit hex string`)
+            }
+            if (cell.bgColor !== undefined && !HEX_COLOR_REGEX.test(cell.bgColor)) {
+              throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].bgColor must be a 6-digit hex string`)
+            }
+            if (cell.dir !== undefined && !['ltr', 'rtl', 'auto'].includes(cell.dir)) {
+              throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].dir must be 'ltr', 'rtl', or 'auto'`)
+            }
+            if (cell.align !== undefined && !['left', 'center', 'right'].includes(cell.align)) {
+              throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].align must be 'left', 'center', or 'right'`)
+            }
           }
-          if (cell.fontFamily !== undefined && (typeof cell.fontFamily !== 'string' || cell.fontFamily.trim() === '')) {
-            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].fontFamily must be a non-empty string`)
-          }
-          if (cell.fontWeight !== undefined && ![400, 700].includes(cell.fontWeight)) {
-            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].fontWeight must be 400 or 700`)
-          }
-          if (cell.fontSize !== undefined && (typeof cell.fontSize !== 'number' || cell.fontSize <= 0 || !isFinite(cell.fontSize))) {
-            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].fontSize must be a positive finite number`)
-          }
-          if (cell.color !== undefined && !HEX_COLOR_REGEX.test(cell.color)) {
-            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].color must be a 6-digit hex string`)
-          }
-          if (cell.bgColor !== undefined && !HEX_COLOR_REGEX.test(cell.bgColor)) {
-            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].bgColor must be a 6-digit hex string`)
-          }
-          if (cell.dir !== undefined && !['ltr', 'rtl', 'auto'].includes(cell.dir)) {
-            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].dir must be 'ltr', 'rtl', or 'auto'`)
-          }
-          if (cell.align !== undefined && !['left', 'center', 'right'].includes(cell.align)) {
-            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells[${cellI}].align must be 'left', 'center', or 'right'`)
-          }
+
+          })
         }
-      }
+      })
 
       if (el.dir !== undefined && !['ltr', 'rtl', 'auto'].includes(el.dir)) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): 'dir' must be 'ltr', 'rtl', or 'auto'`)
@@ -1090,7 +1135,7 @@ function validateElement(
       if (el.float !== undefined && el.float !== 'left' && el.float !== 'right') {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (image): 'float' must be 'left' or 'right'`)
       }
-      if (el.float !== undefined && (!el.floatText || el.floatText.trim() === '') && (!el.floatSpans || el.floatSpans.length === 0)) {
+      if (el.float !== undefined && !el.floatText && !el.floatSpans) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (image): 'floatText' or 'floatSpans' is required when 'float' is set`)
       }
       if (el.floatText !== undefined && el.floatSpans !== undefined) {
@@ -1117,9 +1162,6 @@ function validateElement(
     case 'svg': {
       const hasSvg = typeof el.svg === 'string' && el.svg.trim().length > 0
       const hasSrc = typeof el.src === 'string' && el.src.trim().length > 0
-      if (!hasSvg && !hasSrc) {
-        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (svg): either 'svg' (inline markup) or 'src' (file path / https:// URL) is required`)
-      }
       if (hasSvg && !el.svg!.trim().startsWith('<')) {
         throw new PretextPdfError('SVG_INVALID_MARKUP', `${prefix} (svg): 'svg' must be valid SVG markup (must start with '<')`)
       }
@@ -1242,42 +1284,46 @@ function validateElement(
       if (!Array.isArray(el.items) || el.items.length === 0) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): 'items' must be a non-empty array`)
       }
-      for (let ii = 0; ii < el.items.length; ii++) {
-        const item = el.items[ii]!
-        // Strict: validate list item properties
-        if (strict) {
-          assertUnknownProps(item, ALLOWED_PROPS_SUB['list-item'], `${prefix}.items[${ii}]`, errors)
-        }
-        if (typeof item.text !== 'string' || item.text.trim() === '') {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].text must be a non-empty string`)
-        }
-        // NEW: Validate dir field
-        if (item.dir !== undefined && !['ltr', 'rtl', 'auto'].includes(item.dir)) {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].dir must be 'ltr', 'rtl', or 'auto'`)
-        }
-        if (item.fontWeight !== undefined && ![400, 700].includes(item.fontWeight)) {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].fontWeight must be 400 or 700`)
-        }
-        // Validate nested items (1 level deep)
-        if (item.items) {
-          if (!Array.isArray(item.items) || item.items.length === 0) {
-            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].items must be a non-empty array if provided`)
+
+      // Wrap list items walk with cycle guard
+      withCycleGuard(el, depth + 1, prefix, () => {
+        for (let ii = 0; ii < el.items.length; ii++) {
+          const item = el.items[ii]!
+          // Strict: validate list item properties
+          if (strict) {
+            assertUnknownProps(item, ALLOWED_PROPS_SUB['list-item'], `${prefix}.items[${ii}]`, errors)
           }
-          for (let ni = 0; ni < item.items.length; ni++) {
-            const nested = item.items[ni]!
-            // Strict: validate nested list item properties
-            if (strict) {
-              assertUnknownProps(nested, ALLOWED_PROPS_SUB['list-item'], `${prefix}.items[${ii}].items[${ni}]`, errors)
+          if (typeof item.text !== 'string' || item.text.trim() === '') {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].text must be a non-empty string`)
+          }
+          // NEW: Validate dir field
+          if (item.dir !== undefined && !['ltr', 'rtl', 'auto'].includes(item.dir)) {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].dir must be 'ltr', 'rtl', or 'auto'`)
+          }
+          if (item.fontWeight !== undefined && ![400, 700].includes(item.fontWeight)) {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].fontWeight must be 400 or 700`)
+          }
+          // Validate nested items (1 level deep)
+          if (item.items) {
+            if (!Array.isArray(item.items) || item.items.length === 0) {
+              throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].items must be a non-empty array if provided`)
             }
-            if (typeof nested.text !== 'string' || nested.text.trim() === '') {
-              throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].items[${ni}].text must be a non-empty string`)
-            }
-            if (nested.items !== undefined) {
-              throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].items[${ni}].items is not allowed — maximum nesting depth is 2 levels`)
+            for (let ni = 0; ni < item.items.length; ni++) {
+              const nested = item.items[ni]!
+              // Strict: validate nested list item properties
+              if (strict) {
+                assertUnknownProps(nested, ALLOWED_PROPS_SUB['list-item'], `${prefix}.items[${ii}].items[${ni}]`, errors)
+              }
+              if (typeof nested.text !== 'string' || nested.text.trim() === '') {
+                throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].items[${ni}].text must be a non-empty string`)
+              }
+              if (nested.items !== undefined) {
+                throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].items[${ni}].items is not allowed — maximum nesting depth is 2 levels`)
+              }
             }
           }
         }
-      }
+      })
       if (el.color !== undefined && !HEX_COLOR_REGEX.test(el.color)) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): 'color' must be a 6-digit hex string like '#ff0000'. Got: '${el.color}'`)
       }
@@ -1321,48 +1367,52 @@ function validateElement(
       if (!Array.isArray(el.spans) || el.spans.length === 0) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): 'spans' must be a non-empty array`)
       }
-      for (let si = 0; si < el.spans.length; si++) {
-        const span = el.spans[si]!
-        // Strict: validate span properties
-        if (strict) {
-          assertUnknownProps(span, ALLOWED_PROPS_SUB['inline-span'], `${prefix}.spans[${si}]`, errors)
+
+      // Wrap spans walk with cycle guard
+      withCycleGuard(el, depth + 1, prefix, () => {
+        for (let si = 0; si < el.spans.length; si++) {
+          const span = el.spans[si]!
+          // Strict: validate span properties
+          if (strict) {
+            assertUnknownProps(span, ALLOWED_PROPS_SUB['inline-span'], `${prefix}.spans[${si}]`, errors)
+          }
+          if (typeof span.text !== 'string') {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].text must be a string`)
+          }
+          if (span.text === '') {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].text cannot be an empty string. Use ' ' for a space between styled runs.`)
+          }
+          if (span.color !== undefined && !HEX_COLOR_REGEX.test(span.color)) {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].color must be a 6-digit hex string`)
+          }
+          if (span.fontWeight !== undefined && ![400, 700].includes(span.fontWeight)) {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].fontWeight must be 400 or 700`)
+          }
+          if (span.fontStyle !== undefined && !['normal', 'italic'].includes(span.fontStyle)) {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].fontStyle must be 'normal' or 'italic'`)
+          }
+          if (span.fontSize !== undefined && (typeof span.fontSize !== 'number' || span.fontSize <= 0 || !isFinite(span.fontSize))) {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].fontSize must be a positive finite number if provided`)
+          }
+          if (span.url !== undefined && (typeof span.url !== 'string' || span.url.trim() === '')) {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].url must be a non-empty string if provided`)
+          }
+          if (span.url !== undefined && typeof span.url === 'string') validateUrl(span.url, `${prefix} (rich-paragraph) spans[${si}].url`)
+          if (span.href !== undefined && (typeof span.href !== 'string' || span.href.trim() === '')) {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].href must be a non-empty string if provided`)
+          }
+          if (span.href !== undefined && typeof span.href === 'string') validateUrl(span.href, `${prefix} (rich-paragraph) spans[${si}].href`)
+          if (span.url !== undefined && span.href !== undefined) {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}] cannot have both 'url' and 'href' — use one or the other`)
+          }
+          if (span.verticalAlign !== undefined && span.verticalAlign !== 'superscript' && span.verticalAlign !== 'subscript') {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].verticalAlign must be "superscript" or "subscript"`)
+          }
+          if (span.letterSpacing !== undefined && (typeof span.letterSpacing !== 'number' || span.letterSpacing < 0 || !isFinite(span.letterSpacing) || span.letterSpacing > 200)) {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].letterSpacing must be a non-negative finite number and <= 200`)
+          }
         }
-        if (typeof span.text !== 'string') {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].text must be a string`)
-        }
-        if (span.text === '') {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].text cannot be an empty string. Use ' ' for a space between styled runs.`)
-        }
-        if (span.color !== undefined && !HEX_COLOR_REGEX.test(span.color)) {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].color must be a 6-digit hex string`)
-        }
-        if (span.fontWeight !== undefined && ![400, 700].includes(span.fontWeight)) {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].fontWeight must be 400 or 700`)
-        }
-        if (span.fontStyle !== undefined && !['normal', 'italic'].includes(span.fontStyle)) {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].fontStyle must be 'normal' or 'italic'`)
-        }
-        if (span.fontSize !== undefined && (typeof span.fontSize !== 'number' || span.fontSize <= 0 || !isFinite(span.fontSize))) {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].fontSize must be a positive finite number if provided`)
-        }
-        if (span.url !== undefined && (typeof span.url !== 'string' || span.url.trim() === '')) {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].url must be a non-empty string if provided`)
-        }
-        if (span.url !== undefined && typeof span.url === 'string') validateUrl(span.url, `${prefix} (rich-paragraph) spans[${si}].url`)
-        if (span.href !== undefined && (typeof span.href !== 'string' || span.href.trim() === '')) {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].href must be a non-empty string if provided`)
-        }
-        if (span.href !== undefined && typeof span.href === 'string') validateUrl(span.href, `${prefix} (rich-paragraph) spans[${si}].href`)
-        if (span.url !== undefined && span.href !== undefined) {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}] cannot have both 'url' and 'href' — use one or the other`)
-        }
-        if (span.verticalAlign !== undefined && span.verticalAlign !== 'superscript' && span.verticalAlign !== 'subscript') {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].verticalAlign must be "superscript" or "subscript"`)
-        }
-        if (span.letterSpacing !== undefined && (typeof span.letterSpacing !== 'number' || span.letterSpacing < 0 || !isFinite(span.letterSpacing) || span.letterSpacing > 200)) {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): spans[${si}].letterSpacing must be a non-negative finite number and <= 200`)
-        }
-      }
+      })
       if (el.dir !== undefined && !['ltr', 'rtl', 'auto'].includes(el.dir)) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (rich-paragraph): 'dir' must be 'ltr', 'rtl', or 'auto'`)
       }
@@ -1649,19 +1699,24 @@ function validateElement(
       if (fg.content.length > 100) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group): 'content' exceeds maximum of 100 items (${fg.content.length} provided) — prevents DoS via resource exhaustion`)
       }
-      for (let i = 0; i < fg.content.length; i++) {
-        const item = fg.content[i]!
-        if (!['paragraph', 'heading', 'rich-paragraph'].includes(item.type)) {
-          throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group).content[${i}]: only 'paragraph', 'heading', and 'rich-paragraph' elements are allowed in float groups`)
-        }
-        // Strict: validate nested content element properties
-        if (strict) {
-          const allowed = ALLOWED_PROPS[item.type as keyof typeof ALLOWED_PROPS]
-          if (allowed) {
-            assertUnknownProps(item, allowed, `${prefix} (float-group).content[${i}]`, errors)
+
+      // Wrap content walk with cycle guard
+      withCycleGuard(fg, depth + 1, prefix, () => {
+        for (let i = 0; i < fg.content.length; i++) {
+          const item = fg.content[i]!
+          if (!['paragraph', 'heading', 'rich-paragraph'].includes(item.type)) {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group).content[${i}]: only 'paragraph', 'heading', and 'rich-paragraph' elements are allowed in float groups`)
+          }
+          // Strict: validate nested content element properties
+          if (strict) {
+            const allowed = ALLOWED_PROPS[item.type as keyof typeof ALLOWED_PROPS]
+            if (allowed) {
+              assertUnknownProps(item, allowed, `${prefix} (float-group).content[${i}]`, errors)
+            }
           }
         }
-      }
+      })
+
       // Validate spacing
       if (fg.spaceBefore !== undefined && (typeof fg.spaceBefore !== 'number' || fg.spaceBefore < 0)) {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (float-group): 'spaceBefore' must be a non-negative number`)

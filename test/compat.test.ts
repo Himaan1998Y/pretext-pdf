@@ -476,3 +476,126 @@ describe('unsupported nodes', () => {
     assert.ok(warnings.some((w) => w.includes('canvas')), 'should warn about canvas')
   })
 })
+
+// ─── describe('round-trip — pdfmake → pretext → render') ─────────────────────
+
+describe('round-trip — pdfmake to pretext to render (M3)', () => {
+  test('paragraph + list + table doc converts and renders without error', async () => {
+    const pdfmakeDoc = {
+      content: [
+        'A plain string paragraph',
+        { text: 'A styled paragraph', bold: true, fontSize: 14, color: '#112233' },
+        { ul: ['List A', 'List B', 'List C'] },
+        {
+          table: {
+            widths: ['*', '*'],
+            headerRows: 1,
+            body: [
+              ['Header 1', 'Header 2'],
+              ['Cell A', 'Cell B'],
+              ['Cell C', 'Cell D'],
+            ],
+          },
+        },
+      ],
+    }
+    const pretextDoc = fromPdfmake(pdfmakeDoc)
+
+    // Element count preservation: 1 string + 1 styled paragraph + 1 list + 1 table = 4
+    assert.strictEqual(pretextDoc.content.length, 4, 'expected 4 top-level elements')
+    assert.strictEqual(pretextDoc.content[0]?.type, 'paragraph')
+    // Second element may be paragraph or rich-paragraph depending on inline detection
+    assert.ok(['paragraph', 'rich-paragraph'].includes(pretextDoc.content[1]!.type))
+    assert.strictEqual(pretextDoc.content[2]?.type, 'list')
+    assert.strictEqual(pretextDoc.content[3]?.type, 'table')
+
+    // Table structure preservation: 3 rows × 2 cells
+    const table = pretextDoc.content[3]
+    if (table?.type === 'table') {
+      assert.strictEqual(table.rows.length, 3, 'expected 3 rows in table')
+      assert.strictEqual(table.columns.length, 2, 'expected 2 columns in table')
+      for (const row of table.rows) {
+        assert.strictEqual(row.cells.length, 2, 'expected 2 cells per row')
+      }
+    }
+
+    // Render the converted doc — no errors expected
+    const bytes = await render(pretextDoc)
+    assert.ok(bytes instanceof Uint8Array, 'render() should return Uint8Array')
+    assert.ok(bytes.byteLength > 500, `PDF too small: ${bytes.byteLength} bytes`)
+  })
+
+  test('style properties (font, color, size) propagate from pdfmake style maps', () => {
+    const pdfmakeDoc = {
+      defaultStyle: { font: 'Inter', fontSize: 11, color: '#222222' },
+      styles: {
+        emphasis: { fontSize: 16, bold: true, color: '#ff0000' },
+      },
+      content: [
+        { text: 'Emphasised text', style: 'emphasis' },
+      ],
+    }
+    const pretextDoc = fromPdfmake(pdfmakeDoc)
+    assert.strictEqual(pretextDoc.defaultFont, 'Inter')
+    assert.strictEqual(pretextDoc.defaultFontSize, 11)
+
+    const first = pretextDoc.content[0]!
+    // The style produces either a paragraph or rich-paragraph depending on
+    // how inline styling is materialised. Assert size + bold via either path.
+    if (first.type === 'paragraph') {
+      assert.strictEqual(first.fontSize, 16)
+      assert.strictEqual(first.fontWeight, 700)
+      assert.strictEqual(first.color, '#ff0000')
+    } else if (first.type === 'rich-paragraph') {
+      const span = first.spans[0]!
+      assert.strictEqual(span.fontSize, 16)
+      assert.strictEqual(span.fontWeight, 700)
+      assert.strictEqual(span.color, '#ff0000')
+    } else {
+      assert.fail(`unexpected element type: ${first.type}`)
+    }
+  })
+
+  test('pretext doc renders without errors as a sanity check', async () => {
+    const pretextDoc: any = {
+      content: [
+        { type: 'heading', level: 1, text: 'Sanity Check' },
+        { type: 'paragraph', text: 'A simple paragraph.' },
+        {
+          type: 'table',
+          columns: [{ width: 100 }, { width: '*' }],
+          rows: [
+            { cells: [{ text: 'k' }, { text: 'v' }] },
+            { cells: [{ text: 'k2' }, { text: 'v2' }] },
+          ],
+        },
+      ],
+    }
+    const bytes = await render(pretextDoc)
+    assert.ok(bytes instanceof Uint8Array)
+    assert.ok(bytes.byteLength > 500)
+  })
+
+  test('large table round-trips with all rows and cells preserved', () => {
+    // 5 columns × 10 rows, headerRows=1
+    const body: string[][] = []
+    body.push(['c0', 'c1', 'c2', 'c3', 'c4'])
+    for (let r = 0; r < 9; r++) {
+      body.push([`r${r}c0`, `r${r}c1`, `r${r}c2`, `r${r}c3`, `r${r}c4`])
+    }
+    const pdfmakeDoc = {
+      content: [{ table: { widths: ['*', '*', '*', '*', '*'], headerRows: 1, body } }],
+    }
+    const result = fromPdfmake(pdfmakeDoc)
+    assert.strictEqual(result.content.length, 1)
+    const table = result.content[0]!
+    assert.strictEqual(table.type, 'table')
+    if (table.type === 'table') {
+      assert.strictEqual(table.rows.length, 10, 'expected 10 rows')
+      assert.strictEqual(table.columns.length, 5, 'expected 5 columns')
+      for (const row of table.rows) {
+        assert.strictEqual(row.cells.length, 5)
+      }
+    }
+  })
+})
