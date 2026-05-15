@@ -1,6 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { PDFDocument } from '@cantoo/pdf-lib'
 import { render } from '../src/index.js'
+import { loadFonts } from '../src/fonts.js'
+import { PretextPdfError } from '../src/errors.js'
 
 test('Phase 9C — Font Subsetting', async (t) => {
 
@@ -238,6 +241,31 @@ test('Phase 9C — Font Subsetting', async (t) => {
 
     assert.ok(pdf instanceof Uint8Array)
     assert.equal(new TextDecoder().decode(pdf.slice(0, 4)), '%PDF')
+  })
+
+  await t.test('throws PretextPdfError with code FONT_ENCODE_FAIL when font subset fails', async () => {
+    // Stub pdfDoc so embedFont returns a font whose encodeText throws,
+    // simulating a malformed/corrupt font that fontkit can't subset.
+    const pdfDoc = await PDFDocument.create()
+    const originalEmbedFont = pdfDoc.embedFont.bind(pdfDoc)
+    pdfDoc.embedFont = (async (bytes: Parameters<typeof originalEmbedFont>[0], opts?: Parameters<typeof originalEmbedFont>[1]) => {
+      const font = await originalEmbedFont(bytes, opts)
+      // Force encodeText to fail to simulate a corrupt font subset
+      font.encodeText = () => { throw new Error('simulated malformed font') }
+      return font
+    }) as typeof pdfDoc.embedFont
+
+    await assert.rejects(
+      () => loadFonts({
+        content: [{ type: 'paragraph', text: 'Hello' }],
+      }, pdfDoc),
+      (err: unknown) => {
+        assert.ok(err instanceof PretextPdfError, 'expected PretextPdfError')
+        assert.equal((err as PretextPdfError).code, 'FONT_ENCODE_FAIL')
+        assert.match((err as PretextPdfError).message, /simulated malformed font/)
+        return true
+      }
+    )
   })
 
 })

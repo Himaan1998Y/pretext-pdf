@@ -138,8 +138,13 @@ export async function loadFonts(
   for (const [key, text] of textByFont) {
     const pdfFont = fontMap.get(key)
     if (pdfFont && text.length > 0) {
-      try { pdfFont.encodeText(text) } catch (err) {
-        console.warn(`[pretext-pdf] font subset warning for "${key}": ${(err as Error).message ?? err}`)
+      try {
+        pdfFont.encodeText(text)
+      } catch (err) {
+        throw new PretextPdfError(
+          'FONT_ENCODE_FAIL',
+          `Font subset failed for "${key}": ${err instanceof Error ? err.message : String(err)}`
+        )
       }
     }
   }
