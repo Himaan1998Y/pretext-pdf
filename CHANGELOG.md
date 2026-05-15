@@ -48,6 +48,34 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 - **Missing LICENSE for vendored code** (`src/vendor/pretext/LICENSE`) — Added MIT license file with attribution to upstream pretext library and this fork, satisfying legal compliance for vendored dependencies.
 
+### Documentation
+
+- **`Logger` interface guidance** (`src/types-public.ts`, audit L2) — Expanded
+  JSDoc on the `Logger` interface and the `logger?` field on `RenderOptions`
+  to call out that passing a no-op (`{ warn: () => {} }`) silences **every**
+  advisory warning — fine in tests, dangerous in production. Documents the
+  default (`console.warn`) and recommends pino/winston for production
+  routing. No code change.
+
+- **pdfmake `defaultStyle` / `styles` mapping** (`src/compat.ts`, audit L3) —
+  Added JSDoc to `PdfmakeStyle` enumerating the supported subset
+  (`font`, `fontSize`, `bold`, `italics`, `color`, `alignment`) and the
+  silently-dropped pdfmake properties (`lineHeight`, `marginX/Y`,
+  `decoration`, `background`, `characterSpacing`, `noWrap`, etc.) that
+  consumers migrating from pdfmake commonly trip over. `fromPdfmake()`
+  now documents how `defaultStyle.font` / `.fontSize` route to
+  document-level `defaultFont` / `defaultFontSize` and how all other
+  `defaultStyle` properties cascade through `mergeStyles()`.
+
+### Changed
+
+- **Benchmark floor override** (`test/benchmark-baseline.test.ts`, audit L4) —
+  The per-corpus regression guard now honors a `PRETEXT_BENCHMARK_FLOOR_MS`
+  environment variable. Set it to a positive integer to raise the 5000ms
+  default floor on slow CI runners; set it to `skip` / `0` / `false` / `off`
+  to bypass the timing assertion entirely. The structural assertions (corpus
+  IDs match baseline, stages present) still run.
+
 ### Notes — Phase A / B / D history
 
 The cycle-detection and depth-cap machinery (`withCycleGuard`,

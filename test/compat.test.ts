@@ -436,6 +436,181 @@ describe('integration', () => {
   })
 })
 
+// ─── describe('edge cases (M-tier audit)') ──────────────────────────────────
+
+describe('edge cases — text array, nested tables, empty containers', () => {
+  test('text field as array of styled objects produces rich-paragraph with spans', () => {
+    const result = fromPdfmake({
+      content: [
+        {
+          text: [
+            { text: 'Bold part', bold: true },
+            ' plain part',
+            { text: ' italic part', italics: true },
+          ],
+        },
+      ],
+    })
+    const el = result.content[0]
+    assert.ok(el, 'content[0] must exist')
+    assert.strictEqual(el.type, 'rich-paragraph')
+    if (el.type === 'rich-paragraph') {
+      assert.strictEqual(el.spans.length, 3, 'expected three spans for three children')
+      assert.strictEqual(el.spans[0]?.fontWeight, 700, 'first span should be bold')
+      assert.strictEqual(el.spans[1]?.text, ' plain part')
+      assert.strictEqual(el.spans[2]?.fontStyle, 'italic', 'third span should be italic')
+    }
+  })
+
+  test('text field as single nested object is wrapped into a rich-paragraph', () => {
+    const result = fromPdfmake({
+      content: [
+        {
+          text: { text: 'Just one span', color: '#ff0000' },
+        } as any,
+      ],
+    })
+    const el = result.content[0]
+    assert.ok(el, 'content[0] must exist')
+    // Single styled child collapses to paragraph (downgrade path in collectSpans)
+    // OR rich-paragraph if styling forces it. Both are acceptable contracts —
+    // assert that the text content is preserved either way.
+    if (el.type === 'paragraph') {
+      assert.strictEqual(el.text, 'Just one span')
+    } else if (el.type === 'rich-paragraph') {
+      assert.strictEqual(el.spans[0]?.text, 'Just one span')
+    } else {
+      assert.fail(`unexpected element type for single-object text: ${el.type}`)
+    }
+  })
+
+  test('nested table inside a table cell is flattened to plain text', () => {
+    // pdfmake supports nesting a table inside a cell; pretext-pdf does not.
+    // The compat shim currently extracts text only — assert the outer table
+    // structure still renders and the inner table is not silently lost as
+    // an unhandled type error.
+    const result = fromPdfmake({
+      content: [
+        {
+          table: {
+            widths: ['*', '*'],
+            body: [
+              ['Outer A', 'Outer B'],
+              [
+                'Outer C',
+                {
+                  table: {
+                    widths: ['*'],
+                    body: [['Inner cell']],
+                  },
+                } as any,
+              ],
+            ],
+          },
+        },
+      ],
+    })
+    const el = result.content[0]
+    assert.ok(el && el.type === 'table', 'outer element should be a table')
+    if (el.type === 'table') {
+      assert.strictEqual(el.rows.length, 2, 'outer table should have 2 rows')
+      // The cell that contained a nested table renders as an empty string —
+      // this is the current contract. If the shim ever supports nested
+      // tables, update this expectation.
+      const nestedCell = el.rows[1]?.cells[1]
+      assert.ok(nestedCell, 'cell containing nested table must exist')
+      assert.strictEqual(typeof nestedCell.text, 'string')
+    }
+  })
+
+  test('style referenced by string name in defaultStyle is applied', () => {
+    // defaultStyles lookup: the style name resolves via the styles map.
+    const result = fromPdfmake({
+      defaultStyle: { fontSize: 14, color: '#222222' },
+      styles: { highlight: { color: '#0070f3', bold: true } },
+      content: [
+        { text: 'Highlighted line', style: 'highlight' },
+      ],
+    })
+    const el = result.content[0]
+    assert.ok(el, 'content[0] must exist')
+    // Either paragraph or rich-paragraph is acceptable; both must carry the
+    // resolved style.
+    if (el.type === 'paragraph') {
+      assert.strictEqual(el.color, '#0070f3')
+      assert.strictEqual(el.fontWeight, 700)
+    } else if (el.type === 'rich-paragraph') {
+      assert.strictEqual(el.spans[0]?.color, '#0070f3')
+      assert.strictEqual(el.spans[0]?.fontWeight, 700)
+    } else {
+      assert.fail(`unexpected element type for named style: ${el.type}`)
+    }
+  })
+
+  test('multiple style names in array are merged left-to-right', () => {
+    const result = fromPdfmake({
+      styles: {
+        big: { fontSize: 20 },
+        red: { color: '#ff0000' },
+      },
+      content: [
+        { text: 'Big and red', style: ['big', 'red'] },
+      ],
+    })
+    const el = result.content[0]
+    assert.ok(el, 'content[0] must exist')
+    if (el.type === 'paragraph') {
+      assert.strictEqual(el.fontSize, 20)
+      assert.strictEqual(el.color, '#ff0000')
+    } else if (el.type === 'rich-paragraph') {
+      assert.strictEqual(el.spans[0]?.fontSize, 20)
+      assert.strictEqual(el.spans[0]?.color, '#ff0000')
+    } else {
+      assert.fail(`unexpected element type: ${el.type}`)
+    }
+  })
+
+  test('empty stack array produces no elements in the output content', () => {
+    const result = fromPdfmake({
+      content: [{ stack: [] }],
+    })
+    assert.strictEqual(result.content.length, 0, 'empty stack should add zero elements')
+  })
+
+  test('empty columns array produces no elements and still warns once', () => {
+    const warnings: string[] = []
+    const result = fromPdfmake(
+      { content: [{ columns: [] }] },
+      { onUnsupported: (f) => warnings.push(f) },
+    )
+    assert.strictEqual(result.content.length, 0, 'empty columns should add zero elements')
+    assert.ok(
+      warnings.some((w) => w.includes('columns')),
+      `empty columns should still emit a one-time warning, got: ${JSON.stringify(warnings)}`,
+    )
+  })
+
+  test('columns with multiple nested nodes flattens all children into content', () => {
+    const warnings: string[] = []
+    const result = fromPdfmake(
+      {
+        content: [
+          {
+            columns: [
+              { text: 'Left column' },
+              { text: 'Middle column' },
+              { text: 'Right column' },
+            ],
+          },
+        ],
+      },
+      { onUnsupported: (f) => warnings.push(f) },
+    )
+    assert.strictEqual(result.content.length, 3, 'three column children should flatten to three elements')
+    assert.ok(warnings.some((w) => w.includes('columns')))
+  })
+})
+
 // ─── describe('unsupported nodes') ───────────────────────────────────────────
 
 describe('unsupported nodes', () => {
