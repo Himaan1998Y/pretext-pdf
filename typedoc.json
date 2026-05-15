@@ -1,0 +1,27 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "src/index.ts",
+    "src/markdown.ts",
+    "src/templates.ts",
+    "src/compat.ts",
+    "src/plugin-types.ts",
+    "src/schema.ts"
+  ],
+  "entryPointStrategy": "expand",
+  "out": "docs/api",
+  "tsconfig": "tsconfig.json",
+  "name": "pretext-pdf",
+  "readme": "README.md",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeInternal": true,
+  "excludeNotDocumented": false,
+  "categorizeByGroup": true,
+  "sort": ["source-order"],
+  "githubPages": false,
+  "navigationLinks": {
+    "GitHub": "https://github.com/Himaan1998Y/pretext-pdf",
+    "npm": "https://www.npmjs.com/package/pretext-pdf"
+  }
+}
