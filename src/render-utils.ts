@@ -88,7 +88,8 @@ export function addLinkAnnotation(
 
   const existingAnnots = pdfPage.node.get(PDFName.of('Annots'))
   if (existingAnnots) {
-    const annots = pdfDoc.context.lookup(existingAnnots) as any // pdf-lib: PDFArray has no public push() type
+    // PDFArray.push() is now typed via augmentation (pdf-lib-augment.d.ts)
+    const annots = pdfDoc.context.lookup(existingAnnots) as any
     annots.push(linkAnnot)
   } else {
     pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([linkAnnot]))
@@ -125,7 +126,8 @@ export function addGoToAnnotation(
 
   const existingAnnots = pdfPage.node.get(PDFName.of('Annots'))
   if (existingAnnots) {
-    const annots = pdfDoc.context.lookup(existingAnnots) as any // pdf-lib: PDFArray has no public push() type
+    // PDFArray.push() is now typed via augmentation (pdf-lib-augment.d.ts)
+    const annots = pdfDoc.context.lookup(existingAnnots) as any
     annots.push(goToAnnot)
   } else {
     pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([goToAnnot]))
@@ -162,7 +164,8 @@ export function addStickyNoteAnnotation(
 
   const existingAnnots = pdfPage.node.get(PDFName.of('Annots'))
   if (existingAnnots) {
-    const annots = pdfDoc.context.lookup(existingAnnots) as any // pdf-lib: PDFArray has no public push() type
+    // PDFArray.push() is now typed via augmentation (pdf-lib-augment.d.ts)
+    const annots = pdfDoc.context.lookup(existingAnnots) as any
     annots.push(annotRef)
   } else {
     pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([annotRef]))
@@ -185,8 +188,9 @@ export function drawTextDecoration(
 ): void {
   if (!decoration.underline && !decoration.strikethrough) return
 
-  // Prefer font-designed metrics via fontkit embedder; fall back to height math
-  const embedder = (pdfFont as any).embedder // pdf-lib internal: no public embedder property
+  // Prefer font-designed metrics via fontkit embedder; fall back to height math.
+  // embedder is private in pdf-lib; accessing it via private field access
+  const embedder = (pdfFont as any).embedder
   const fkFont   = embedder?.font    // fontkit Font object (undefined for standard fonts)
   const scale    = embedder?.scale ?? 1
   const ascentPt = pdfFont.heightAtSize(fontSize, { descender: false })

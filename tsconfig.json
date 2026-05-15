@@ -16,6 +16,6 @@
     "skipLibCheck": true,
     "typeRoots": ["./node_modules/@types"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/vendor/**/*.d.ts"],
   "exclude": ["node_modules", "dist", "test", "examples"]
 }

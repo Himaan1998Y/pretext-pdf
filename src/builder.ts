@@ -140,7 +140,8 @@ export function createPdf(options: PdfBuilderOptions = {}): PdfBuilder {
      * Add an image.
      */
     addImage(src: ImageElement['src'], opts?: Partial<Omit<ImageElement, 'type' | 'src'>>): PdfBuilder {
-      content.push({ type: 'image', src, ...opts })
+      const el: ImageElement = { type: 'image', src, ...opts } as ImageElement
+      content.push(el)
       return this
     },
 

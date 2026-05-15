@@ -158,12 +158,7 @@ export interface HeaderFooterSpec {
   color?: string
 }
 
-/** @public */
-export interface WatermarkSpec {
-  /** Text to render as watermark. Either text or image required. */
-  text?: string
-  /** Absolute path or Uint8Array of a PNG/JPG image. Either text or image required. */
-  image?: string | Uint8Array
+interface WatermarkBase {
   /** Font family for text watermark. Default: document.defaultFont */
   fontFamily?: string
   /** Font weight. Default: 400 */
@@ -177,6 +172,11 @@ export interface WatermarkSpec {
   /** Rotation in degrees (counter-clockwise). Default: -45 */
   rotation?: number
 }
+
+/** @public */
+export type WatermarkSpec =
+  | (WatermarkBase & { text: string; image?: never })
+  | (WatermarkBase & { image: string | Uint8Array; text?: never })
 
 /** @public */
 export interface EncryptionSpec {
@@ -284,12 +284,9 @@ export interface CommentElement {
 }
 
 /** @public */
-export interface AssemblyPart {
-  /** Render this document and include its pages */
-  doc?: PdfDocument
-  /** Pre-rendered PDF bytes to include directly */
-  pdf?: Uint8Array
-}
+export type AssemblyPart =
+  | { doc: PdfDocument; pdf?: never }
+  | { pdf: Uint8Array; doc?: never }
 
 // ─── Form Field ───────────────────────────────────────────────────────────────
 
@@ -546,8 +543,7 @@ export interface TableCell {
 
 // ─── Image ────────────────────────────────────────────────────────────────────
 
-/** @public */
-export interface ImageElement {
+interface ImageBase {
   type: 'image'
   /** Absolute file path (Node.js) or raw bytes (browser/Node) */
   src: string | Uint8Array
@@ -563,27 +559,65 @@ export interface ImageElement {
   spaceAfter?: number
   /** Space above image in pt. Default: 0 */
   spaceBefore?: number
+}
+
+type ImageNoFloat = ImageBase & {
+  float?: undefined
+  floatWidth?: undefined
+  floatGap?: undefined
+  floatText?: undefined
+  floatSpans?: undefined
+  floatFontSize?: undefined
+  floatFontFamily?: undefined
+  floatColor?: undefined
+}
+
+type ImageWithFloatText = ImageBase & {
   /**
    * If set, renders image + floatText as a two-column composite block.
    * 'left' = image left, text right. 'right' = image right, text left.
    * NOTE: Constrained float only — floatText is a single paragraph alongside the image.
    */
-  float?: 'left' | 'right'
+  float: 'left' | 'right'
   /** Image column width in pt. Default: 35% of content width. */
   floatWidth?: number
   /** Gap between image and text columns in pt. Default: 12 */
   floatGap?: number
-  /** Text rendered alongside the image. Required when float is set. Mutually exclusive with floatSpans. */
-  floatText?: string
-  /** Rich-text spans rendered alongside the image. Alternative to floatText for mixed-style float text. */
-  floatSpans?: InlineSpan[]
   /** Font size for floatText in pt. Default: doc.defaultFontSize */
   floatFontSize?: number
   /** Font family for floatText. Default: doc.defaultFont */
   floatFontFamily?: string
   /** Text color for floatText as 6-digit hex. Default: '#000000' */
   floatColor?: string
+  /** Text rendered alongside the image. Mutually exclusive with floatSpans. */
+  floatText: string
+  floatSpans?: undefined
 }
+
+type ImageWithFloatSpans = ImageBase & {
+  /**
+   * If set, renders image + floatSpans as a two-column composite block.
+   * 'left' = image left, text right. 'right' = image right, text left.
+   * NOTE: Constrained float only — floatSpans is rendered alongside the image.
+   */
+  float: 'left' | 'right'
+  /** Image column width in pt. Default: 35% of content width. */
+  floatWidth?: number
+  /** Gap between image and text columns in pt. Default: 12 */
+  floatGap?: number
+  /** Font size for floatText in pt. Default: doc.defaultFontSize */
+  floatFontSize?: number
+  /** Font family for floatText. Default: doc.defaultFont */
+  floatFontFamily?: string
+  /** Text color for floatText as 6-digit hex. Default: '#000000' */
+  floatColor?: string
+  /** Rich-text spans rendered alongside the image. Alternative to floatText for mixed-style float text. */
+  floatSpans: InlineSpan[]
+  floatText?: undefined
+}
+
+/** @public */
+export type ImageElement = ImageNoFloat | ImageWithFloatText | ImageWithFloatSpans
 
 // ─── Float Group ──────────────────────────────────────────────────────────────
 
@@ -612,18 +646,8 @@ export interface FloatGroupElement {
 
 // ─── SVG ──────────────────────────────────────────────────────────────────────
 
-/** @public */
-export interface SvgElement {
+interface SvgBase {
   type: 'svg'
-  /** Inline SVG markup string. Either `svg` or `src` is required. */
-  svg?: string
-  /**
-   * Path to an SVG file (absolute path) or an https:// URL.
-   * Either `svg` or `src` is required.
-   * @example src: path.join(__dirname, 'chart.svg')
-   * @example src: 'https://example.com/logo.svg'
-   */
-  src?: string
   /** Rendered width in pt. Default: available content width */
   width?: number
   /** Rendered height in pt. Auto-computed from SVG viewBox if not set */
@@ -635,6 +659,11 @@ export interface SvgElement {
   /** Space below element in pt. Default: 8 */
   spaceAfter?: number
 }
+
+/** @public */
+export type SvgElement =
+  | (SvgBase & { svg: string; src?: never })
+  | (SvgBase & { src: string; svg?: never })
 
 // ─── QR Code ──────────────────────────────────────────────────────────────────
 
@@ -1158,7 +1187,26 @@ export interface ValidationResult {
 
 /**
  * Optional logger interface for routing pretext-pdf diagnostic messages.
- * When not provided, diagnostics are written to console.warn.
+ *
+ * @remarks
+ * Diagnostic messages include asset-loading failures (image, font, QR,
+ * barcode, chart, plugin), validation advisories, and rendering warnings
+ * (form-field clashes, watermark fallbacks, etc.). They are advisory — the
+ * render still completes — but most of them indicate a real problem with
+ * input or environment.
+ *
+ * **Behavior:**
+ * - If `logger` is omitted on {@link RenderOptions}, diagnostics route to
+ *   `console.warn` with sensible defaults.
+ * - Passing a no-op (`{ warn: () => {} }`) silences **every** advisory
+ *   warning. This is convenient for tests but **dangerous in production** —
+ *   you lose visibility into broken images, missing fonts, and other
+ *   recoverable failures that you almost certainly want to know about.
+ * - For production, prefer a structured logger such as
+ *   [pino](https://github.com/pinojs/pino) or
+ *   [winston](https://github.com/winstonjs/winston) and adapt it to the
+ *   single-method shape — e.g. `{ warn: pino().warn.bind(pino()) }`.
+ *
  * @public
  */
 export interface Logger {
@@ -1184,10 +1232,19 @@ export type RenderOptions = {
    * instead of `console.warn`.
    *
    * @remarks
+   * **Silencing warnings is dangerous.** Passing `{ warn: () => {} }` (or any
+   * no-op) suppresses every advisory warning. That includes silent failures
+   * for broken images, missing fonts, and unreachable URLs — the document
+   * still renders, but the output may be incomplete. Prefer a structured
+   * logger (pino, winston, etc.) in production so warnings remain searchable
+   * and alertable.
+   *
    * Bidi-js fallback warnings from RTL reordering still go to `console.warn`
    * directly. They are extremely rare (only fire when bidi-js itself errors)
    * and routing them requires changes to deferred internal modules. This will
    * be addressed in a future minor release.
+   *
+   * See {@link Logger} for the interface contract.
    */
   logger?: Logger
 }
