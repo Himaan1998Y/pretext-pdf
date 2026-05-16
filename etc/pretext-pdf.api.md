@@ -20,10 +20,13 @@ export interface AnnotationSpec {
 export function assemble(parts: AssemblyPart[]): Promise<Uint8Array>;
 
 // @public (undocumented)
-export interface AssemblyPart {
-    doc?: PdfDocument;
-    pdf?: Uint8Array;
-}
+export type AssemblyPart = {
+    doc: PdfDocument;
+    pdf?: never;
+} | {
+    pdf: Uint8Array;
+    doc?: never;
+};
 
 // @public (undocumented)
 export interface BarcodeElement {
@@ -155,10 +158,8 @@ export interface CommentElement {
     type: 'comment';
 }
 
-// Warning: (ae-forgotten-export) The symbol "TocEntryElement" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
-export type ContentElement = ParagraphElement | HeadingElement | SpacerElement | TableElement | ImageElement | SvgElement | QrCodeElement | BarcodeElement | ChartElement | ListElement | HorizontalRuleElement | PageBreakElement | CodeBlockElement | RichParagraphElement | BlockquoteElement | TocElement | TocEntryElement | CommentElement | FormFieldElement | CalloutElement | FootnoteDefElement | FloatGroupElement;
+export type ContentElement = ParagraphElement | HeadingElement | SpacerElement | TableElement | ImageElement | SvgElement | QrCodeElement | BarcodeElement | ChartElement | ListElement | HorizontalRuleElement | PageBreakElement | CodeBlockElement | RichParagraphElement | BlockquoteElement | TocElement | CommentElement | FormFieldElement | CalloutElement | FootnoteDefElement | FloatGroupElement;
 
 // @beta
 export function createFootnoteSet(items: Array<{
@@ -204,7 +205,7 @@ export interface EncryptionSpec {
 }
 
 // @public
-export type ErrorCode = 'VALIDATION_ERROR' | 'FONT_LOAD_FAILED' | 'FONT_EMBED_FAILED' | 'PAGE_TOO_SMALL' | 'CANVAS_UNAVAILABLE' | 'PAGE_LIMIT_EXCEEDED' | 'IMAGE_LOAD_FAILED' | 'IMAGE_FORMAT_MISMATCH' | 'IMAGE_TOO_TALL' | 'TABLE_COLUMN_OVERFLOW' | 'TABLE_COLUMN_TOO_NARROW' | 'MONOSPACE_FONT_REQUIRED' | 'ITALIC_FONT_NOT_LOADED' | 'FONT_NOT_LOADED' | 'COLUMN_WIDTH_TOO_NARROW' | 'COLSPAN_OVERFLOW' | 'UNSUPPORTED_LANGUAGE' | 'SVG_LOAD_FAILED' | 'SVG_RENDER_FAILED' | 'WATERMARK_ROTATION_OUT_OF_RANGE' | 'SVG_INVALID_MARKUP' | 'ASSEMBLY_EMPTY' | 'ASSEMBLY_FAILED' | 'FORM_FIELD_NAME_DUPLICATE' | 'FORM_FLATTEN_FAILED' | 'SIGNATURE_DEP_MISSING' | 'SIGNATURE_P12_LOAD_FAILED' | 'SIGNATURE_FAILED' | 'SIGNATURE_CERT_AND_ENCRYPTION' | 'FOOTNOTE_REF_ORPHANED' | 'FOOTNOTE_DEF_ORPHANED' | 'FOOTNOTE_DEF_DUPLICATE' | 'PAGINATION_FAILED' | 'RENDER_FAILED' | 'PATH_TRAVERSAL' | 'QR_DEP_MISSING' | 'QR_GENERATE_FAILED' | 'BARCODE_DEP_MISSING' | 'BARCODE_GENERATE_FAILED' | 'BARCODE_SYMBOLOGY_INVALID' | 'CHART_DEP_MISSING' | 'CHART_SPEC_INVALID' | 'CHART_RENDER_FAILED' | 'UNKNOWN_PROPERTY' | 'INVALID_INPUT' | 'MARKDOWN_DEP_MISSING';
+export type ErrorCode = 'VALIDATION_ERROR' | 'FONT_LOAD_FAILED' | 'FONT_EMBED_FAILED' | 'FONT_ENCODE_FAIL' | 'PAGE_TOO_SMALL' | 'CANVAS_UNAVAILABLE' | 'PAGE_LIMIT_EXCEEDED' | 'IMAGE_LOAD_FAILED' | 'IMAGE_FORMAT_MISMATCH' | 'IMAGE_TOO_TALL' | 'TABLE_COLUMN_OVERFLOW' | 'TABLE_COLUMN_TOO_NARROW' | 'MONOSPACE_FONT_REQUIRED' | 'ITALIC_FONT_NOT_LOADED' | 'FONT_NOT_LOADED' | 'COLUMN_WIDTH_TOO_NARROW' | 'COLSPAN_OVERFLOW' | 'UNSUPPORTED_LANGUAGE' | 'SVG_LOAD_FAILED' | 'SVG_RENDER_FAILED' | 'WATERMARK_ROTATION_OUT_OF_RANGE' | 'SVG_INVALID_MARKUP' | 'ASSEMBLY_EMPTY' | 'ASSEMBLY_FAILED' | 'FORM_FIELD_NAME_DUPLICATE' | 'FORM_FLATTEN_FAILED' | 'SIGNATURE_DEP_MISSING' | 'SIGNATURE_P12_LOAD_FAILED' | 'SIGNATURE_FAILED' | 'SIGNATURE_CERT_AND_ENCRYPTION' | 'FOOTNOTE_REF_ORPHANED' | 'FOOTNOTE_DEF_ORPHANED' | 'FOOTNOTE_DEF_DUPLICATE' | 'PAGINATION_FAILED' | 'RENDER_FAILED' | 'PATH_TRAVERSAL' | 'QR_DEP_MISSING' | 'QR_GENERATE_FAILED' | 'BARCODE_DEP_MISSING' | 'BARCODE_GENERATE_FAILED' | 'BARCODE_SYMBOLOGY_INVALID' | 'CHART_DEP_MISSING' | 'CHART_SPEC_INVALID' | 'CHART_RENDER_FAILED' | 'UNKNOWN_PROPERTY' | 'INVALID_INPUT' | 'MARKDOWN_DEP_MISSING' | 'RTL_REORDER_FAILED' | 'CHART_LOAD_FAILED';
 
 // @public (undocumented)
 export interface FloatGroupElement {
@@ -330,26 +331,12 @@ export interface HyphenationConfig {
     rightMin?: number;
 }
 
+// Warning: (ae-forgotten-export) The symbol "ImageNoFloat" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "ImageWithFloatText" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "ImageWithFloatSpans" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
-export interface ImageElement {
-    align?: 'left' | 'center' | 'right';
-    float?: 'left' | 'right';
-    floatColor?: string;
-    floatFontFamily?: string;
-    floatFontSize?: number;
-    floatGap?: number;
-    floatSpans?: InlineSpan[];
-    floatText?: string;
-    floatWidth?: number;
-    format?: 'png' | 'jpg' | 'auto';
-    height?: number;
-    spaceAfter?: number;
-    spaceBefore?: number;
-    src: string | Uint8Array;
-    // (undocumented)
-    type: 'image';
-    width?: number;
-}
+export type ImageElement = ImageNoFloat | ImageWithFloatText | ImageWithFloatSpans;
 
 // @public (undocumented)
 export interface InlineSpan {
@@ -690,18 +677,16 @@ export interface SpacerElement {
     type: 'spacer';
 }
 
+// Warning: (ae-forgotten-export) The symbol "SvgBase" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
-export interface SvgElement {
-    align?: 'left' | 'center' | 'right';
-    height?: number;
-    spaceAfter?: number;
-    spaceBefore?: number;
-    src?: string;
-    svg?: string;
-    // (undocumented)
-    type: 'svg';
-    width?: number;
-}
+export type SvgElement = (SvgBase & {
+    svg: string;
+    src?: never;
+}) | (SvgBase & {
+    src: string;
+    svg?: never;
+});
 
 // @public (undocumented)
 export interface TableCell {
@@ -792,17 +777,16 @@ export interface ValidationResult {
     warningCount: number;
 }
 
+// Warning: (ae-forgotten-export) The symbol "WatermarkBase" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
-export interface WatermarkSpec {
-    color?: string;
-    fontFamily?: string;
-    fontSize?: number;
-    fontWeight?: 400 | 700;
-    image?: string | Uint8Array;
-    opacity?: number;
-    rotation?: number;
-    text?: string;
-}
+export type WatermarkSpec = (WatermarkBase & {
+    text: string;
+    image?: never;
+}) | (WatermarkBase & {
+    image: string | Uint8Array;
+    text?: never;
+});
 
 // (No @packageDocumentation comment for this package)
 

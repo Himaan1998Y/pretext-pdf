@@ -37,7 +37,7 @@
         "logLevel": "warning"
       },
       "ae-forgotten-export": {
-        "logLevel": "warning"
+        "logLevel": "error"
       },
       "default": {
         "logLevel": "warning"

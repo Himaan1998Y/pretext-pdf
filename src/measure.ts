@@ -85,7 +85,7 @@ export async function buildTocEntryBlocks(
     const title = tocElement.title ?? 'Table of Contents'
     const titleLines = await measureText(title, titleFontSize, fontFamily, 700, contentWidth, titleFontSize * LINE_HEIGHT_BODY, undefined)
     blocks.push({
-      element: { type: 'toc-entry', text: title, pageNumber: -1, level: 1, levelIndent: 0, leader: '', fontFamily, fontWeight: 700 } as import('./types.js').TocEntryElement,
+      element: { type: 'toc-entry', text: title, pageNumber: -1, level: 1, levelIndent: 0, leader: '', fontFamily, fontWeight: 700 } as import('./types-internal.js').TocEntryElement,
       height: titleLines.length * (titleFontSize * LINE_HEIGHT_BODY),
       lines: titleLines,
       fontSize: titleFontSize,
@@ -105,7 +105,7 @@ export async function buildTocEntryBlocks(
     const entryTextWidth = contentWidth - indent - 30 // reserve 30pt for page number area
     const lines = await measureText(h.text, fontSize, fontFamily, fontWeight, entryTextWidth, lineHeight, undefined)
     blocks.push({
-      element: { type: 'toc-entry', text: h.text, pageNumber: h.pageIndex + 1, level: h.level, levelIndent: indent, leader, fontFamily, fontWeight } as import('./types.js').TocEntryElement,
+      element: { type: 'toc-entry', text: h.text, pageNumber: h.pageIndex + 1, level: h.level, levelIndent: indent, leader, fontFamily, fontWeight } as import('./types-internal.js').TocEntryElement,
       height: lines.length * lineHeight,
       lines,
       fontSize,

@@ -113,7 +113,7 @@ export function renderTocEntry(
   fontMap: FontMap,
 ): void {
   const { measuredBlock, startLine, endLine, yFromTop } = pagedBlock
-  const element = measuredBlock.element as import('./types.js').TocEntryElement
+  const element = measuredBlock.element as import('./types-internal.js').TocEntryElement
   const tocData = measuredBlock.tocEntryData!
   const lines = measuredBlock.lines.slice(startLine, endLine)
   if (lines.length === 0) return

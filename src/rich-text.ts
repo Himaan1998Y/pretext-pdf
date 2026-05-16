@@ -1,4 +1,5 @@
-import type { InlineSpan, RichLine, RichFragment, PdfDocument } from './types.js'
+import type { InlineSpan, PdfDocument } from './types.js'
+import type { RichLine, RichFragment } from './types-internal.js'
 import { buildFontKey } from './measure.js'
 import { LINE_HEIGHT_BODY } from './render-utils.js'
 

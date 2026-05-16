@@ -45,12 +45,9 @@ export type {
   CodeBlockElement,
   RichParagraphElement,
   InlineSpan,
-  RichLine,
-  RichFragment,
   BlockquoteElement,
   CalloutElement,
   FootnoteDefElement,
   TocElement,
-  TocEntryElement,
   RenderOptions,
 } from './types-public.js'

@@ -47,6 +47,12 @@ export async function measureBlock(
   const baseFontSize = doc.defaultFontSize ?? 12
   const baseFont = doc.defaultFont ?? 'Inter'
 
+  // Reject the internal TOC entry type. TocEntryElement is synthesized
+  // internally by the TOC pass and never produced from user-supplied content.
+  if ((element as { type: unknown }).type === 'toc-entry') {
+    throw new PretextPdfError('VALIDATION_ERROR', 'toc-entry is an internal type and cannot be used in document content')
+  }
+
   switch (element.type) {
     case 'spacer': {
       return {
@@ -512,10 +518,6 @@ export async function measureBlock(
         spaceAfter: element.spaceAfter ?? 0,
         spaceBefore: element.spaceBefore ?? 0,
       } satisfies import('./types-internal.js').MeasuredBlock
-    }
-    case 'toc-entry': {
-      // Internal type - should never be measured directly by user input
-      throw new PretextPdfError('VALIDATION_ERROR', 'toc-entry is an internal type and cannot be used in document content')
     }
     case 'footnote-def': {
       const fn = element as import('./types.js').FootnoteDefElement

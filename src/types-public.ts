@@ -353,7 +353,6 @@ export type ContentElement =
   | RichParagraphElement
   | BlockquoteElement
   | TocElement
-  | TocEntryElement
   | CommentElement
   | FormFieldElement
   | CalloutElement
@@ -948,43 +947,6 @@ export interface InlineSpan {
   footnoteRef?: string
 }
 
-/**
- * A composed line from the rich-text compositor — contains multiple styled fragments
- * @internal
- */
-export interface RichLine {
-  fragments: RichFragment[]
-  /** Total line content width in pt */
-  totalWidth: number
-  /** Height of this line in pt. Computed as max(fragment.fontSize) * lineHeightRatio */
-  lineHeight: number
-}
-
-/**
- * A single styled run within a RichLine
- * @internal
- */
-export interface RichFragment {
-  text: string
-  fontKey: string
-  fontSize: number
-  color: string
-  /** x-offset from the left edge of the text area in pt */
-  x: number
-  /** Fragment width in pt */
-  width: number
-  underline?: boolean
-  strikethrough?: boolean
-  url?: string
-  href?: string
-  /** Vertical baseline shift in pt. Positive = up (superscript), negative = down (subscript) */
-  yOffset?: number
-  /** Carried from InlineSpan.footnoteRef — used by renderer to identify footnote refs */
-  footnoteRef?: string
-  /** Extra spacing between characters in pt. Carried from InlineSpan.letterSpacing. */
-  letterSpacing?: number
-}
-
 // ─── Blockquote ───────────────────────────────────────────────────────────────
 
 /** @public */
@@ -1133,18 +1095,6 @@ export interface TocElement {
   spaceBefore?: number
   /** Space after the entire TOC section. Default: 0 */
   spaceAfter?: number
-}
-
-/** @internal */
-export interface TocEntryElement {
-  type: 'toc-entry'
-  text: string
-  pageNumber: number
-  level: 1 | 2 | 3 | 4
-  levelIndent: number
-  leader: string
-  fontFamily: string
-  fontWeight: number
 }
 
 // ─── Validation API ───────────────────────────────────────────────────────────

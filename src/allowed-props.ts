@@ -30,13 +30,13 @@ import type {
   FormFieldElement,
   FootnoteDefElement,
   TocElement,
-  TocEntryElement,
   FloatGroupElement,
   AnnotationSpec,
   TableRow,
   DocumentMetadata,
   EncryptionSpec,
 } from './types.js'
+import type { TocEntryElement } from './types-internal.js'
 
 /** Compile-time assertion that T has exactly the keys in Keys (no more, no less) */
 type Exact<T, Keys extends readonly (keyof T)[]> = T & Record<Exclude<keyof T, Keys[number]>, never>
