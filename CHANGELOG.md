@@ -7,6 +7,110 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.2.0] — 2026-05-16
+
+Post-audit hardening release. Type system tightened, concurrency-safe validation,
+@internal type leaks closed, RTL/asset failures surface as structured errors,
+SSRF defense upgraded to undici-pinned IP. No source-level API removals from the
+package entry point — see migration notes below for `@internal` types that were
+already not exported from `src/index.ts`.
+
+### Added
+
+- **Discriminated unions on four public types** (`src/types-public.ts`, audit Phase B) —
+  `WatermarkSpec`, `AssemblyPart`, `SvgElement`, and `ImageElement` (float variants)
+  now use TypeScript discriminated unions instead of flat optional structs. The
+  compiler now prevents invalid combinations (e.g., a watermark with both `text`
+  and `image`, or an SVG element with neither `svg` nor `src`) that previously
+  could only be caught at runtime. Existing valid usages continue to compile.
+
+- **`pdf-lib` type augmentation** (`src/vendor/pdf-lib-augment.d.ts`, audit Phase D) —
+  Documents the load-bearing `as any` casts against pdf-lib internals
+  (`PDFArray.push`, `PDFFont.embedder`) and removes the one genuinely-avoidable
+  cast in `measure.ts`.
+
+- **DNS rebinding defense via undici Agent IP pinning** (`src/assets.ts`, audit B6) —
+  `assertSafeUrl` was upgraded to `resolveAndValidateUrl` which returns the
+  resolved IP, and `fetchWithTimeout` now uses an undici `Agent` whose
+  `connect.lookup` callback always returns the pre-validated IP. Closes the
+  TOCTOU window where DNS could rebind between validation and connect.
+  Extended private-range coverage: 0.0.0.0/8, 192.0.0/24, 198.18/15, IPv6
+  multicast, and IPv4-mapped IPv6 normalization. +14 SSRF tests (25 total).
+
+- **Per-call cycle-detection state** (`src/validate.ts`, audit Perf-1) — Moved
+  `seenInRecursion` WeakSet from module scope into `validate()` and threaded
+  through `withCycleGuard`. Makes validation reentrant and concurrency-safe
+  (no shared mutable state across parallel `validate()` calls). +1 regression
+  test.
+
+- **Structured error codes on RTL + asset failures** (`src/errors.ts`,
+  `src/measure-text.ts`, `src/assets.ts`, audit silent-failure pass) —
+  - `RTL_REORDER_FAILED` — surfaces when `bidi-js` is installed but throws.
+    Previously fell through with `isRTL:true` on logical-order text =
+    visually broken Arabic/Hebrew renders. Missing `bidi-js` still degrades
+    gracefully (warn + LTR render) since it is an optional peer dep.
+  - `CHART_LOAD_FAILED` — embedded in warn logs from QR/barcode/chart loaders
+    so failures are debuggable from log scraping alone.
+  - `FONT_ENCODE_FAIL` — replaces the prior bare `catch` in `src/fonts.ts`
+    that silently swallowed font subset failures (audit B2).
+
+### Changed
+
+- **`@internal` types removed from the `types.ts` barrel** (audit H8 / type-design HIGH) —
+  `RichLine`, `RichFragment`, and `TocEntryElement` were tagged `@internal`
+  but re-exported through `src/types.ts`. They have been removed from that
+  barrel and canonicalized in `src/types-internal.ts`. `TocEntryElement` is
+  no longer a member of the public `ContentElement` union (it was always
+  pipeline-synthesized, never user-constructed). Internal imports updated
+  in `rich-text.ts`, `measure.ts`, `render-extras.ts`, `allowed-props.ts`,
+  `validate.ts`, `measure-blocks.ts`, `fonts.ts`. **Migration note:** these
+  types were never exported from `src/index.ts` (the package entry point),
+  so consumers using the supported import path (`import { ... } from
+  'pretext-pdf'`) are unaffected. Deep imports (`'pretext-pdf/src/types'`)
+  are unsupported and never were stable.
+
+- **`api-extractor` enforcement escalated to `error`** (`api-extractor.json`) —
+  `ae-forgotten-export` log level changed from `warning` to `error` so CI
+  fails on future `@internal` type leaks. `etc/pretext-pdf.api.md` baseline
+  regenerated.
+
+- **`assertUnknownProps` parameter tightened** (`src/validate.ts`) —
+  `obj: any` → `obj: unknown` with an explicit type guard at the boundary.
+  Removes one of the few remaining `any` exposures at a security-sensitive
+  validation entrypoint.
+
+### Fixed
+
+- **Concurrent validation false positives** (`src/validate.ts`) — Two
+  simultaneous `validateDocument(doc)` calls on the same object reference
+  could produce a false "cyclic reference detected" error because the
+  WeakSet was at module scope. Per-call WeakSet fix closes this and any
+  future re-entrant validator scenarios.
+
+- **Stale `tests-743` badge** (`README.md`) — Replaced with the durable
+  `tests-passing` (current unit count is 319).
+
+- **Dead `case 'toc-entry'` branch** (`src/fonts.ts:collectTextByFont`) —
+  After `TocEntryElement` left the public `ContentElement` union, the
+  branch became unreachable.
+
+### Migration notes (v1.1.x → v1.2.0)
+
+If you only import from `'pretext-pdf'`: **no source changes needed.**
+
+If you do unsupported deep imports of internal types
+(`'pretext-pdf/src/types'`):
+- `RichLine`, `RichFragment`, `TocEntryElement` — import from
+  `'pretext-pdf/src/types-internal'` instead, with the understanding that
+  these are not part of the stable public API and may change in any release.
+
+If you construct `WatermarkSpec` / `AssemblyPart` / `SvgElement` / `ImageElement`
+literals: you may need to delete fields you weren't using anyway. TypeScript
+will flag any literals that previously satisfied the loose type but violated
+the actual invariants.
+
+---
+
 ## [1.1.3] — 2026-05-15
 
 ### Added

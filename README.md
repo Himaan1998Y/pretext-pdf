@@ -154,17 +154,34 @@ writeFileSync('invoice.pdf', pdf)
 >
 > Validation prevents injection attacks, catches shape errors early, and gives better error messages than render() alone.
 
-> **Security — file-path access**
-> By default, `render()` will read any absolute file path supplied in `image.src`, `svg.src`,
-> or watermark image fields. If your document JSON originates from user input, an LLM,
-> or any external source, set `allowedFileDirs` to restrict reads to a known directory:
+> **⚠️ Security — file-path access (READ BEFORE PRODUCTION DEPLOY)**
+>
+> **`allowedFileDirs` is opt-in, not on by default.** If you do not set it,
+> `render()` will read ANY absolute file path supplied in `image.src`,
+> `svg.src`, font `src`, watermark image, or P12 cert path — including
+> sensitive system paths like `/etc/passwd`, `~/.ssh/id_rsa`,
+> `/proc/self/environ`, or AWS credentials files.
+>
+> This default-open behavior is intentional for trusted in-process callers
+> (your own backend constructing documents from internal data). It is
+> **unsafe** for any deployment where document JSON crosses a trust
+> boundary: API requests, webhooks, user uploads, LLM-generated documents,
+> or any MCP-style tool call.
+>
+> **For untrusted input, you MUST set `allowedFileDirs`:**
 >
 > ```typescript
 > await render(doc, { allowedFileDirs: ['/srv/safe/assets/'] })
 > ```
 >
-> Paths outside the listed directories throw `PATH_TRAVERSAL`. HTTPS image URLs are
-> always validated against an SSRF blocklist regardless of this setting.
+> Paths outside the listed directories throw `PATH_TRAVERSAL`. HTTPS image
+> URLs are always validated against an SSRF blocklist (undici-pinned DNS,
+> private-range blocking) regardless of this setting.
+>
+> **Reference deployments using untrusted input must also call
+> `validateDocument(doc)` before `render(doc)`** (see the "Validation"
+> section below) — `allowedFileDirs` is one of three layers; validation
+> and SSRF defense are the other two.
 
 ### CLI
 
