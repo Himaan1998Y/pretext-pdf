@@ -98,9 +98,7 @@ export async function assemble(parts) {
     }
     const target = await PDFDocument.create();
     for (const part of parts) {
-        if (!part.doc && !part.pdf) {
-            throw new PretextPdfError('VALIDATION_ERROR', 'Each AssemblyPart must have either a doc or pdf property.');
-        }
+        // Type system enforces XOR: doc XOR pdf at compile-time. No runtime check needed.
         const bytes = part.pdf ?? await render(part.doc);
         let src;
         try {

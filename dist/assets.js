@@ -1,4 +1,5 @@
 import { promises as dnsPromises } from 'node:dns';
+import { Agent, fetch as undiciFetch } from 'undici';
 import { PretextPdfError } from './errors.js';
 import { findPlugin, runPluginLoadAsset } from './plugin-registry.js';
 // ─── Security helpers ─────────────────────────────────────────────────────────
@@ -26,22 +27,37 @@ export function assertPathAllowed(resolvedPath, allowedDirs, label) {
  * Throws IMAGE_LOAD_FAILED or SVG_LOAD_FAILED on violations.
  */
 function isPrivateAddress(h, raw) {
+    // IPv6 prefix checks must only fire on actual IPv6 hostnames (which contain
+    // a colon) — otherwise legitimate hostnames like `ffmpeg.com` or `fcc.gov`
+    // would be blocked.
+    const isV6 = raw.includes(':');
     return (h === 'localhost' ||
         h === '0.0.0.0' ||
         h === '::' || // IPv6 unspecified address (== 0.0.0.0)
         h === '::1' ||
         raw === '::1' || raw === '::' || // also catch un-normalized IPv6 forms
+        /^0\./.test(h) || // 0.0.0.0/8 "this network"
         /^127\./.test(h) ||
         /^10\./.test(h) ||
         /^192\.168\./.test(h) ||
+        /^192\.0\.0\./.test(h) || // 192.0.0/24 IETF protocol assignments
         /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
         /^169\.254\./.test(h) || // link-local / AWS IMDS
+        /^198\.1[89]\./.test(h) || // 198.18/15 benchmark testing
+        /^22[4-9]\./.test(h) || /^23\d\./.test(h) || // 224/4 multicast
+        /^2[4-5]\d\./.test(h) || // 240/4 reserved (240–255)
         /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(h) || // CGNAT RFC 6598
-        raw.startsWith('fc') || raw.startsWith('fd') || // IPv6 ULA fc00::/7
-        /^fe[89ab]/i.test(raw) // IPv6 link-local fe80::/10
+        (isV6 && (raw.startsWith('fc') || raw.startsWith('fd'))) || // IPv6 ULA fc00::/7
+        (isV6 && /^fe[89ab]/i.test(raw)) || // IPv6 link-local fe80::/10
+        (isV6 && /^ff/i.test(raw)) // IPv6 multicast ff00::/8
     );
 }
-export async function assertSafeUrl(url, errorCode, label) {
+/**
+ * Validate that a URL is safe to fetch. Returns the parsed URL and the
+ * pre-resolved IP so callers can pin the connection. Throws PretextPdfError
+ * if the URL targets a private/internal address.
+ */
+export async function resolveAndValidateUrl(url, errorCode, label) {
     let parsed;
     try {
         parsed = new URL(url);
@@ -54,6 +70,9 @@ export async function assertSafeUrl(url, errorCode, label) {
     }
     if (parsed.protocol === 'data:' || parsed.protocol === 'file:' || parsed.protocol === 'javascript:') {
         throw new PretextPdfError(errorCode, `${label}: ${parsed.protocol} URLs are not allowed — use HTTPS only`);
+    }
+    if (parsed.protocol !== 'https:') {
+        throw new PretextPdfError(errorCode, `${label}: refused scheme: ${parsed.protocol}`);
     }
     const raw = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, ''); // strip IPv6 brackets
     // Normalize IPv4-mapped IPv6 to its dotted-decimal form so the IPv4
@@ -76,58 +95,120 @@ export async function assertSafeUrl(url, errorCode, label) {
     if (isPrivateAddress(h, raw)) {
         throw new PretextPdfError(errorCode, `${label}: connections to private or internal addresses are not allowed`);
     }
-    // DNS pre-resolution: re-verify the resolved IP to close the TOCTOU rebinding window.
-    // An attacker with TTL=0 DNS can pass the hostname check above then rebind to 169.254.x.x
-    // between this check and the actual fetch() call. Only applies to hostnames, not IP literals.
-    const isIpLiteral = /^\d{1,3}(\.\d{1,3}){3}$/.test(parsed.hostname) || parsed.hostname.startsWith('[');
-    if (!isIpLiteral && parsed.hostname) {
-        try {
-            const { address } = await dnsPromises.lookup(parsed.hostname);
-            const resolvedH = address.toLowerCase();
-            if (isPrivateAddress(resolvedH, resolvedH)) {
-                throw new PretextPdfError(errorCode, `${label}: hostname resolves to a private address`);
-            }
+    // DNS pre-resolution: re-verify the resolved IP AND remember it so callers
+    // can pin the actual TCP connection to this exact IP (closes the TOCTOU
+    // window where an attacker with TTL=0 DNS could rebind between check and
+    // connect).
+    const isIpv4Literal = /^\d{1,3}(\.\d{1,3}){3}$/.test(parsed.hostname);
+    const isIpv6Literal = parsed.hostname.startsWith('[');
+    if (isIpv4Literal) {
+        return { url: parsed, ip: parsed.hostname, family: 4 };
+    }
+    if (isIpv6Literal) {
+        return { url: parsed, ip: raw, family: 6 };
+    }
+    if (!parsed.hostname) {
+        return { url: parsed, ip: null, family: null };
+    }
+    try {
+        const { address, family } = await dnsPromises.lookup(parsed.hostname);
+        const resolvedH = address.toLowerCase();
+        if (isPrivateAddress(resolvedH, resolvedH)) {
+            throw new PretextPdfError(errorCode, `${label}: hostname resolves to a private address`);
         }
-        catch (err) {
-            if (err instanceof PretextPdfError)
-                throw err;
-            // DNS network error: proceed with hostname-level check only.
-            // If DNS is unavailable, fetch() will also fail, so rebinding is not possible.
-        }
+        return { url: parsed, ip: address, family: (family === 6 ? 6 : 4) };
+    }
+    catch (err) {
+        if (err instanceof PretextPdfError)
+            throw err;
+        // DNS unavailable: fetch() will also fail, so rebinding is not possible.
+        // Without a resolved IP we cannot pin the connection; let undici resolve
+        // itself, which will then fail with the same DNS error.
+        return { url: parsed, ip: null, family: null };
     }
 }
 /**
+ * Back-compat wrapper that drops the resolution result. Kept so existing
+ * tests and call sites that only need the validation side-effect still work.
+ */
+export async function assertSafeUrl(url, errorCode, label) {
+    await resolveAndValidateUrl(url, errorCode, label);
+}
+/**
+ * Build an undici Agent whose every TCP connection is pinned to the supplied
+ * pre-validated IP. Closes the DNS-rebinding TOCTOU window: even if DNS is
+ * re-resolved by the runtime mid-flight, the socket targets the IP we already
+ * confirmed is public.
+ *
+ * Caller MUST `close()` the agent after the fetch completes.
+ */
+function createPinnedAgent(ip, family) {
+    return new Agent({
+        connect: {
+            // Undici accepts a Node `dns.lookup`-compatible function here.
+            // We unconditionally return the pre-validated IP so a malicious DNS
+            // server cannot rebind to a private address between validation and
+            // connect.
+            lookup: (_hostname, _options, cb) => {
+                cb(null, ip, family);
+            },
+        },
+    });
+}
+/**
  * Fetch with a hard 10-second timeout AND a manual redirect chain that
- * re-validates each hop against `assertSafeUrl`. Without manual redirect
- * handling, a public URL could 302 to `http://127.0.0.1:8080/internal`
+ * re-validates each hop against `resolveAndValidateUrl`. Without manual
+ * redirect handling, a public URL could 302 to `http://127.0.0.1:8080/internal`
  * and bypass the upfront check — the connection would still be made to
  * the private target.
+ *
+ * Each hop creates a fresh undici Agent that pins the socket to the IP
+ * that just passed validation. This defeats DNS-rebinding TOCTOU attacks
+ * where an attacker controls a TTL=0 DNS record and swaps the answer
+ * between our `dns.lookup()` and the actual TCP connect.
  */
 async function fetchWithTimeout(url, errorCode, label) {
     const MAX_REDIRECTS = 3;
     let currentUrl = url;
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-        if (hop > 0)
-            await assertSafeUrl(currentUrl, errorCode, label);
+        const { url: parsed, ip, family } = await resolveAndValidateUrl(currentUrl, errorCode, label);
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 10_000);
+        // Only create a pinned dispatcher when we have a resolved IP. For
+        // IP-literal hosts or DNS-unavailable cases we let undici handle
+        // resolution itself (a DNS failure there is already safe).
+        const pinnedAgent = ip && family ? createPinnedAgent(ip, family) : null;
         let res;
         try {
-            res = await fetch(currentUrl, { signal: controller.signal, redirect: 'manual' });
+            const fetchOpts = {
+                signal: controller.signal,
+                redirect: 'manual',
+            };
+            if (pinnedAgent) {
+                // `dispatcher` is an undici-specific extension; cast keeps fetch
+                // typings happy without leaking undici types into the public API.
+                ;
+                fetchOpts.dispatcher = pinnedAgent;
+            }
+            res = (await undiciFetch(parsed.toString(), fetchOpts));
         }
         finally {
             clearTimeout(timer);
+            if (pinnedAgent) {
+                // Don't block the caller on agent shutdown; swallow close errors.
+                void pinnedAgent.close().catch(() => undefined);
+            }
         }
-        // Browser fetch returns opaqueredirect (status 0) for cross-origin redirects.
-        // We treat that the same as a redirect we can't safely follow.
+        // Undici fetch does not produce `opaqueredirect`, but keep parity with
+        // the browser-fetch contract: if we somehow get one, refuse.
         if (res.type === 'opaqueredirect') {
-            throw new PretextPdfError(errorCode, `${label}: cannot follow opaque redirect (browser CORS). Pre-resolve the URL.`);
+            throw new PretextPdfError(errorCode, `${label}: cannot follow opaque redirect. Pre-resolve the URL.`);
         }
         if (res.status >= 300 && res.status < 400) {
             const loc = res.headers.get('Location');
             if (!loc)
                 throw new PretextPdfError(errorCode, `${label}: redirect (${res.status}) with no Location header`);
-            currentUrl = new URL(loc, currentUrl).toString();
+            currentUrl = new URL(loc, parsed).toString();
             continue;
         }
         return res;
@@ -414,7 +495,8 @@ export async function loadImages(doc, pdfDoc, contentWidth, plugins, logger) {
         if (el.type === 'svg') {
             const key = `svg-${i}`;
             const svgContent = await resolveSvgContent(el, allowedDirs);
-            const { widthPt, heightPt } = resolveSvgDimensions({ ...el, svg: svgContent }, contentWidth);
+            const svgWithContent = { type: 'svg', svg: svgContent, width: el.width, height: el.height, align: el.align, spaceBefore: el.spaceBefore, spaceAfter: el.spaceAfter };
+            const { widthPt, heightPt } = resolveSvgDimensions(svgWithContent, contentWidth);
             const pdfImage = await loadSvgAsImage(svgContent, widthPt, heightPt, pdfDoc);
             imageMap.set(key, pdfImage);
         }
@@ -429,7 +511,9 @@ export async function loadImages(doc, pdfDoc, contentWidth, plugins, logger) {
             catch (err) {
                 if (err instanceof PretextPdfError)
                     throw err;
-                warn(`[pretext-pdf] QR code skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`);
+                const code = 'CHART_LOAD_FAILED';
+                const message = err instanceof Error ? err.message : String(err);
+                warn(`[pretext-pdf] qr-code load failed at index ${i} (${code}): ${message}. Slot will be blank in PDF.`);
             }
         }
         else if (el.type === 'barcode') {
@@ -444,7 +528,9 @@ export async function loadImages(doc, pdfDoc, contentWidth, plugins, logger) {
             catch (err) {
                 if (err instanceof PretextPdfError)
                     throw err;
-                warn(`[pretext-pdf] Barcode skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`);
+                const code = 'CHART_LOAD_FAILED';
+                const message = err instanceof Error ? err.message : String(err);
+                warn(`[pretext-pdf] barcode load failed at index ${i} (${code}): ${message}. Slot will be blank in PDF.`);
             }
         }
         else if (el.type === 'chart') {
@@ -459,7 +545,9 @@ export async function loadImages(doc, pdfDoc, contentWidth, plugins, logger) {
             catch (err) {
                 if (err instanceof PretextPdfError)
                     throw err;
-                warn(`[pretext-pdf] Chart skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`);
+                const code = 'CHART_LOAD_FAILED';
+                const message = err instanceof Error ? err.message : String(err);
+                warn(`[pretext-pdf] chart load failed at index ${i} (${code}): ${message}. Slot will be blank in PDF.`);
             }
         }
     }

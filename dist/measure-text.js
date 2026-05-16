@@ -26,53 +26,80 @@ export async function getHyphenator(language) {
     return new Hypher(dict);
 }
 // ─── RTL Text Support (Unicode Bidirectional Algorithm via bidi-js) ────────────
+/** Full RTL block coverage (UAX #9): Hebrew, Arabic, Syriac, Thaana, NKo, Samaritan, Mandaic,
+ *  Arabic Supplement/Extended, plus historical RTL scripts. */
+const RTL_CHAR_RE = /[֐-ࣿיִ-ﭏﭐ-﷿ﹰ-﻿\u{10800}-\u{10CFF}\u{10D00}-\u{10D3F}\u{10E80}-\u{10EFF}\u{10F30}-\u{10FFF}\u{1E800}-\u{1E95F}\u{1EC70}-\u{1ECBF}\u{1EE00}-\u{1EEFF}]/gu;
+const LTR_CHAR_RE = /[a-zA-Z0-9]/g;
+/**
+ * Pure auto-detection of dominant text direction. Returns true if RTL characters
+ * are present and at least as numerous as ASCII LTR characters.
+ */
+export function autoDetectRTL(text) {
+    const rtlCount = (text.match(RTL_CHAR_RE) ?? []).length;
+    const ltrCount = (text.match(LTR_CHAR_RE) ?? []).length;
+    return rtlCount > 0 && rtlCount >= ltrCount;
+}
+/**
+ * Resolve effective text direction. Explicit `ltr` / `rtl` always wins —
+ * auto-detect never runs for explicit overrides.
+ *
+ * Bug fix (B3): previously the auto-detect path could silently flip an
+ * explicitly-set `dir: 'rtl'` paragraph back to LTR when its text happened to
+ * be ASCII-only (e.g. a romanized RTL placeholder or a translation tag).
+ * Routing explicit dir through this helper makes the override authoritative.
+ */
+export function determineDirection(text, explicitDir) {
+    if (explicitDir === 'rtl')
+        return true;
+    if (explicitDir === 'ltr')
+        return false;
+    // explicitDir === 'auto' or undefined → auto-detect
+    return autoDetectRTL(text);
+}
 /**
  * Detect text direction and apply Unicode Bidi Algorithm (TR9) for visual reordering.
  * Returns the visual-order text ready for measurement and rendering.
  */
 export async function detectAndReorderRTL(text, dirOverride) {
-    // Step 1: Explicit override takes priority
-    if (dirOverride === 'ltr') {
-        return { visual: text, isRTL: false, logical: text };
-    }
-    if (dirOverride === 'rtl') {
-        try {
-            // @ts-ignore bidi-js has no type definitions
-            const bidiFactory = (await import('bidi-js')).default;
-            const bidi = typeof bidiFactory === 'function' ? bidiFactory() : bidiFactory;
-            const { getEmbeddingLevels, getReorderedString } = bidi;
-            const embedLevelsResult = getEmbeddingLevels(text, 'rtl');
-            const visual = getReorderedString(text, embedLevelsResult);
-            return { visual, isRTL: true, logical: text };
-        }
-        catch (err) {
-            console.error('[pretext-pdf] bidi-js RTL reordering failed — rendering logical order as fallback:', err);
-            return { visual: text, isRTL: true, logical: text };
-        }
-    }
-    // Step 2: Auto-detect dominant direction (full RTL block coverage, UAX #9)
-    const rtlRanges = /[\u0590-\u08FF\uFB1D-\uFB4F\uFB50-\uFDFF\uFE70-\uFEFF\u{10800}-\u{10CFF}\u{10D00}-\u{10D3F}\u{10E80}-\u{10EFF}\u{10F30}-\u{10FFF}\u{1E800}-\u{1E95F}\u{1EC70}-\u{1ECBF}\u{1EE00}-\u{1EEFF}]/gu;
-    const rtlCount = (text.match(rtlRanges) ?? []).length;
-    const ltrCount = (text.match(/[a-zA-Z0-9]/g) ?? []).length;
-    const isRTL = rtlCount > 0 && rtlCount >= ltrCount;
+    const isRTL = determineDirection(text, dirOverride);
     if (!isRTL) {
         return { visual: text, isRTL: false, logical: text };
     }
-    // Step 3: Apply bidi algorithm (TR9) to reorder visually
+    // Apply bidi algorithm (TR9) to reorder visually. We split two failure modes:
+    //   1. bidi-js can't be loaded (missing peer install) → warn and render LTR,
+    //      because logical-order text with isRTL:true would be VISUALLY BROKEN.
+    //   2. bidi-js loaded but threw during reordering → real bug, surface it as
+    //      PretextPdfError so callers can decide.
+    let bidiMod;
     try {
         // @ts-ignore bidi-js has no type definitions
-        const bidiFactory = (await import('bidi-js')).default;
-        const bidi = typeof bidiFactory === 'function' ? bidiFactory() : bidiFactory;
+        bidiMod = (await import('bidi-js')).default;
+    }
+    catch (importErr) {
+        const msg = importErr instanceof Error ? importErr.message : String(importErr);
+        if (/Cannot find module|Cannot find package|ERR_MODULE_NOT_FOUND/.test(msg)) {
+            console.warn('[pretext-pdf] bidi-js is not installed; RTL text may render incorrectly. ' +
+                'Install bidi-js to enable proper bidi reordering: npm install bidi-js');
+            // Better to render LTR than to mirror logical-order text under RTL alignment.
+            return { visual: text, isRTL: false, logical: text };
+        }
+        // Module loaded but something else went wrong during import — surface it.
+        throw new PretextPdfError('RTL_REORDER_FAILED', `bidi-js import failed: ${msg}`);
+    }
+    try {
+        const bidi = typeof bidiMod === 'function' ? bidiMod() : bidiMod;
         const { getEmbeddingLevels, getReorderedString } = bidi;
         const embedLevelsResult = getEmbeddingLevels(text, 'rtl');
         const visual = getReorderedString(text, embedLevelsResult);
         return { visual, isRTL: true, logical: text };
     }
     catch (err) {
-        console.warn('[pretext-pdf] bidi-js error during RTL reordering:', err);
-        return { visual: text, isRTL: false, logical: text };
+        // bidi-js is installed but threw on real input — this is a real error.
+        throw new PretextPdfError('RTL_REORDER_FAILED', `bidi-js reorder failed: ${err instanceof Error ? err.message : String(err)}`);
     }
 }
+// (Legacy duplicated auto-detect + bidi block removed — logic merged into
+// determineDirection() + detectAndReorderRTL() above for the B3 fix.)
 /**
  * Measure a single word's rendered width using pretext at maxWidth=99999.
  */

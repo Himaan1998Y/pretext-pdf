@@ -6,8 +6,24 @@ const DEFAULT_HEADING_MAP = {
     h4: 4,
 };
 /**
- * Translate a pdfmake document descriptor into a pretext-pdf PdfDocument.
+ * Translate a pdfmake document descriptor into a pretext-pdf {@link PdfDocument}.
  * The result can be passed straight to `render()` from the main entry point.
+ *
+ * @remarks
+ * **defaultStyle handling.** pdfmake's `defaultStyle` field (note: singular —
+ * the plural `styles` field is the named-style map) maps onto two
+ * document-level pretext-pdf properties:
+ *
+ * - `defaultStyle.font` → `PdfDocument.defaultFont`
+ * - `defaultStyle.fontSize` → `PdfDocument.defaultFontSize`
+ *
+ * Other `defaultStyle` properties (`bold`, `italics`, `color`, `alignment`)
+ * still flow into per-node style merging via `mergeStyles()`, so a document
+ * with `defaultStyle: { color: '#444' }` produces nodes whose effective text
+ * color is `#444` unless overridden. See {@link PdfmakeStyle} for the full
+ * list of supported and silently-dropped properties.
+ *
+ * @public
  */
 export function fromPdfmake(doc, options = {}) {
     const headingMap = options.headingMap ?? DEFAULT_HEADING_MAP;

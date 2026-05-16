@@ -52,7 +52,8 @@ export function createPdf(options = {}) {
          * Add an image.
          */
         addImage(src, opts) {
-            content.push({ type: 'image', src, ...opts });
+            const el = { type: 'image', src, ...opts };
+            content.push(el);
             return this;
         },
         /**

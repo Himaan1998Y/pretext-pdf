@@ -1,4 +1,5 @@
-import type { InlineSpan, RichLine, PdfDocument } from './types.js';
+import type { InlineSpan, PdfDocument } from './types.js';
+import type { RichLine } from './types-internal.js';
 /**
  * Compose mixed-format spans into laid-out RichLine[] for rendering.
  *

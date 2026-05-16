@@ -29,6 +29,11 @@ function resolveCalloutColors(style) {
 export async function measureBlock(element, contentWidth, doc, hyphenatorOpts) {
     const baseFontSize = doc.defaultFontSize ?? 12;
     const baseFont = doc.defaultFont ?? 'Inter';
+    // Reject the internal TOC entry type. TocEntryElement is synthesized
+    // internally by the TOC pass and never produced from user-supplied content.
+    if (element.type === 'toc-entry') {
+        throw new PretextPdfError('VALIDATION_ERROR', 'toc-entry is an internal type and cannot be used in document content');
+    }
     switch (element.type) {
         case 'spacer': {
             return {
@@ -432,10 +437,6 @@ export async function measureBlock(element, contentWidth, doc, hyphenatorOpts) {
                 spaceAfter: element.spaceAfter ?? 0,
                 spaceBefore: element.spaceBefore ?? 0,
             };
-        }
-        case 'toc-entry': {
-            // Internal type - should never be measured directly by user input
-            throw new PretextPdfError('VALIDATION_ERROR', 'toc-entry is an internal type and cannot be used in document content');
         }
         case 'footnote-def': {
             const fn = element;

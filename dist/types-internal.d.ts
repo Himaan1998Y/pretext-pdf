@@ -7,6 +7,22 @@
  */
 import type { ContentElement, CalloutElement, BlockquoteElement, FootnoteDefElement } from './types-public.js';
 /**
+ * Internal block element representing a single Table of Contents entry produced by
+ * the TOC measurement pass. Not part of the public ContentElement union — users
+ * declare TOCs via TocElement, and the pipeline synthesises TocEntryElement
+ * instances during measurement.
+ */
+export interface TocEntryElement {
+    type: 'toc-entry';
+    text: string;
+    pageNumber: number;
+    level: 1 | 2 | 3 | 4;
+    levelIndent: number;
+    leader: string;
+    fontFamily: string;
+    fontWeight: number;
+}
+/**
  * Resolved geometry for a `callout` block. Always attached to MeasuredBlock when
  * element.type === 'callout'; the invariant is enforced by validateMeasuredBlocks
  * in paginate.ts.
@@ -23,7 +39,7 @@ export interface CalloutData {
 }
 /** Resolved per-element measurement result from Stage 3 */
 export interface MeasuredBlock {
-    element: ContentElement;
+    element: ContentElement | TocEntryElement;
     /** Total height in pt (lineCount * lineHeight, spacer.height, table sum, image height, hr height) */
     height: number;
     /** Lines from Pretext layoutWithLines(). Empty array for spacers, tables, images, hr, and plugin blocks. */

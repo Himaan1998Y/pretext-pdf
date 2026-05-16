@@ -57,7 +57,8 @@ export function addLinkAnnotation(pdfDoc, pdfPage, x, pdfY, width, fontSize, url
     }));
     const existingAnnots = pdfPage.node.get(PDFName.of('Annots'));
     if (existingAnnots) {
-        const annots = pdfDoc.context.lookup(existingAnnots); // pdf-lib: PDFArray has no public push() type
+        // PDFArray.push() is now typed via augmentation (pdf-lib-augment.d.ts)
+        const annots = pdfDoc.context.lookup(existingAnnots);
         annots.push(linkAnnot);
     }
     else {
@@ -81,7 +82,8 @@ export function addGoToAnnotation(pdfDoc, pdfPage, x, pdfY, width, fontSize, des
     }));
     const existingAnnots = pdfPage.node.get(PDFName.of('Annots'));
     if (existingAnnots) {
-        const annots = pdfDoc.context.lookup(existingAnnots); // pdf-lib: PDFArray has no public push() type
+        // PDFArray.push() is now typed via augmentation (pdf-lib-augment.d.ts)
+        const annots = pdfDoc.context.lookup(existingAnnots);
         annots.push(goToAnnot);
     }
     else {
@@ -105,7 +107,8 @@ export function addStickyNoteAnnotation(pdfDoc, pdfPage, x, pdfY, contents, auth
     }));
     const existingAnnots = pdfPage.node.get(PDFName.of('Annots'));
     if (existingAnnots) {
-        const annots = pdfDoc.context.lookup(existingAnnots); // pdf-lib: PDFArray has no public push() type
+        // PDFArray.push() is now typed via augmentation (pdf-lib-augment.d.ts)
+        const annots = pdfDoc.context.lookup(existingAnnots);
         annots.push(annotRef);
     }
     else {
@@ -119,8 +122,9 @@ export function addStickyNoteAnnotation(pdfDoc, pdfPage, x, pdfY, contents, auth
 export function drawTextDecoration(pdfPage, x, width, pdfY, fontSize, pdfFont, color, decoration) {
     if (!decoration.underline && !decoration.strikethrough)
         return;
-    // Prefer font-designed metrics via fontkit embedder; fall back to height math
-    const embedder = pdfFont.embedder; // pdf-lib internal: no public embedder property
+    // Prefer font-designed metrics via fontkit embedder; fall back to height math.
+    // embedder is private in pdf-lib; accessing it via private field access
+    const embedder = pdfFont.embedder;
     const fkFont = embedder?.font; // fontkit Font object (undefined for standard fonts)
     const scale = embedder?.scale ?? 1;
     const ascentPt = pdfFont.heightAtSize(fontSize, { descender: false });

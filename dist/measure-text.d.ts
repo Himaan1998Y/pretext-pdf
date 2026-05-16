@@ -14,6 +14,21 @@ type HypherInstance = {
 export declare function getPretext(): Promise<typeof import("./vendor/pretext/layout.js")>;
 export declare function getHyphenator(language: string): Promise<HypherInstance>;
 /**
+ * Pure auto-detection of dominant text direction. Returns true if RTL characters
+ * are present and at least as numerous as ASCII LTR characters.
+ */
+export declare function autoDetectRTL(text: string): boolean;
+/**
+ * Resolve effective text direction. Explicit `ltr` / `rtl` always wins —
+ * auto-detect never runs for explicit overrides.
+ *
+ * Bug fix (B3): previously the auto-detect path could silently flip an
+ * explicitly-set `dir: 'rtl'` paragraph back to LTR when its text happened to
+ * be ASCII-only (e.g. a romanized RTL placeholder or a translation tag).
+ * Routing explicit dir through this helper makes the override authoritative.
+ */
+export declare function determineDirection(text: string, explicitDir?: 'ltr' | 'rtl' | 'auto'): boolean;
+/**
  * Detect text direction and apply Unicode Bidi Algorithm (TR9) for visual reordering.
  * Returns the visual-order text ready for measurement and rendering.
  */

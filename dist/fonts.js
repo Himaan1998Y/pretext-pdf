@@ -118,7 +118,7 @@ export async function loadFonts(doc, pdfDoc) {
                 pdfFont.encodeText(text);
             }
             catch (err) {
-                console.warn(`[pretext-pdf] font subset warning for "${key}": ${err.message ?? err}`);
+                throw new PretextPdfError('FONT_ENCODE_FAIL', `Font subset failed for "${key}": ${err instanceof Error ? err.message : String(err)}`);
             }
         }
     }
@@ -371,15 +371,10 @@ export function collectTextByFont(doc) {
                 addText(key, el.text);
                 break;
             }
-            case 'toc-entry': {
-                // Heading text is already collected from the heading element — skip it to avoid duplication.
-                // But TOC renders leader chars (dots) and page number digits that aren't in the heading.
-                const tocKey = buildFontKey(el.fontFamily ?? defaultFont, (el.fontWeight ?? 400), 'normal');
-                addText(tocKey, '0123456789');
-                if (el.leader)
-                    addText(tocKey, el.leader);
-                break;
-            }
+            // Note: 'toc-entry' is intentionally not handled here. TocEntryElement is an
+            // internal synthesized type (not in the public ContentElement union) and
+            // never appears in user-supplied doc.content. TOC entry glyphs (digits,
+            // leader chars) are collected separately during the measurement pass.
             case 'callout': {
                 const key = buildFontKey(el.fontFamily ?? defaultFont, el.fontWeight ?? 400, 'normal');
                 addText(key, el.content);
