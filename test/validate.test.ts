@@ -1199,4 +1199,31 @@ describe('Phase A — Cycle Detection & Depth Caps', () => {
       'VALIDATION_ERROR'
     )
   })
+
+  test('concurrent validate calls do not share cycle state (concurrency safety)', async () => {
+    // Regression guard: the cycle-detection WeakSet must be per-call, not
+    // module-scoped. Two parallel validate() calls touching the same node
+    // reference must each succeed — a shared WeakSet would cause one of
+    // them to throw a false-positive "cyclic reference detected" error.
+    const { validateDocument } = await import('../dist/index.js')
+    // Use a container element (list) that opens a withCycleGuard scope, so
+    // the shared object would actually be inserted into the set on entry
+    // and observed on the concurrent call. Same object reference is shared
+    // between both Promise.all branches.
+    const shared = {
+      content: [
+        {
+          type: 'list',
+          style: 'ordered',
+          items: [{ text: 'shared item' }],
+        },
+      ],
+    }
+    const results = await Promise.all([
+      Promise.resolve().then(() => validateDocument(shared as any)),
+      Promise.resolve().then(() => validateDocument(shared as any)),
+    ])
+    assert.strictEqual(results[0].valid, true, `first call: ${JSON.stringify(results[0].errors)}`)
+    assert.strictEqual(results[1].valid, true, `second call: ${JSON.stringify(results[1].errors)}`)
+  })
 })

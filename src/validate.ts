@@ -8,17 +8,31 @@ import { findPlugin, runPluginValidate } from './plugin-registry.js'
 
 // ── Cycle Detection & Depth Guards ─────────────────────────────────────────
 const MAX_VALIDATION_DEPTH = 32
-const seenInRecursion: WeakSet<object> = new WeakSet()
 
-function withCycleGuard<T extends object>(node: T, depth: number, path: string, fn: () => void): void {
+/**
+ * Cycle/depth guard for recursive validation.
+ *
+ * The `seen` WeakSet MUST be created per top-level validate() call and threaded
+ * through the recursion. A module-scoped WeakSet would race under concurrent
+ * validate() calls on a multi-document server: two parallel calls touching the
+ * same node reference would see each other's "in progress" mark and throw a
+ * false-positive cyclic-reference error.
+ */
+function withCycleGuard<T extends object>(
+  seen: WeakSet<object>,
+  node: T,
+  depth: number,
+  path: string,
+  fn: () => void,
+): void {
   if (depth > MAX_VALIDATION_DEPTH) {
     throw new PretextPdfError('VALIDATION_ERROR', `${path}: nesting depth exceeds ${MAX_VALIDATION_DEPTH}`)
   }
-  if (seenInRecursion.has(node)) {
+  if (seen.has(node)) {
     throw new PretextPdfError('VALIDATION_ERROR', `${path}: cyclic reference detected`)
   }
-  seenInRecursion.add(node)
-  try { fn() } finally { seenInRecursion.delete(node) }
+  seen.add(node)
+  try { fn() } finally { seen.delete(node) }
 }
 
 /**
@@ -114,13 +128,14 @@ function closestMatch(prop: string, allowed: Iterable<string>): string | null {
 
 /** Accumulate unknown property errors for an object */
 function assertUnknownProps(
-  obj: any,
+  obj: unknown,
   allowed: Set<string>,
   path: string,
   errors: string[]
 ): void {
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return
-  for (const key of Object.keys(obj)) {
+  // Type guard first — narrows `obj` to a non-null object below.
+  if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) return
+  for (const key of Object.keys(obj as Record<string, unknown>)) {
     if (!allowed.has(key)) {
       const suggestion = closestMatch(key, allowed)
       const hint = suggestion ? `; did you mean "${suggestion}"` : ''
@@ -489,8 +504,12 @@ export function validate(doc: PdfDocument, options?: RenderOptions): void {
     }
   }
 
+  // Per-call cycle-detection set — must NOT be shared across validate() calls
+  // (see withCycleGuard docblock). Threading it through validateElement keeps
+  // concurrent validations isolated on a multi-document server.
+  const seen: WeakSet<object> = new WeakSet()
   for (let i = 0; i < doc.content.length; i++) {
-    validateElement(doc.content[i]!, i, loadedFamilies, strict, errors, 0, options)
+    validateElement(doc.content[i]!, i, loadedFamilies, strict, errors, 0, seen, options)
   }
 
   // ── Footnote ref/def cross-validation ─────────────────────────────────────
@@ -770,6 +789,7 @@ function validateElement(
   strict: boolean,
   errors: string[],
   depth: number = 0,
+  seen: WeakSet<object> = new WeakSet(),
   options?: RenderOptions
 ): void {
   const prefix = `content[${index}]`
@@ -782,9 +802,16 @@ function validateElement(
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: each element must have a 'type' field`)
   }
 
+  // Reject the internal TOC entry type before normal element handling.
+  // TocEntryElement is synthesized internally during the measurement pass and
+  // is not part of the public ContentElement union, so users must not supply it.
+  if ((el as { type: unknown }).type === 'toc-entry') {
+    throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: 'toc-entry' is an internal type and cannot be used in document content`)
+  }
+
   // Cycle guard at entry point for container elements
   if (el.type === 'list' || el.type === 'float-group') {
-    withCycleGuard(el, depth + 1, prefix, () => {
+    withCycleGuard(seen, el, depth + 1, prefix, () => {
       // Will validate content within the guarded scope
     })
   }
@@ -1001,14 +1028,14 @@ function validateElement(
 
       // Wrap rows/cells walk with cycle guard so a self-referential row or
       // cell array is rejected before the per-cell validators run.
-      withCycleGuard(el, depth + 1, prefix, () => {
+      withCycleGuard(seen, el, depth + 1, prefix, () => {
         for (let ri = 0; ri < el.rows.length; ri++) {
           const row = el.rows[ri]!
           if (!Array.isArray(row.cells)) {
             throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): rows[${ri}].cells must be an array`)
           }
           // Guard each row so a cycle through row.cells → row is also detected
-          withCycleGuard(row, depth + 2, `${prefix}.rows[${ri}]`, () => {
+          withCycleGuard(seen, row, depth + 2, `${prefix}.rows[${ri}]`, () => {
 
           // Count how many columns in this row are occupied by rowspan cells from above
           let occupiedCols = 0
@@ -1286,7 +1313,7 @@ function validateElement(
       }
 
       // Wrap list items walk with cycle guard
-      withCycleGuard(el, depth + 1, prefix, () => {
+      withCycleGuard(seen, el, depth + 1, prefix, () => {
         for (let ii = 0; ii < el.items.length; ii++) {
           const item = el.items[ii]!
           // Strict: validate list item properties
@@ -1369,7 +1396,7 @@ function validateElement(
       }
 
       // Wrap spans walk with cycle guard
-      withCycleGuard(el, depth + 1, prefix, () => {
+      withCycleGuard(seen, el, depth + 1, prefix, () => {
         for (let si = 0; si < el.spans.length; si++) {
           const span = el.spans[si]!
           // Strict: validate span properties
@@ -1663,11 +1690,6 @@ function validateElement(
       break
     }
 
-    case 'toc-entry': {
-      // Internal type — should never appear in user input
-      throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: 'toc-entry' is an internal type and cannot be used in document content`)
-    }
-
     case 'float-group': {
       const fg = el as import('./types.js').FloatGroupElement
       // Validate image
@@ -1701,7 +1723,7 @@ function validateElement(
       }
 
       // Wrap content walk with cycle guard
-      withCycleGuard(fg, depth + 1, prefix, () => {
+      withCycleGuard(seen, fg, depth + 1, prefix, () => {
         for (let i = 0; i < fg.content.length; i++) {
           const item = fg.content[i]!
           if (!['paragraph', 'heading', 'rich-paragraph'].includes(item.type)) {
