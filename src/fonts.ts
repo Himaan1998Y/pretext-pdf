@@ -429,14 +429,10 @@ export function collectTextByFont(
         addText(key, el.text)
         break
       }
-      case 'toc-entry': {
-        // Heading text is already collected from the heading element — skip it to avoid duplication.
-        // But TOC renders leader chars (dots) and page number digits that aren't in the heading.
-        const tocKey = buildFontKey(el.fontFamily ?? defaultFont, (el.fontWeight ?? 400) as 400 | 700, 'normal')
-        addText(tocKey, '0123456789')
-        if (el.leader) addText(tocKey, el.leader)
-        break
-      }
+      // Note: 'toc-entry' is intentionally not handled here. TocEntryElement is an
+      // internal synthesized type (not in the public ContentElement union) and
+      // never appears in user-supplied doc.content. TOC entry glyphs (digits,
+      // leader chars) are collected separately during the measurement pass.
       case 'callout': {
         const key = buildFontKey(el.fontFamily ?? defaultFont, el.fontWeight ?? 400, 'normal')
         addText(key, el.content)
