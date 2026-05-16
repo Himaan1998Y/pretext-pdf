@@ -354,6 +354,9 @@ export function validate(doc: PdfDocument, options?: RenderOptions): void {
   // watermark
   if (doc.watermark) {
     const wm = doc.watermark
+    if (!wm.text && !wm.image) {
+      throw new PretextPdfError('VALIDATION_ERROR', 'doc.watermark requires either text or image — received an object with neither.')
+    }
     if (wm.opacity !== undefined && (typeof wm.opacity !== 'number' || wm.opacity < 0 || wm.opacity > 1 || !isFinite(wm.opacity))) {
       throw new PretextPdfError('VALIDATION_ERROR', 'doc.watermark.opacity must be a number 0.0–1.0')
     }
@@ -395,6 +398,13 @@ export function validate(doc: PdfDocument, options?: RenderOptions): void {
       throw new PretextPdfError('VALIDATION_ERROR', 'doc.encryption.ownerPassword must not be an empty string')
     }
     // permissions sub-fields are booleans — TypeScript enforces the type, no runtime check needed
+    if (doc.encryption.userPassword === undefined) {
+      console.warn(
+        '[pretext-pdf] doc.encryption is set without userPassword — ' +
+        'the PDF will open without a password (owner-only encryption). ' +
+        'Set userPassword to require a password to open the document.'
+      )
+    }
   }
 
   if (doc.signature !== undefined) {
@@ -1187,6 +1197,9 @@ function validateElement(
     }
 
     case 'svg': {
+      if (typeof el.svg === 'string' && el.svg.trim().length === 0) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (svg): 'svg' must not be an empty string`)
+      }
       const hasSvg = typeof el.svg === 'string' && el.svg.trim().length > 0
       const hasSrc = typeof el.src === 'string' && el.src.trim().length > 0
       if (hasSvg && !el.svg!.trim().startsWith('<')) {

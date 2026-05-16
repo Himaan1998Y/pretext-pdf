@@ -32,6 +32,7 @@ import {
   renderSignaturePlaceholder,
 } from './render-extras.js'
 import { addStickyNoteAnnotation } from './render-utils.js'
+import { setBidiWarnFn } from './measure-text.js'
 
 /**
  * Stage 5: Render.
@@ -52,6 +53,7 @@ export async function renderDocument(
   logger?: Logger
 ): Promise<Uint8Array> {
   const warn = logger ? logger.warn.bind(logger) : console.warn.bind(console)
+  if (logger?.warn) setBidiWarnFn(logger.warn.bind(logger))
   const { pageWidth, pageHeight, margins, contentWidth } = geo
 
   // Pre-compute token values that don't change per page
@@ -128,7 +130,11 @@ export async function renderDocument(
     if (form.getFields().length > 0) {
       const defaultFont = fontMap.get('Inter-400-normal') ?? [...fontMap.values()][0]
       if (defaultFont) {
-        try { form.updateFieldAppearances(defaultFont) } catch { /* non-fatal */ }
+        try {
+          form.updateFieldAppearances(defaultFont)
+        } catch (e) {
+          warn(`[pretext-pdf] form.updateFieldAppearances failed (non-fatal): ${(e as Error).message}`)
+        }
       }
       if (doc.flattenForms) {
         try {

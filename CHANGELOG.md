@@ -7,6 +7,49 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.2.1] — 2026-05-16
+
+### Fixed
+
+- **`PretextPdfError` now preserves root cause via `err.cause`** — `ASSEMBLY_FAILED` errors
+  thrown by `merge()` and `assemble()` now carry the original pdf-lib error as `err.cause`,
+  making root-cause debugging possible without losing the upstream message.
+
+- **`form.updateFieldAppearances()` failure is now logged** — Previously silently swallowed
+  (`catch { /* non-fatal */ }`). Now emits a structured warning via the document logger or
+  `console.warn`. Behaviour is unchanged (non-fatal); the warning aids debugging.
+
+- **Owner-only encryption now warns explicitly** — When `doc.encryption` is set without
+  `userPassword`, a `console.warn` is emitted explaining that the PDF will open without a
+  password. Owner-only encryption remains valid (it restricts editing/printing, not opening).
+
+- **`assemble([{}])` now throws `VALIDATION_ERROR`** — Regression from v1.2.0 discriminated
+  union changes: passing a part with neither `doc` nor `pdf` previously crashed with a
+  `TypeError` (no `.code` property). Now throws a proper `VALIDATION_ERROR` with a clear
+  message before attempting to render.
+
+- **`watermark: {}` now throws `VALIDATION_ERROR`** — Regression from v1.2.0: the
+  `WatermarkSpec` discriminated union enforced text/image presence at compile-time but the
+  runtime validation was missing. A watermark object with neither `text` nor `image` now
+  correctly throws at validate time.
+
+- **`svg: ''` (empty string) now throws `VALIDATION_ERROR`** — Empty SVG strings passed
+  the validation stage and surfaced as `SVG_LOAD_FAILED` during render. Now caught at
+  validate time with a clear `VALIDATION_ERROR`.
+
+### Changed
+
+- **`PretextPdfError` constructor accepts optional `ErrorOptions`** — Third argument
+  `options?: ErrorOptions` (i.e. `{ cause?: unknown }`) is now accepted and passed to the
+  native `Error` constructor. Fully backwards-compatible — all existing call sites unchanged.
+
+- **bidi-js missing-peer warning routes through document logger** — When a `logger` is
+  passed to `render()`, bidi-js peer-dependency warnings are now routed through
+  `logger.warn` instead of always using `console.warn`. New low-level export:
+  `setBidiWarnFn(fn)` (prefer the `logger` render option in application code).
+
+---
+
 ## [1.2.0] — 2026-05-16
 
 Post-audit hardening release. Type system tightened, concurrency-safe validation,

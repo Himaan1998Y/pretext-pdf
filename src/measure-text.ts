@@ -5,6 +5,14 @@
 
 import { PretextPdfError } from './errors.js'
 
+// Module-level bidi warn bridge — lets render() thread a structured logger without
+// changing detectAndReorderRTL's call signature at all 6 measure-blocks.ts call sites.
+let _warnFn: (msg: string) => void = (msg) => console.warn(msg)
+
+export function setBidiWarnFn(fn: (msg: string) => void): void {
+  _warnFn = fn
+}
+
 export type HyphenatorOpts = { instance: HypherInstance; minWordLength: number; leftMin: number; rightMin: number }
 
 type HypherInstance = { hyphenate(word: string): string[] }
@@ -96,7 +104,7 @@ export async function detectAndReorderRTL(
   } catch (importErr) {
     const msg = importErr instanceof Error ? importErr.message : String(importErr)
     if (/Cannot find module|Cannot find package|ERR_MODULE_NOT_FOUND/.test(msg)) {
-      console.warn(
+      _warnFn(
         '[pretext-pdf] bidi-js is not installed; RTL text may render incorrectly. ' +
         'Install bidi-js to enable proper bidi reordering: npm install bidi-js'
       )

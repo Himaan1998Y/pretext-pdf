@@ -60,8 +60,8 @@ export type ErrorCode =
 export class PretextPdfError extends Error {
   readonly code: ErrorCode
 
-  constructor(code: ErrorCode, message: string) {
-    super(message)
+  constructor(code: ErrorCode, message: string, options?: ErrorOptions) {
+    super(message, options)
     this.name = 'PretextPdfError'
     this.code = code
     // Maintains proper stack trace in V8
