@@ -3,6 +3,7 @@ import { findPlugin, runPluginRender } from './plugin-registry.js';
 import { renderTextBlock, renderListItem, renderTable, renderImage, renderFloatBlock, renderFloatGroup, renderHR, renderCodeBlock, renderRichParagraph, renderBlockquote, renderCallout, renderWatermark, renderFootnoteZone, renderHeaderFooter, } from './render-blocks.js';
 import { buildOutlineTree, renderTocEntry, renderFormField, renderSignaturePlaceholder, } from './render-extras.js';
 import { addStickyNoteAnnotation } from './render-utils.js';
+import { setBidiWarnFn } from './measure-text.js';
 /**
  * Stage 5: Render.
  * Takes the paginated document + pre-initialized pdfDoc (with fonts already embedded)
@@ -13,6 +14,8 @@ import { addStickyNoteAnnotation } from './render-utils.js';
  */
 export async function renderDocument(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo, plugins, logger) {
     const warn = logger ? logger.warn.bind(logger) : console.warn.bind(console);
+    if (logger?.warn)
+        setBidiWarnFn(logger.warn.bind(logger));
     const { pageWidth, pageHeight, margins, contentWidth } = geo;
     // Pre-compute token values that don't change per page
     const rawDate = doc.renderDate ? (doc.renderDate instanceof Date ? doc.renderDate : new Date(doc.renderDate)) : new Date();
@@ -81,7 +84,9 @@ export async function renderDocument(paginatedDoc, doc, fontMap, imageMap, pdfDo
                 try {
                     form.updateFieldAppearances(defaultFont);
                 }
-                catch { /* non-fatal */ }
+                catch (e) {
+                    warn(`[pretext-pdf] form.updateFieldAppearances failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`);
+                }
             }
             if (doc.flattenForms) {
                 try {

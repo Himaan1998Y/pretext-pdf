@@ -133,7 +133,7 @@ export async function renderDocument(
         try {
           form.updateFieldAppearances(defaultFont)
         } catch (e) {
-          warn(`[pretext-pdf] form.updateFieldAppearances failed (non-fatal): ${(e as Error).message}`)
+          warn(`[pretext-pdf] form.updateFieldAppearances failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`)
         }
       }
       if (doc.flattenForms) {
