@@ -603,7 +603,9 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
         imageMap.set(key, pdfImage)
       } catch (err) {
         if (err instanceof PretextPdfError) throw err
-        warn(`[pretext-pdf] QR code skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`)
+        const code = 'CHART_LOAD_FAILED'
+        const message = err instanceof Error ? err.message : String(err)
+        warn(`[pretext-pdf] qr-code load failed at index ${i} (${code}): ${message}. Slot will be blank in PDF.`)
       }
     } else if (el.type === 'barcode') {
       const key = `barcode-${i}`
@@ -615,7 +617,9 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
         imageMap.set(key, pdfImage)
       } catch (err) {
         if (err instanceof PretextPdfError) throw err
-        warn(`[pretext-pdf] Barcode skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`)
+        const code = 'CHART_LOAD_FAILED'
+        const message = err instanceof Error ? err.message : String(err)
+        warn(`[pretext-pdf] barcode load failed at index ${i} (${code}): ${message}. Slot will be blank in PDF.`)
       }
     } else if (el.type === 'chart') {
       const key = `chart-${i}`
@@ -627,7 +631,9 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
         imageMap.set(key, pdfImage)
       } catch (err) {
         if (err instanceof PretextPdfError) throw err
-        warn(`[pretext-pdf] Chart skipped at index ${i}: ${err instanceof Error ? err.message : String(err)}`)
+        const code = 'CHART_LOAD_FAILED'
+        const message = err instanceof Error ? err.message : String(err)
+        warn(`[pretext-pdf] chart load failed at index ${i} (${code}): ${message}. Slot will be blank in PDF.`)
       }
     }
   }

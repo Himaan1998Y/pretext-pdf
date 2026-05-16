@@ -50,6 +50,8 @@ export type ErrorCode =
   | 'UNKNOWN_PROPERTY'
   | 'INVALID_INPUT'
   | 'MARKDOWN_DEP_MISSING'
+  | 'RTL_REORDER_FAILED'
+  | 'CHART_LOAD_FAILED'
 
 /**
  * Thrown by all pretext-pdf operations on failure.

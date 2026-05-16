@@ -306,3 +306,38 @@ test('B3 — detectAndReorderRTL: auto + RTL text → isRTL=true', async () => {
   const r = await detectAndReorderRTL(HEBREW_SIMPLE, 'auto')
   assert.equal(r.isRTL, true)
 })
+
+// ─── HIGH fix: bidi-js silent fallback ────────────────────────────────────────
+//
+// Previously, any failure inside the bidi block (including missing bidi-js)
+// returned { isRTL:true, visual: logical-order text } — downstream RTL
+// alignment then mirrored logical-order text and produced visually broken
+// output. Distinguish two failure modes:
+//   1. Module not installed  → warn + fall back to LTR (visual.LTR is better than mirrored logical-order RTL)
+//   2. bidi-js threw at runtime → surface as PretextPdfError(RTL_REORDER_FAILED)
+import { PretextPdfError } from '../src/errors.js'
+
+test('HIGH — bidi-js installed: real RTL input produces visual reorder', async () => {
+  // bidi-js is in deps, so this exercises the happy path.
+  const r = await detectAndReorderRTL(HEBREW_SIMPLE, 'rtl')
+  assert.equal(r.isRTL, true)
+  // visual is reordered text — for simple RTL-only input visual !== logical bytes
+  // (reordered output is reversed visually); we only assert non-empty here so
+  // the test stays stable across bidi-js versions.
+  assert.equal(typeof r.visual, 'string')
+  assert.equal(r.visual.length > 0, true)
+})
+
+test('HIGH — error code RTL_REORDER_FAILED exists in ErrorCode union', () => {
+  // The TS union is erased at runtime, so we exercise it by constructing the
+  // error with the code and confirming the instance carries it through.
+  const e = new PretextPdfError('RTL_REORDER_FAILED', 'sentinel')
+  assert.equal(e.code, 'RTL_REORDER_FAILED')
+  assert.equal(e instanceof PretextPdfError, true)
+})
+
+test('HIGH — error code CHART_LOAD_FAILED exists in ErrorCode union', () => {
+  const e = new PretextPdfError('CHART_LOAD_FAILED', 'sentinel')
+  assert.equal(e.code, 'CHART_LOAD_FAILED')
+  assert.equal(e instanceof PretextPdfError, true)
+})

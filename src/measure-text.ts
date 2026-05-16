@@ -84,21 +84,41 @@ export async function detectAndReorderRTL(
     return { visual: text, isRTL: false, logical: text }
   }
 
-  // Apply bidi algorithm (TR9) to reorder visually. Even when reordering fails,
-  // isRTL stays true — an explicit/dominant RTL paragraph must not silently
-  // render as LTR. Fall back to logical order so callers still get RTL
-  // alignment and metadata.
+  // Apply bidi algorithm (TR9) to reorder visually. We split two failure modes:
+  //   1. bidi-js can't be loaded (missing peer install) → warn and render LTR,
+  //      because logical-order text with isRTL:true would be VISUALLY BROKEN.
+  //   2. bidi-js loaded but threw during reordering → real bug, surface it as
+  //      PretextPdfError so callers can decide.
+  let bidiMod: any
   try {
     // @ts-ignore bidi-js has no type definitions
-    const bidiFactory = (await import('bidi-js')).default
-    const bidi = typeof bidiFactory === 'function' ? bidiFactory() : bidiFactory
+    bidiMod = (await import('bidi-js')).default
+  } catch (importErr) {
+    const msg = importErr instanceof Error ? importErr.message : String(importErr)
+    if (/Cannot find module|Cannot find package|ERR_MODULE_NOT_FOUND/.test(msg)) {
+      console.warn(
+        '[pretext-pdf] bidi-js is not installed; RTL text may render incorrectly. ' +
+        'Install bidi-js to enable proper bidi reordering: npm install bidi-js'
+      )
+      // Better to render LTR than to mirror logical-order text under RTL alignment.
+      return { visual: text, isRTL: false, logical: text }
+    }
+    // Module loaded but something else went wrong during import — surface it.
+    throw new PretextPdfError('RTL_REORDER_FAILED', `bidi-js import failed: ${msg}`)
+  }
+
+  try {
+    const bidi = typeof bidiMod === 'function' ? bidiMod() : bidiMod
     const { getEmbeddingLevels, getReorderedString } = bidi
     const embedLevelsResult = getEmbeddingLevels(text, 'rtl')
     const visual = getReorderedString(text, embedLevelsResult)
     return { visual, isRTL: true, logical: text }
   } catch (err) {
-    console.error('[pretext-pdf] bidi-js RTL reordering failed — rendering logical order as fallback:', err)
-    return { visual: text, isRTL: true, logical: text }
+    // bidi-js is installed but threw on real input — this is a real error.
+    throw new PretextPdfError(
+      'RTL_REORDER_FAILED',
+      `bidi-js reorder failed: ${err instanceof Error ? err.message : String(err)}`
+    )
   }
 }
 
