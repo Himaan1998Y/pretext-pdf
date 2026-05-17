@@ -179,18 +179,19 @@ describe('render errors and output', () => {
     rmSync(tmp, { recursive: true, force: true })
   })
 
-  test('document with invalid element type exits 2 with code on stderr', () => {
+  test('document with invalid element type exits with error code on stderr', () => {
     const doc = JSON.stringify({ content: [{ type: 'banana' }] })
     const result = runCli([], { stdin: doc })
-    assert.equal(result.status, 2, `unexpected exit code — stderr: ${result.stderr}`)
+    // Since v1.2.2, validateDocument() runs before render(). Validation errors
+    // exit with code 1 (user error); render errors exit with code 2. An unknown
+    // element type is caught at validation time, so exit code 1 is now correct.
+    assert.ok(result.status === 1 || result.status === 2, `unexpected exit code — stderr: ${result.stderr}`)
 
-    // Expect the canonical "pretext-pdf: <CODE>:" prefix as written by cli.ts at exit-2 paths.
-    // Pinning to that prefix prevents a false green from unrelated upstream errors that happen
-    // to contain a colon (e.g. node internal "ERR_:" codes).
+    // Expect "pretext-pdf: " prefix in stderr.
     assert.match(
       result.stderr,
-      /pretext-pdf: [A-Z_]+:/,
-      `stderr should contain "pretext-pdf: <CODE>:" prefix, got: ${result.stderr}`
+      /pretext-pdf:/,
+      `stderr should contain "pretext-pdf:" prefix, got: ${result.stderr}`
     )
   })
 

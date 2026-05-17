@@ -11,10 +11,17 @@ import { findPlugin, runPluginLoadAsset } from './plugin-registry.js'
 
 /**
  * Enforce allowedFileDirs: resolved absolute path must start with an allowed dir.
- * No-op when allowedFileDirs is unset (backwards-compatible default).
+ * Deny-by-default: when allowedFileDirs is undefined or empty, file:// access is
+ * rejected unless the caller explicitly configures the allowed directories.
  */
 export function assertPathAllowed(resolvedPath: string, allowedDirs: string[] | undefined, label: string): void {
-  if (!allowedDirs || allowedDirs.length === 0) return
+  if (!allowedDirs || allowedDirs.length === 0) {
+    throw new PretextPdfError(
+      'PATH_TRAVERSAL',
+      `${label} src uses a local file path but doc.allowedFileDirs is not set. ` +
+      `Configure allowedFileDirs to explicitly list the directories from which files may be read.`
+    )
+  }
   const norm = resolvedPath.replace(/\\/g, '/')
   const allowed = allowedDirs.some(dir => {
     const d = dir.replace(/\\/g, '/').replace(/\/$/, '')

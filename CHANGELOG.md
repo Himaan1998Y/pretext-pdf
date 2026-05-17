@@ -7,6 +7,31 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.2.2] — 2026-05-17
+
+### Security
+
+- **`assertPathAllowed` is now deny-by-default** — Previously, when `doc.allowedFileDirs` was
+  undefined or empty, local file:// paths were silently allowed. Now the function throws
+  `PATH_TRAVERSAL` unless `allowedFileDirs` is explicitly configured with at least one directory.
+  This closes an unintended open-access footgun for server-side deployments.
+
+- **`compat.ts` — dangerous image schemes stripped in `fromPdfmake`** — `file://`, `data:`, and
+  `javascript:` image `src` values are now silently dropped during pdfmake→pretext-pdf translation
+  rather than forwarded verbatim. This prevents the compat shim from acting as an indirect
+  bypass for the scheme-level SSRF guards in `assets.ts`.
+
+- **`compat.ts` — `allowedFileDirs` forwarded from `PdfmakeDocument`** — The `PdfmakeDocument`
+  interface now accepts `allowedFileDirs?: string[]`, which is forwarded into the resulting
+  `PdfDocument`. Callers who previously passed file paths via the compat shim can now
+  allowlist their directories explicitly.
+
+- **CLI validates before rendering** — `pretext-pdf` now calls `validateDocument()` before
+  invoking `render()`. Invalid documents produce a `VALIDATION_ERROR` message on stderr and
+  exit with code 1, avoiding wasted work during the render phase.
+
+---
+
 ## [1.2.1] — 2026-05-16
 
 ### Fixed

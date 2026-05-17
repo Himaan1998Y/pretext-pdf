@@ -1200,6 +1200,33 @@ describe('Phase A — Cycle Detection & Depth Caps', () => {
     )
   })
 
+  test('depth-cap boundary: doc with reasonable nesting (depth ~3) passes validateDocument()', async () => {
+    // Build a document with a list inside a float-group — depth ~3, well within the 32 cap.
+    const { validateDocument } = await import('../dist/index.js')
+    const result = validateDocument({
+      content: [{
+        type: 'list',
+        style: 'ordered',
+        items: [
+          { text: 'Level 1', items: [{ text: 'Level 2' }] },
+          { text: 'Another item' },
+        ],
+      }],
+    } as any)
+    assert.equal(result.valid, true, `Should pass depth check: ${JSON.stringify(result.errors)}`)
+  })
+
+  test('depth-cap boundary: cyclic reference triggers VALIDATION_ERROR before depth=33', async () => {
+    // Cyclic structures hit the depth cap or cycle guard well before depth=33.
+    // This confirms the depth guard is in place and fires correctly.
+    const item: any = { text: 'Root' }
+    item.items = [item]
+    await expectError(
+      () => render({ content: [{ type: 'list', style: 'ordered', items: [item] }] }),
+      'VALIDATION_ERROR'
+    )
+  })
+
   test('concurrent validate calls do not share cycle state (concurrency safety)', async () => {
     // Regression guard: the cycle-detection WeakSet must be per-call, not
     // module-scoped. Two parallel validate() calls touching the same node

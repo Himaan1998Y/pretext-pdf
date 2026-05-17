@@ -64,6 +64,7 @@ export interface PdfmakeDocument {
   header?: string | { text: string; alignment?: PdfmakeStyle['alignment']; fontSize?: number; color?: string }
   footer?: string | { text: string; alignment?: PdfmakeStyle['alignment']; fontSize?: number; color?: string }
   info?: { title?: string; author?: string; subject?: string; keywords?: string }
+  allowedFileDirs?: string[]
 }
 
 export type PdfmakeNode = string | PdfmakeObjectNode
@@ -248,6 +249,11 @@ export function fromPdfmake(doc: PdfmakeDocument, options: CompatOptions = {}): 
     if (Object.keys(m).length > 0) result.metadata = m
   }
 
+  // Forward allowedFileDirs for security: deny-by-default file:// access
+  if (doc.allowedFileDirs !== undefined) {
+    result.allowedFileDirs = doc.allowedFileDirs
+  }
+
   return result
 }
 
@@ -311,10 +317,17 @@ function translateNodeInner(node: PdfmakeObjectNode, ctx: TranslateCtx): Content
     return [translateTable(node.table, ctx)]
   }
 
-  // Image — pretext-pdf supports data URIs and absolute paths/URLs the same
-  // way pdfmake does for src.
+  // Image — strip dangerous schemes before forwarding to pretext-pdf.
+  // file://, data:, and javascript: are not safe to forward when allowedFileDirs
+  // is not set; strip them and warn rather than pass potentially dangerous URLs.
   if (typeof node.image === 'string') {
-    const img: ImageElement = { type: 'image', src: node.image }
+    const imgSrc = node.image
+    const lc = imgSrc.toLowerCase()
+    if (lc.startsWith('file://') || lc.startsWith('data:') || lc.startsWith('javascript:')) {
+      // Scheme is not safe to forward — return empty to skip the image
+      return []
+    }
+    const img: ImageElement = { type: 'image', src: imgSrc }
     if (typeof node.width === 'number') img.width = node.width
     if (typeof node.height === 'number') img.height = node.height
     return [img]

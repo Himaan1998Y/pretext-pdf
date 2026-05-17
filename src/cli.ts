@@ -151,7 +151,7 @@ async function main(): Promise<number> {
   }
 
   // Build the PdfDocument. Either parse as JSON, or convert Markdown.
-  const { render } = await import('./index.js')
+  const { render, validateDocument } = await import('./index.js')
   let doc: import('./types.js').PdfDocument
   if (parsed.markdown) {
     let markdownToContent: typeof import('./markdown.js')['markdownToContent']
@@ -177,6 +177,17 @@ async function main(): Promise<number> {
       process.stderr.write(`pretext-pdf: invalid JSON in input: ${err instanceof Error ? err.message : String(err)}\n`)
       return 1
     }
+  }
+
+  // Validate before render: surface schema errors with clear messages before
+  // more expensive rendering starts.
+  const validation = validateDocument(doc)
+  if (!validation.valid) {
+    for (const e of validation.errors) {
+      const msg = typeof e === 'string' ? e : `${e.path}: ${e.message}`
+      process.stderr.write(`pretext-pdf: VALIDATION_ERROR: ${msg}\n`)
+    }
+    return 1
   }
 
   let pdf: Uint8Array

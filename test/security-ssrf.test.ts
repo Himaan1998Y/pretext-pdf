@@ -142,3 +142,61 @@ describe('B6 — extended private-range coverage', () => {
     }
   })
 })
+
+describe('v1.2.2 — PATH_TRAVERSAL deny-by-default', () => {
+  test('assertPathAllowed throws PATH_TRAVERSAL when allowedFileDirs is undefined', async () => {
+    const { assertPathAllowed } = await import('../dist/assets.js')
+    assert.throws(
+      () => assertPathAllowed('/some/absolute/path/image.png', undefined, 'Image'),
+      (err: unknown) => {
+        assert.ok(err instanceof Error)
+        assert.ok('code' in err && (err as any).code === 'PATH_TRAVERSAL', `Expected PATH_TRAVERSAL, got ${(err as any).code}`)
+        return true
+      }
+    )
+  })
+
+  test('assertPathAllowed throws PATH_TRAVERSAL when allowedFileDirs is empty array', async () => {
+    const { assertPathAllowed } = await import('../dist/assets.js')
+    assert.throws(
+      () => assertPathAllowed('/some/absolute/path/image.png', [], 'Image'),
+      (err: unknown) => {
+        assert.ok(err instanceof Error)
+        assert.ok('code' in err && (err as any).code === 'PATH_TRAVERSAL')
+        return true
+      }
+    )
+  })
+
+  test('assertPathAllowed allows path within explicitly configured allowedFileDirs', async () => {
+    const { assertPathAllowed } = await import('../dist/assets.js')
+    assert.doesNotThrow(
+      () => assertPathAllowed('/allowed/dir/image.png', ['/allowed/dir'], 'Image')
+    )
+  })
+
+  test('assertPathAllowed blocks path outside of configured allowedFileDirs', async () => {
+    const { assertPathAllowed } = await import('../dist/assets.js')
+    assert.throws(
+      () => assertPathAllowed('/other/dir/image.png', ['/allowed/dir'], 'Image'),
+      (err: unknown) => {
+        assert.ok('code' in (err as any) && (err as any).code === 'PATH_TRAVERSAL')
+        return true
+      }
+    )
+  })
+
+  test('resolveAndValidateUrl still blocks file:// scheme via SSRF check', async () => {
+    await assert.rejects(
+      () => resolveAndValidateUrl('file:///etc/passwd', 'IMAGE_LOAD_FAILED', 'Image'),
+      /file:.*not allowed|refused scheme/i
+    )
+  })
+
+  test('resolveAndValidateUrl blocks javascript: scheme', async () => {
+    await assert.rejects(
+      () => resolveAndValidateUrl('javascript:alert(1)', 'IMAGE_LOAD_FAILED', 'Image'),
+      /javascript:.*not allowed|refused scheme|invalid URL/i
+    )
+  })
+})
