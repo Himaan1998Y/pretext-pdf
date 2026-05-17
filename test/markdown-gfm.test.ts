@@ -246,14 +246,14 @@ describe('v0.9.0 — pdfmake compat: fromPdfmake()', () => {
     const { fromPdfmake } = await import('../dist/compat.js')
     const doc = fromPdfmake({
       content: [
-        { image: 'data:image/png;base64,iVBORw0KGgo=', width: 100 },
+        { image: 'https://example.com/img.png', width: 100 },
         { qr: 'https://example.com', fit: 80 },
       ],
     })
     const img = doc.content[0] as any
     const qr = doc.content[1] as any
     assert.equal(img.type, 'image')
-    assert.equal(img.src, 'data:image/png;base64,iVBORw0KGgo=')
+    assert.equal(img.src, 'https://example.com/img.png')
     assert.equal(img.width, 100)
     assert.equal(qr.type, 'qr-code')
     assert.equal(qr.data, 'https://example.com')

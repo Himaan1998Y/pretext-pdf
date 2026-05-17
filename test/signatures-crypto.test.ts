@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import * as path from 'node:path'
 import { render } from '../src/index.js'
 import { PretextPdfError } from '../src/errors.js'
 
@@ -64,7 +65,8 @@ test('Phase 9A — Cryptographic Signatures', async (t) => {
     await assert.rejects(
       () => render({
         content: [{ type: 'paragraph', text: 'Test' }],
-        signature: { p12: '/nonexistent/path/to/cert.p12', passphrase: 'test' }
+        allowedFileDirs: [path.resolve('/nonexistent/path/to')],
+        signature: { p12: path.resolve('/nonexistent/path/to/cert.p12'), passphrase: 'test' }
       }),
       (err: any) => {
         assert.ok(err instanceof PretextPdfError)
@@ -79,6 +81,7 @@ test('Phase 9A — Cryptographic Signatures', async (t) => {
     await assert.rejects(
       () => render({
         content: [{ type: 'paragraph', text: 'Test' }],
+        allowedFileDirs: [path.resolve(process.cwd(), 'relative')],
         signature: { p12: 'relative/cert.p12', passphrase: 'test' }
       }),
       (err: any) => {

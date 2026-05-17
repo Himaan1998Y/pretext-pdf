@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import * as path from 'node:path'
 import { render } from '../src/index.js'
 import { PretextPdfError } from '../src/errors.js'
 
@@ -179,7 +180,8 @@ test('Phase 5 — Image Floats', async (t) => {
     await assert.rejects(
       () => render({
         onImageLoadError: (_src, _err) => 'throw',
-        content: [{ type: 'image', src: '/nonexistent/does-not-exist.png' }],
+        allowedFileDirs: [path.resolve('/nonexistent')],
+        content: [{ type: 'image', src: path.resolve('/nonexistent/does-not-exist.png') }],
       }),
       { code: 'IMAGE_LOAD_FAILED' },
     )

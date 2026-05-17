@@ -7,6 +7,15 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.3.1] — 2026-05-17
+
+### Fixed
+
+- Internal test fixtures updated to set `allowedFileDirs` (resolved with `path.resolve` for Windows drive-letter compatibility) after the v1.2.2 deny-by-default flip — no library behavior change. Affected: `signatures-crypto`, `signatures-validation`, `svg`, `image-floats` test files.
+- `markdown-gfm` compat test updated to use an `https:` image src; `data:` URLs are blocked by the scheme guard added in v1.3.0, so the pre-existing fixture no longer round-tripped — test-only change.
+
+---
+
 ## [1.3.0] — 2026-05-17
 
 ### ⚠️ BREAKING (retroactive note covering v1.2.2)

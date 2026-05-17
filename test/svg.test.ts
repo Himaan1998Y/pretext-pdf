@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert'
+import * as path from 'node:path'
 import { render } from '../src/index.js'
 import type { PdfDocument } from '../src/types.js'
 
@@ -209,7 +210,8 @@ test('Phase 7E — SVG Support', async (t) => {
     let caught: any
     try {
       await render({
-        content: [{ type: 'svg', src: '/nonexistent/does-not-exist.svg' }],
+        content: [{ type: 'svg', src: path.resolve('/nonexistent/does-not-exist.svg') }],
+        allowedFileDirs: [path.resolve('/nonexistent')],
       })
     } catch (e) { caught = e }
     assert.ok(caught, 'expected an error to be thrown')

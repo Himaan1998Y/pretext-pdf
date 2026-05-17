@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import * as path from 'node:path'
 import { render } from '../src/index.js'
 import { PretextPdfError } from '../src/errors.js'
 
@@ -81,7 +82,10 @@ test('Phase 3 — Cryptographic Digital Signatures', async (t) => {
 
   await t.test('non-existent p12 file path throws SIGNATURE_P12_LOAD_FAILED or SIGNATURE_DEP_MISSING', async () => {
     await assert.rejects(
-      () => render(minDoc({ p12: '/tmp/__nonexistent_cert_pretext_test_abc123__.p12' })),
+      () => render({
+        ...minDoc({ p12: path.resolve('/tmp/__nonexistent_cert_pretext_test_abc123__.p12') }),
+        allowedFileDirs: [path.resolve('/tmp')],
+      }),
       (err: any) => {
         assert.ok(err instanceof PretextPdfError, `Expected PretextPdfError, got: ${err?.constructor?.name}`)
         assert.ok(
