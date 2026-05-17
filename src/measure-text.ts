@@ -135,13 +135,21 @@ export async function detectAndReorderRTL(
 /**
  * Measure a single word's rendered width using pretext at maxWidth=99999.
  */
-export async function measureWord(word: string, fontString: string): Promise<number> {
-  const { prepareWithSegments, layoutWithLines } = await getPretext()
+export async function measureWord(
+  word: string,
+  fontString: string,
+  cache?: Map<string, number>,
+): Promise<number> {
   if (!word) return 0
+  const cacheKey = cache ? `${word}|${fontString}` : ''
+  if (cache && cache.has(cacheKey)) return cache.get(cacheKey)!
+  const { prepareWithSegments, layoutWithLines } = await getPretext()
   const prepared = prepareWithSegments(word, fontString, {})
   const result = layoutWithLines(prepared, 99999, 99999)
   const lines: Array<{ text: string; width: number }> = result.lines ?? []
-  return lines[0]?.width ?? 0
+  const width = lines[0]?.width ?? 0
+  if (cache) cache.set(cacheKey, width)
+  return width
 }
 
 // ─── Core Text Measurement ────────────────────────────────────────────────────
@@ -357,14 +365,18 @@ export async function measureTextWithHyphenation(
   text: string,
   fontString: string,
   maxWidth: number,
-  opts: HyphenatorOpts
+  opts: HyphenatorOpts,
+  docWordCache?: Map<string, number>,
 ): Promise<Array<{ text: string; width: number }>> {
   const { instance: hypher, minWordLength, leftMin, rightMin } = opts
+  // Paragraph-local cache stays as the fast inner cache (keyed by word only
+  // since fontString is constant for the call). The doc-level cache is a
+  // fallback miss-path that lets common words shared across paragraphs hit.
   const widthCache = new Map<string, number>()
 
   const measure = async (w: string): Promise<number> => {
     if (widthCache.has(w)) return widthCache.get(w)!
-    const width = await measureWord(w, fontString)
+    const width = await measureWord(w, fontString, docWordCache)
     widthCache.set(w, width)
     return width
   }
@@ -501,7 +513,8 @@ export async function measureText(
   fontWeight: 400 | 700,
   maxWidth: number,
   lineHeight: number,
-  hyphenatorOpts?: HyphenatorOpts
+  hyphenatorOpts?: HyphenatorOpts,
+  wordWidthCache?: Map<string, number>,
 ): Promise<Array<{ text: string; width: number }>> {
   if (!text || text.trim() === '') return []
 
@@ -512,7 +525,7 @@ export async function measureText(
 
   // If hyphenator is available and text is long, use hyphenation
   if (hyphenatorOpts && text.length > hyphenatorOpts.minWordLength) {
-    return await measureTextWithHyphenation(text, fontString, maxWidth, hyphenatorOpts)
+    return await measureTextWithHyphenation(text, fontString, maxWidth, hyphenatorOpts, wordWidthCache)
   }
 
   // Thai/Lao: Skia/canvas doesn't segment Thai — insert zero-width spaces at word

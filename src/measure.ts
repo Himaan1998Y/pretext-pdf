@@ -145,6 +145,9 @@ export async function measureAllBlocks(
     hyphenatorOpts = { instance, minWordLength, leftMin, rightMin }
   }
 
+  // Document-level word-width cache — dedups common-word measurements across paragraphs
+  const wordWidthCache = new Map<string, number>()
+
   for (let i = 0; i < doc.content.length; i++) {
     const el = doc.content[i]!
 
@@ -156,7 +159,7 @@ export async function measureAllBlocks(
         continue
       }
       if (el.float) {
-        const block = await measureFloatImageBlock(el, imageKey, imageMap, contentWidth, pageContentHeight, doc)
+        const block = await measureFloatImageBlock(el, imageKey, imageMap, contentWidth, pageContentHeight, doc, wordWidthCache)
         results.push(block)
       } else {
         const block = await measureImageWithKey(el, imageKey, imageMap, contentWidth, pageContentHeight)
@@ -195,7 +198,7 @@ export async function measureAllBlocks(
       if (!imageMap.has(imageKey)) {
         continue
       }
-      const block = await measureFloatGroup(el, imageKey, imageMap, contentWidth, pageContentHeight, doc, hyphenatorOpts)
+      const block = await measureFloatGroup(el, imageKey, imageMap, contentWidth, pageContentHeight, doc, hyphenatorOpts, wordWidthCache)
       results.push(block)
     } else {
       const plugin = plugins ? findPlugin(plugins, el.type) : undefined
@@ -210,7 +213,7 @@ export async function measureAllBlocks(
         )
         results.push(block)
       } else {
-        const result = await measureBlock(el, contentWidth, doc, hyphenatorOpts)
+        const result = await measureBlock(el, contentWidth, doc, hyphenatorOpts, wordWidthCache)
         if (Array.isArray(result)) {
           results.push(...result)
         } else {

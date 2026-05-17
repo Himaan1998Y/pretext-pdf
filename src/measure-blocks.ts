@@ -43,6 +43,7 @@ export async function measureBlock(
   contentWidth: number,
   doc: PdfDocument,
   hyphenatorOpts?: HyphenatorOpts,
+  wordWidthCache?: Map<string, number>,
 ): Promise<MeasuredBlock | MeasuredBlock[]> {
   const baseFontSize = doc.defaultFontSize ?? 12
   const baseFont = doc.defaultFont ?? 'Inter'
@@ -166,7 +167,7 @@ export async function measureBlock(
       // smallCaps uppercases at render time. Measure the same uppercase text so
       // line-break widths match what the renderer actually draws.
       const measureText_ = element.smallCaps === true ? visualText.toUpperCase() : visualText
-      const lines = await measureText(measureText_, effectiveFontSize, fontFamily, fontWeight, measureWidth, lineHeight, opts)
+      const lines = await measureText(measureText_, effectiveFontSize, fontFamily, fontWeight, measureWidth, lineHeight, opts, wordWidthCache)
 
       if (columns > 1) {
         const linesPerColumn = Math.max(1, Math.ceil(lines.length / columns))
@@ -235,7 +236,7 @@ export async function measureBlock(
       // smallCaps uppercases at render time. Measure the same uppercase text so
       // line-break widths match what the renderer actually draws.
       const headingMeasureText = element.smallCaps === true ? visualText.toUpperCase() : visualText
-      const lines = await measureText(headingMeasureText, effectiveFontSize, fontFamily, fontWeight, headingMeasureWidth, lineHeight, opts)
+      const lines = await measureText(headingMeasureText, effectiveFontSize, fontFamily, fontWeight, headingMeasureWidth, lineHeight, opts, wordWidthCache)
 
       return {
         element,
@@ -288,11 +289,11 @@ export async function measureBlock(
     }
 
     case 'list': {
-      return measureList(element, contentWidth, doc, baseFontSize, hyphenatorOpts)
+      return measureList(element, contentWidth, doc, baseFontSize, hyphenatorOpts, wordWidthCache)
     }
 
     case 'table': {
-      return measureTable(element, contentWidth, doc, baseFontSize, hyphenatorOpts)
+      return measureTable(element, contentWidth, doc, baseFontSize, hyphenatorOpts, wordWidthCache)
     }
 
     case 'rich-paragraph': {
@@ -387,7 +388,7 @@ export async function measureBlock(
 
       // Code blocks: never hyphenate — breaks would corrupt source code meaning
       // Code blocks: always measure in logical (LTR) order — reordering breaks syntax
-      const lines = await measureText(element.text, fontSize, element.fontFamily, 400, Math.max(textWidth, 1), lineHeight)
+      const lines = await measureText(element.text, fontSize, element.fontFamily, 400, Math.max(textWidth, 1), lineHeight, undefined, wordWidthCache)
 
       // height = lines * lineHeight + padding top + padding bottom
       const height = (lines.length || 1) * lineHeight + 2 * padding
@@ -439,7 +440,7 @@ export async function measureBlock(
       // Measure post-reorder (visual-order) text because the renderer draws characters in
       // visual order; measuring the logical string for an RTL run would pick break points
       // that don't match what is actually drawn, producing wrong line widths.
-      const lines = await measureText(visualText, fontSize, fontFamily, fontWeight, Math.max(textWidth, 1), lineHeight, hyphenatorOpts)
+      const lines = await measureText(visualText, fontSize, fontFamily, fontWeight, Math.max(textWidth, 1), lineHeight, hyphenatorOpts, wordWidthCache)
 
       // height = lines * lineHeight + padding top + padding bottom
       const height = (lines.length || 1) * lineHeight + 2 * paddingV
@@ -481,7 +482,7 @@ export async function measureBlock(
 
       // Measure content text
       const innerWidth = contentWidth - ph * 2
-      const lines = await measureText(el.content, fs, family, el.fontWeight ?? 400, Math.max(innerWidth, 1), lh, hyphenatorOpts)
+      const lines = await measureText(el.content, fs, family, el.fontWeight ?? 400, Math.max(innerWidth, 1), lh, hyphenatorOpts, wordWidthCache)
       const contentTextHeight = lines.length * lh
 
       const totalHeight = pv + titleHeight + contentTextHeight + pv
@@ -535,7 +536,8 @@ export async function measureBlock(
         400,
         contentWidth - 20,  // leave space for "N. " prefix
         lineHeight,
-        undefined
+        undefined,
+        wordWidthCache
       )
 
       const height = textLines.length * lineHeight
@@ -653,6 +655,7 @@ export async function measureFloatImageBlock(
   contentWidth: number,
   pageContentHeight: number,
   doc: import('./types.js').PdfDocument,
+  wordWidthCache?: Map<string, number>,
 ): Promise<MeasuredBlock> {
   const floatWidth = element.floatWidth ?? (contentWidth * 0.35)
   const floatGap = element.floatGap ?? 12
@@ -698,6 +701,7 @@ export async function measureFloatImageBlock(
       textColWidth,
       lineHeight,
       undefined,
+      wordWidthCache,
     )
   }
 
@@ -746,6 +750,7 @@ export async function measureFloatGroup(
   pageContentHeight: number,
   doc: PdfDocument,
   hyphenatorOpts?: HyphenatorOpts,
+  wordWidthCache?: Map<string, number>,
 ): Promise<MeasuredBlock> {
   const floatWidth = element.floatWidth ?? (contentWidth * 0.35)
   const floatGap = element.floatGap ?? 12
@@ -785,7 +790,7 @@ export async function measureFloatGroup(
   let totalTextHeight = 0
 
   for (const contentEl of element.content) {
-    const measuredEl = await measureBlock(contentEl, textColWidth, doc, hyphenatorOpts)
+    const measuredEl = await measureBlock(contentEl, textColWidth, doc, hyphenatorOpts, wordWidthCache)
 
     // Handle arrays (lists return MeasuredBlock[])
     const blocks = Array.isArray(measuredEl) ? measuredEl : [measuredEl]
@@ -865,7 +870,8 @@ async function measureList(
   contentWidth: number,
   doc: PdfDocument,
   baseFontSize: number,
-  hyphenatorOpts?: HyphenatorOpts
+  hyphenatorOpts?: HyphenatorOpts,
+  wordWidthCache?: Map<string, number>,
 ): Promise<MeasuredBlock[]> {
   const baseFontFamily = doc.defaultFont ?? 'Inter'
   const fontSize = element.fontSize ?? baseFontSize
@@ -951,7 +957,7 @@ async function measureList(
     const nestedIndent = indent + item.depth * markerWidth
     const nestedTextWidth = textWidth - item.depth * markerWidth
 
-    const lines = await measureText(item.text, fontSize, baseFontFamily, item.fontWeight, nestedTextWidth, lineHeight, hyphenatorOpts)
+    const lines = await measureText(item.text, fontSize, baseFontFamily, item.fontWeight, nestedTextWidth, lineHeight, hyphenatorOpts, wordWidthCache)
 
     const listItemData: ListItemData = {
       marker: item.marker,
@@ -1011,7 +1017,8 @@ async function measureTable(
   contentWidth: number,
   doc: PdfDocument,
   baseFontSize: number,
-  hyphenatorOpts?: HyphenatorOpts
+  hyphenatorOpts?: HyphenatorOpts,
+  wordWidthCache?: Map<string, number>,
 ): Promise<MeasuredBlock> {
   const baseFontFamily = doc.defaultFont ?? 'Inter'
   const fontSize = element.fontSize ?? baseFontSize
@@ -1125,7 +1132,7 @@ async function measureTable(
   const cellResults = await Promise.all(
     allCellMeta.map(async (m) => {
       const { visual: cellVisualText, isRTL: cellIsRTL } = await detectAndReorderRTL(m.cell.text, m.cellDir)
-      const lines = await measureText(cellVisualText, m.cellFontSize, m.fontFamily, m.fontWeight, Math.max(m.textWidth, 1), m.cellLineHeight, hyphenatorOpts)
+      const lines = await measureText(cellVisualText, m.cellFontSize, m.fontFamily, m.fontWeight, Math.max(m.textWidth, 1), m.cellLineHeight, hyphenatorOpts, wordWidthCache)
       return { cellVisualText, cellIsRTL, lines }
     })
   )

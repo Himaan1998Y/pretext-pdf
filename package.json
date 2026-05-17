@@ -1,6 +1,6 @@
 {
   "name": "pretext-pdf",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Generate PDFs from JSON — declarative, serverless, no Chromium. TypeScript-first with professional typography. Ideal for invoices, reports, and AI agents.",
   "keywords": [
     "pdf",
@@ -100,7 +100,7 @@
     "test:10d": "tsx --test test/templates.test.ts",
     "test:phase-4": "tsx --test test/footnotes.test.ts",
     "test:phase-5": "tsx --test test/image-floats.test.ts",
-    "test:phases": "tsx --test test/footnotes.test.ts test/image-floats.test.ts test/bookmarks.test.ts test/watermarks.test.ts test/hyphenation.test.ts test/toc.test.ts test/svg.test.ts test/rtl.test.ts test/encryption.test.ts test/integration.test.ts test/hyperlinks.test.ts test/inline-formatting.test.ts test/annotations.test.ts test/assembly.test.ts test/metadata.test.ts test/signatures-visual.test.ts test/forms.test.ts test/callout.test.ts test/signatures-crypto.test.ts test/float-groups.test.ts test/font-subsetting.test.ts test/performance.test.ts test/signatures-validation.test.ts test/cross-cutting.test.ts test/qr-barcode.test.ts test/charts.test.ts test/markdown-entry.test.ts test/templates.test.ts test/security-ssrf.test.ts test/markdown-gfm.test.ts",
+    "test:phases": "tsx --test test/footnotes.test.ts test/image-floats.test.ts test/bookmarks.test.ts test/watermarks.test.ts test/hyphenation.test.ts test/toc.test.ts test/svg.test.ts test/rtl.test.ts test/encryption.test.ts test/integration.test.ts test/hyperlinks.test.ts test/inline-formatting.test.ts test/annotations.test.ts test/assembly.test.ts test/metadata.test.ts test/signatures-visual.test.ts test/forms.test.ts test/callout.test.ts test/signatures-crypto.test.ts test/float-groups.test.ts test/font-subsetting.test.ts test/performance.test.ts test/signatures-validation.test.ts test/cross-cutting.test.ts test/qr-barcode.test.ts test/charts.test.ts test/markdown-entry.test.ts test/templates.test.ts test/security-ssrf.test.ts test/markdown-gfm.test.ts test/assets-dns-dedup.test.ts test/measure-text-cache.test.ts",
     "test:phase-7": "tsx --test test/bookmarks.test.ts test/watermarks.test.ts test/hyphenation.test.ts test/toc.test.ts test/svg.test.ts test/rtl.test.ts test/encryption.test.ts test/integration.test.ts",
     "test:phase-8": "tsx --test test/hyperlinks.test.ts test/inline-formatting.test.ts test/annotations.test.ts test/assembly.test.ts test/forms.test.ts test/callout.test.ts test/signatures-visual.test.ts test/metadata.test.ts",
     "test:8d": "tsx --test test/callout.test.ts",

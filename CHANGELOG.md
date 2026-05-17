@@ -7,6 +7,16 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.3.2] — 2026-05-17
+
+### Performance
+
+- Removed double DNS resolution in image/SVG fetch (one lookup per remote asset, not two)
+- Parallel SVG/QR/barcode generation+rasterization (sequential embed retained for pdf-lib safety)
+- Document-level word-width measurement cache (cross-paragraph dedup of common-word measurements)
+
+---
+
 ## [1.3.1] — 2026-05-17
 
 ### Fixed
