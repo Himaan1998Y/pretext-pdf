@@ -79,7 +79,7 @@ export async function merge(pdfs) {
             src = await PDFDocument.load(bytes);
         }
         catch (e) {
-            throw new PretextPdfError('ASSEMBLY_FAILED', 'Failed to load PDF for merging');
+            throw new PretextPdfError('ASSEMBLY_FAILED', 'Failed to load PDF for merging', { cause: e });
         }
         const pages = await target.copyPages(src, src.getPageIndices());
         pages.forEach((p) => target.addPage(p));
@@ -98,14 +98,16 @@ export async function assemble(parts) {
     }
     const target = await PDFDocument.create();
     for (const part of parts) {
-        // Type system enforces XOR: doc XOR pdf at compile-time. No runtime check needed.
+        if (!part.pdf && !part.doc) {
+            throw new PretextPdfError('VALIDATION_ERROR', 'Each AssemblyPart must have either doc or pdf — received a part with neither.');
+        }
         const bytes = part.pdf ?? await render(part.doc);
         let src;
         try {
             src = await PDFDocument.load(bytes);
         }
         catch (e) {
-            throw new PretextPdfError('ASSEMBLY_FAILED', 'Failed to load PDF part');
+            throw new PretextPdfError('ASSEMBLY_FAILED', 'Failed to load PDF part', { cause: e });
         }
         const pages = await target.copyPages(src, src.getPageIndices());
         pages.forEach((p) => target.addPage(p));

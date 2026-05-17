@@ -4,8 +4,8 @@
  */
 export class PretextPdfError extends Error {
     code;
-    constructor(code, message) {
-        super(message);
+    constructor(code, message, options) {
+        super(message, options);
         this.name = 'PretextPdfError';
         this.code = code;
         // Maintains proper stack trace in V8

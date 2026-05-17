@@ -62,6 +62,7 @@ export interface PdfmakeDocument {
         subject?: string;
         keywords?: string;
     };
+    allowedFileDirs?: string[];
 }
 export type PdfmakeNode = string | PdfmakeObjectNode;
 export interface PdfmakeObjectNode {

@@ -89,6 +89,10 @@ export function fromPdfmake(doc, options = {}) {
         if (Object.keys(m).length > 0)
             result.metadata = m;
     }
+    // Forward allowedFileDirs for security: deny-by-default file:// access
+    if (doc.allowedFileDirs !== undefined) {
+        result.allowedFileDirs = doc.allowedFileDirs;
+    }
     return result;
 }
 function translateNode(node, ctx) {
@@ -138,10 +142,18 @@ function translateNodeInner(node, ctx) {
     if (node.table) {
         return [translateTable(node.table, ctx)];
     }
-    // Image — pretext-pdf supports data URIs and absolute paths/URLs the same
-    // way pdfmake does for src.
+    // Image — strip dangerous schemes before forwarding to pretext-pdf.
+    // file://, data:, and javascript: are not safe to forward when allowedFileDirs
+    // is not set; strip them and warn rather than pass potentially dangerous URLs.
     if (typeof node.image === 'string') {
-        const img = { type: 'image', src: node.image };
+        const imgSrc = node.image;
+        const lc = imgSrc.trim().toLowerCase();
+        const BLOCKED_SCHEMES = ['file://', 'data:', 'javascript:', 'vbscript:', 'blob:', 'about:'];
+        if (BLOCKED_SCHEMES.some(s => lc.startsWith(s))) {
+            // Scheme is not safe to forward — return empty to skip the image
+            return [];
+        }
+        const img = { type: 'image', src: imgSrc };
         if (typeof node.width === 'number')
             img.width = node.width;
         if (typeof node.height === 'number')

@@ -26,7 +26,7 @@ function resolveCalloutColors(style) {
         default: return { bg: '#F8F9FA', border: '#0070F3' };
     }
 }
-export async function measureBlock(element, contentWidth, doc, hyphenatorOpts) {
+export async function measureBlock(element, contentWidth, doc, hyphenatorOpts, wordWidthCache) {
     const baseFontSize = doc.defaultFontSize ?? 12;
     const baseFont = doc.defaultFont ?? 'Inter';
     // Reject the internal TOC entry type. TocEntryElement is synthesized
@@ -140,7 +140,7 @@ export async function measureBlock(element, contentWidth, doc, hyphenatorOpts) {
             // smallCaps uppercases at render time. Measure the same uppercase text so
             // line-break widths match what the renderer actually draws.
             const measureText_ = element.smallCaps === true ? visualText.toUpperCase() : visualText;
-            const lines = await measureText(measureText_, effectiveFontSize, fontFamily, fontWeight, measureWidth, lineHeight, opts);
+            const lines = await measureText(measureText_, effectiveFontSize, fontFamily, fontWeight, measureWidth, lineHeight, opts, wordWidthCache);
             if (columns > 1) {
                 const linesPerColumn = Math.max(1, Math.ceil(lines.length / columns));
                 columnData = { columnCount: columns, columnGap, columnWidth: computedColumnWidth, linesPerColumn };
@@ -203,7 +203,7 @@ export async function measureBlock(element, contentWidth, doc, hyphenatorOpts) {
             // smallCaps uppercases at render time. Measure the same uppercase text so
             // line-break widths match what the renderer actually draws.
             const headingMeasureText = element.smallCaps === true ? visualText.toUpperCase() : visualText;
-            const lines = await measureText(headingMeasureText, effectiveFontSize, fontFamily, fontWeight, headingMeasureWidth, lineHeight, opts);
+            const lines = await measureText(headingMeasureText, effectiveFontSize, fontFamily, fontWeight, headingMeasureWidth, lineHeight, opts, wordWidthCache);
             return {
                 element,
                 height: lines.length * lineHeight,
@@ -245,10 +245,10 @@ export async function measureBlock(element, contentWidth, doc, hyphenatorOpts) {
             throw new PretextPdfError('VALIDATION_ERROR', 'SVG elements cannot be measured via measureBlock() directly — use measureAllBlocks() which resolves the imageMap key correctly.');
         }
         case 'list': {
-            return measureList(element, contentWidth, doc, baseFontSize, hyphenatorOpts);
+            return measureList(element, contentWidth, doc, baseFontSize, hyphenatorOpts, wordWidthCache);
         }
         case 'table': {
-            return measureTable(element, contentWidth, doc, baseFontSize, hyphenatorOpts);
+            return measureTable(element, contentWidth, doc, baseFontSize, hyphenatorOpts, wordWidthCache);
         }
         case 'rich-paragraph': {
             // Detect paragraph-level RTL direction for alignment default
@@ -326,7 +326,7 @@ export async function measureBlock(element, contentWidth, doc, hyphenatorOpts) {
             const textWidth = contentWidth - 2 * padding;
             // Code blocks: never hyphenate — breaks would corrupt source code meaning
             // Code blocks: always measure in logical (LTR) order — reordering breaks syntax
-            const lines = await measureText(element.text, fontSize, element.fontFamily, 400, Math.max(textWidth, 1), lineHeight);
+            const lines = await measureText(element.text, fontSize, element.fontFamily, 400, Math.max(textWidth, 1), lineHeight, undefined, wordWidthCache);
             // height = lines * lineHeight + padding top + padding bottom
             const height = (lines.length || 1) * lineHeight + 2 * padding;
             // Syntax highlighting: tokenize if language is set
@@ -365,7 +365,7 @@ export async function measureBlock(element, contentWidth, doc, hyphenatorOpts) {
             // Measure post-reorder (visual-order) text because the renderer draws characters in
             // visual order; measuring the logical string for an RTL run would pick break points
             // that don't match what is actually drawn, producing wrong line widths.
-            const lines = await measureText(visualText, fontSize, fontFamily, fontWeight, Math.max(textWidth, 1), lineHeight, hyphenatorOpts);
+            const lines = await measureText(visualText, fontSize, fontFamily, fontWeight, Math.max(textWidth, 1), lineHeight, hyphenatorOpts, wordWidthCache);
             // height = lines * lineHeight + padding top + padding bottom
             const height = (lines.length || 1) * lineHeight + 2 * paddingV;
             return {
@@ -403,7 +403,7 @@ export async function measureBlock(element, contentWidth, doc, hyphenatorOpts) {
             }
             // Measure content text
             const innerWidth = contentWidth - ph * 2;
-            const lines = await measureText(el.content, fs, family, el.fontWeight ?? 400, Math.max(innerWidth, 1), lh, hyphenatorOpts);
+            const lines = await measureText(el.content, fs, family, el.fontWeight ?? 400, Math.max(innerWidth, 1), lh, hyphenatorOpts, wordWidthCache);
             const contentTextHeight = lines.length * lh;
             const totalHeight = pv + titleHeight + contentTextHeight + pv;
             // Construct calloutData via a typed literal so TypeScript enforces the
@@ -447,7 +447,7 @@ export async function measureBlock(element, contentWidth, doc, hyphenatorOpts) {
             const fontKey = buildFontKey(fontFamily, 400, 'normal');
             // Measure the def text with a 20pt left indent (for the number prefix space)
             const textLines = await measureText(fn.text, fontSize, fontFamily, 400, contentWidth - 20, // leave space for "N. " prefix
-            lineHeight, undefined);
+            lineHeight, undefined, wordWidthCache);
             const height = textLines.length * lineHeight;
             return {
                 element,
@@ -534,7 +534,7 @@ export async function measureImageWithKey(element, imageKey, imageMap, contentWi
     };
 }
 // ─── Float image block measurement ───────────────────────────────────────────
-export async function measureFloatImageBlock(element, imageKey, imageMap, contentWidth, pageContentHeight, doc) {
+export async function measureFloatImageBlock(element, imageKey, imageMap, contentWidth, pageContentHeight, doc, wordWidthCache) {
     const floatWidth = element.floatWidth ?? (contentWidth * 0.35);
     const floatGap = element.floatGap ?? 12;
     const textColWidth = contentWidth - floatWidth - floatGap;
@@ -566,7 +566,7 @@ export async function measureFloatImageBlock(element, imageKey, imageMap, conten
         richFloatLines = await measureRichText(element.floatSpans, fontSize, lineHeight, textColWidth, 'left', doc);
     }
     else {
-        textLines = await measureText(element.floatText, fontSize, fontFamily, 400, textColWidth, lineHeight, undefined);
+        textLines = await measureText(element.floatText, fontSize, fontFamily, 400, textColWidth, lineHeight, undefined, wordWidthCache);
     }
     // Column X positions
     const imageColX = element.float === 'left' ? 0 : textColWidth + floatGap;
@@ -601,7 +601,7 @@ export async function measureFloatImageBlock(element, imageKey, imageMap, conten
     };
 }
 // ─── Float group measurement (multi-paragraph float) ────────────────────────────
-export async function measureFloatGroup(element, imageKey, imageMap, contentWidth, pageContentHeight, doc, hyphenatorOpts) {
+export async function measureFloatGroup(element, imageKey, imageMap, contentWidth, pageContentHeight, doc, hyphenatorOpts, wordWidthCache) {
     const floatWidth = element.floatWidth ?? (contentWidth * 0.35);
     const floatGap = element.floatGap ?? 12;
     const textColWidth = contentWidth - floatWidth - floatGap;
@@ -626,7 +626,7 @@ export async function measureFloatGroup(element, imageKey, imageMap, contentWidt
     const textItems = [];
     let totalTextHeight = 0;
     for (const contentEl of element.content) {
-        const measuredEl = await measureBlock(contentEl, textColWidth, doc, hyphenatorOpts);
+        const measuredEl = await measureBlock(contentEl, textColWidth, doc, hyphenatorOpts, wordWidthCache);
         // Handle arrays (lists return MeasuredBlock[])
         const blocks = Array.isArray(measuredEl) ? measuredEl : [measuredEl];
         for (const block of blocks) {
@@ -691,7 +691,7 @@ export async function measureFloatGroup(element, imageKey, imageMap, contentWidt
     };
 }
 // ─── List measurement (returns MeasuredBlock[]) ───────────────────────────────
-async function measureList(element, contentWidth, doc, baseFontSize, hyphenatorOpts) {
+async function measureList(element, contentWidth, doc, baseFontSize, hyphenatorOpts, wordWidthCache) {
     const baseFontFamily = doc.defaultFont ?? 'Inter';
     const fontSize = element.fontSize ?? baseFontSize;
     const lineHeight = element.lineHeight ?? doc.defaultLineHeight ?? (fontSize * LINE_HEIGHT_BODY);
@@ -764,7 +764,7 @@ async function measureList(element, contentWidth, doc, baseFontSize, hyphenatorO
         const isLast = i === allItems.length - 1;
         const nestedIndent = indent + item.depth * markerWidth;
         const nestedTextWidth = textWidth - item.depth * markerWidth;
-        const lines = await measureText(item.text, fontSize, baseFontFamily, item.fontWeight, nestedTextWidth, lineHeight, hyphenatorOpts);
+        const lines = await measureText(item.text, fontSize, baseFontFamily, item.fontWeight, nestedTextWidth, lineHeight, hyphenatorOpts, wordWidthCache);
         const listItemData = {
             marker: item.marker,
             indent: nestedIndent,
@@ -810,7 +810,7 @@ function buildSpanGrid(rows) {
     }
     return grid;
 }
-async function measureTable(element, contentWidth, doc, baseFontSize, hyphenatorOpts) {
+async function measureTable(element, contentWidth, doc, baseFontSize, hyphenatorOpts, wordWidthCache) {
     const baseFontFamily = doc.defaultFont ?? 'Inter';
     const fontSize = element.fontSize ?? baseFontSize;
     const lineHeight = doc.defaultLineHeight ?? (fontSize * LINE_HEIGHT_BODY);
@@ -896,7 +896,7 @@ async function measureTable(element, contentWidth, doc, baseFontSize, hyphenator
     // Step 2: Run all RTL detection + text measurement in parallel across the whole table
     const cellResults = await Promise.all(allCellMeta.map(async (m) => {
         const { visual: cellVisualText, isRTL: cellIsRTL } = await detectAndReorderRTL(m.cell.text, m.cellDir);
-        const lines = await measureText(cellVisualText, m.cellFontSize, m.fontFamily, m.fontWeight, Math.max(m.textWidth, 1), m.cellLineHeight, hyphenatorOpts);
+        const lines = await measureText(cellVisualText, m.cellFontSize, m.fontFamily, m.fontWeight, Math.max(m.textWidth, 1), m.cellLineHeight, hyphenatorOpts, wordWidthCache);
         return { cellVisualText, cellIsRTL, lines };
     }));
     const cellByKey = new Map();

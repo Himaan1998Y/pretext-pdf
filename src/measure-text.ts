@@ -15,6 +15,9 @@ export function setBidiWarnFn(fn: (msg: string) => void): void {
 
 export type HyphenatorOpts = { instance: HypherInstance; minWordLength: number; leftMin: number; rightMin: number }
 
+/** Maximum entries retained in a wordWidthCache before FIFO eviction kicks in. */
+export const WORD_WIDTH_CACHE_MAX = 50_000
+
 type HypherInstance = { hyphenate(word: string): string[] }
 
 /** Lazily-loaded Pretext module — must be imported AFTER polyfill is installed */
@@ -148,7 +151,15 @@ export async function measureWord(
   const result = layoutWithLines(prepared, 99999, 99999)
   const lines: Array<{ text: string; width: number }> = result.lines ?? []
   const width = lines[0]?.width ?? 0
-  if (cache) cache.set(cacheKey, width)
+  if (cache) {
+    // FIFO eviction: Map iterates in insertion order, so deleting the first key
+    // drops the oldest entry. Bounds memory for long-running processes.
+    if (cache.size >= WORD_WIDTH_CACHE_MAX) {
+      const firstKey = cache.keys().next().value
+      if (firstKey !== undefined) cache.delete(firstKey)
+    }
+    cache.set(cacheKey, width)
+  }
   return width
 }
 

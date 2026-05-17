@@ -2,12 +2,15 @@
  * measure-text.ts — Low-level text and font measurement primitives
  * No document-element knowledge. Used by all measurement modules.
  */
+export declare function setBidiWarnFn(fn: (msg: string) => void): void;
 export type HyphenatorOpts = {
     instance: HypherInstance;
     minWordLength: number;
     leftMin: number;
     rightMin: number;
 };
+/** Maximum entries retained in a wordWidthCache before FIFO eviction kicks in. */
+export declare const WORD_WIDTH_CACHE_MAX = 50000;
 type HypherInstance = {
     hyphenate(word: string): string[];
 };
@@ -40,7 +43,7 @@ export declare function detectAndReorderRTL(text: string, dirOverride?: 'ltr' | 
 /**
  * Measure a single word's rendered width using pretext at maxWidth=99999.
  */
-export declare function measureWord(word: string, fontString: string): Promise<number>;
+export declare function measureWord(word: string, fontString: string, cache?: Map<string, number>): Promise<number>;
 /**
  * Measure unwrapped (single-line) text width using pretext at large maxWidth.
  * Handles multi-line text by returning the max width across all lines.
@@ -52,7 +55,7 @@ export declare function getThaiSegmenter(): Intl.Segmenter | null;
  * Handles CJK (character-level breaks), Thai/Lao (Intl.Segmenter), and Latin (space + hyphens).
  * Returns lines with actual hyphens added to hyphenated words.
  */
-export declare function measureTextWithHyphenation(text: string, fontString: string, maxWidth: number, opts: HyphenatorOpts): Promise<Array<{
+export declare function measureTextWithHyphenation(text: string, fontString: string, maxWidth: number, opts: HyphenatorOpts, docWordCache?: Map<string, number>): Promise<Array<{
     text: string;
     width: number;
 }>>;
@@ -60,7 +63,7 @@ export declare function measureTextWithHyphenation(text: string, fontString: str
  * Core text measurement: delegates to hyphenation path or direct Pretext layout.
  * If no hyphenator is available, falls back to direct layout (text wraps without hyphens).
  */
-export declare function measureText(text: string, fontSize: number, fontFamily: string, fontWeight: 400 | 700, maxWidth: number, lineHeight: number, hyphenatorOpts?: HyphenatorOpts): Promise<Array<{
+export declare function measureText(text: string, fontSize: number, fontFamily: string, fontWeight: 400 | 700, maxWidth: number, lineHeight: number, hyphenatorOpts?: HyphenatorOpts, wordWidthCache?: Map<string, number>): Promise<Array<{
     text: string;
     width: number;
 }>>;

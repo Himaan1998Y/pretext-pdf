@@ -101,6 +101,8 @@ export async function measureAllBlocks(doc, contentWidth, imageMap, pageContentH
         const instance = await getHyphenator(language);
         hyphenatorOpts = { instance, minWordLength, leftMin, rightMin };
     }
+    // Document-level word-width cache — dedups common-word measurements across paragraphs
+    const wordWidthCache = new Map();
     for (let i = 0; i < doc.content.length; i++) {
         const el = doc.content[i];
         if (el.type === 'image') {
@@ -111,7 +113,7 @@ export async function measureAllBlocks(doc, contentWidth, imageMap, pageContentH
                 continue;
             }
             if (el.float) {
-                const block = await measureFloatImageBlock(el, imageKey, imageMap, contentWidth, pageContentHeight, doc);
+                const block = await measureFloatImageBlock(el, imageKey, imageMap, contentWidth, pageContentHeight, doc, wordWidthCache);
                 results.push(block);
             }
             else {
@@ -149,7 +151,7 @@ export async function measureAllBlocks(doc, contentWidth, imageMap, pageContentH
             if (!imageMap.has(imageKey)) {
                 continue;
             }
-            const block = await measureFloatGroup(el, imageKey, imageMap, contentWidth, pageContentHeight, doc, hyphenatorOpts);
+            const block = await measureFloatGroup(el, imageKey, imageMap, contentWidth, pageContentHeight, doc, hyphenatorOpts, wordWidthCache);
             results.push(block);
         }
         else {
@@ -161,7 +163,7 @@ export async function measureAllBlocks(doc, contentWidth, imageMap, pageContentH
                 results.push(block);
             }
             else {
-                const result = await measureBlock(el, contentWidth, doc, hyphenatorOpts);
+                const result = await measureBlock(el, contentWidth, doc, hyphenatorOpts, wordWidthCache);
                 if (Array.isArray(result)) {
                     results.push(...result);
                 }

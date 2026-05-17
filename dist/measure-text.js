@@ -3,6 +3,14 @@
  * No document-element knowledge. Used by all measurement modules.
  */
 import { PretextPdfError } from './errors.js';
+// Module-level bidi warn bridge — lets render() thread a structured logger without
+// changing detectAndReorderRTL's call signature at all 6 measure-blocks.ts call sites.
+let _warnFn = (msg) => console.warn(msg);
+export function setBidiWarnFn(fn) {
+    _warnFn = fn;
+}
+/** Maximum entries retained in a wordWidthCache before FIFO eviction kicks in. */
+export const WORD_WIDTH_CACHE_MAX = 50_000;
 /** Lazily-loaded Pretext module — must be imported AFTER polyfill is installed */
 let _pretext = null;
 export async function getPretext() {
@@ -78,7 +86,7 @@ export async function detectAndReorderRTL(text, dirOverride) {
     catch (importErr) {
         const msg = importErr instanceof Error ? importErr.message : String(importErr);
         if (/Cannot find module|Cannot find package|ERR_MODULE_NOT_FOUND/.test(msg)) {
-            console.warn('[pretext-pdf] bidi-js is not installed; RTL text may render incorrectly. ' +
+            _warnFn('[pretext-pdf] bidi-js is not installed; RTL text may render incorrectly. ' +
                 'Install bidi-js to enable proper bidi reordering: npm install bidi-js');
             // Better to render LTR than to mirror logical-order text under RTL alignment.
             return { visual: text, isRTL: false, logical: text };
@@ -103,14 +111,28 @@ export async function detectAndReorderRTL(text, dirOverride) {
 /**
  * Measure a single word's rendered width using pretext at maxWidth=99999.
  */
-export async function measureWord(word, fontString) {
-    const { prepareWithSegments, layoutWithLines } = await getPretext();
+export async function measureWord(word, fontString, cache) {
     if (!word)
         return 0;
+    const cacheKey = cache ? `${word}|${fontString}` : '';
+    if (cache && cache.has(cacheKey))
+        return cache.get(cacheKey);
+    const { prepareWithSegments, layoutWithLines } = await getPretext();
     const prepared = prepareWithSegments(word, fontString, {});
     const result = layoutWithLines(prepared, 99999, 99999);
     const lines = result.lines ?? [];
-    return lines[0]?.width ?? 0;
+    const width = lines[0]?.width ?? 0;
+    if (cache) {
+        // FIFO eviction: Map iterates in insertion order, so deleting the first key
+        // drops the oldest entry. Bounds memory for long-running processes.
+        if (cache.size >= WORD_WIDTH_CACHE_MAX) {
+            const firstKey = cache.keys().next().value;
+            if (firstKey !== undefined)
+                cache.delete(firstKey);
+        }
+        cache.set(cacheKey, width);
+    }
+    return width;
 }
 // ─── Core Text Measurement ────────────────────────────────────────────────────
 /**
@@ -306,13 +328,16 @@ function tokenizeParagraph(para) {
  * Handles CJK (character-level breaks), Thai/Lao (Intl.Segmenter), and Latin (space + hyphens).
  * Returns lines with actual hyphens added to hyphenated words.
  */
-export async function measureTextWithHyphenation(text, fontString, maxWidth, opts) {
+export async function measureTextWithHyphenation(text, fontString, maxWidth, opts, docWordCache) {
     const { instance: hypher, minWordLength, leftMin, rightMin } = opts;
+    // Paragraph-local cache stays as the fast inner cache (keyed by word only
+    // since fontString is constant for the call). The doc-level cache is a
+    // fallback miss-path that lets common words shared across paragraphs hit.
     const widthCache = new Map();
     const measure = async (w) => {
         if (widthCache.has(w))
             return widthCache.get(w);
-        const width = await measureWord(w, fontString);
+        const width = await measureWord(w, fontString, docWordCache);
         widthCache.set(w, width);
         return width;
     };
@@ -430,7 +455,7 @@ export async function measureTextWithHyphenation(text, fontString, maxWidth, opt
  * Core text measurement: delegates to hyphenation path or direct Pretext layout.
  * If no hyphenator is available, falls back to direct layout (text wraps without hyphens).
  */
-export async function measureText(text, fontSize, fontFamily, fontWeight, maxWidth, lineHeight, hyphenatorOpts) {
+export async function measureText(text, fontSize, fontFamily, fontWeight, maxWidth, lineHeight, hyphenatorOpts, wordWidthCache) {
     if (!text || text.trim() === '')
         return [];
     const { prepareWithSegments, layoutWithLines } = await getPretext();
@@ -438,7 +463,7 @@ export async function measureText(text, fontSize, fontFamily, fontWeight, maxWid
     const fontString = `${weightPrefix}${fontSize}px ${fontFamily}`;
     // If hyphenator is available and text is long, use hyphenation
     if (hyphenatorOpts && text.length > hyphenatorOpts.minWordLength) {
-        return await measureTextWithHyphenation(text, fontString, maxWidth, hyphenatorOpts);
+        return await measureTextWithHyphenation(text, fontString, maxWidth, hyphenatorOpts, wordWidthCache);
     }
     // Thai/Lao: Skia/canvas doesn't segment Thai — insert zero-width spaces at word
     // boundaries so pretext's line-breaker can split correctly.

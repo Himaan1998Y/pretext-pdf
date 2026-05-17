@@ -5,11 +5,14 @@ import { findPlugin, runPluginLoadAsset } from './plugin-registry.js';
 // ─── Security helpers ─────────────────────────────────────────────────────────
 /**
  * Enforce allowedFileDirs: resolved absolute path must start with an allowed dir.
- * No-op when allowedFileDirs is unset (backwards-compatible default).
+ * Deny-by-default: when allowedFileDirs is undefined or empty, file:// access is
+ * rejected unless the caller explicitly configures the allowed directories.
  */
 export function assertPathAllowed(resolvedPath, allowedDirs, label) {
-    if (!allowedDirs || allowedDirs.length === 0)
-        return;
+    if (!allowedDirs || allowedDirs.length === 0) {
+        throw new PretextPdfError('PATH_TRAVERSAL', `${label} src uses a local file path but doc.allowedFileDirs is not set. ` +
+            `Configure allowedFileDirs to explicitly list the directories from which files may be read.`);
+    }
     const norm = resolvedPath.replace(/\\/g, '/');
     const allowed = allowedDirs.some(dir => {
         const d = dir.replace(/\\/g, '/').replace(/\/$/, '');
@@ -167,7 +170,7 @@ function createPinnedAgent(ip, family) {
  * where an attacker controls a TTL=0 DNS record and swaps the answer
  * between our `dns.lookup()` and the actual TCP connect.
  */
-async function fetchWithTimeout(url, errorCode, label) {
+export async function fetchWithTimeout(url, errorCode, label) {
     const MAX_REDIRECTS = 3;
     let currentUrl = url;
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
@@ -292,7 +295,7 @@ async function resolveSvgContent(el, allowedFileDirs) {
         throw new PretextPdfError('SVG_LOAD_FAILED', "SvgElement requires either 'svg' (inline string) or 'src' (file path or https:// URL)");
     }
     if (el.src.startsWith('https://') || el.src.startsWith('http://')) {
-        await assertSafeUrl(el.src, 'SVG_LOAD_FAILED', 'SVG');
+        // SSRF validation happens inside fetchWithTimeout — no need to pre-validate
         let resp;
         try {
             resp = await fetchWithTimeout(el.src, 'SVG_LOAD_FAILED', 'SVG');
@@ -392,7 +395,11 @@ async function generateChartSvg(el, contentWidth) {
     }
 }
 // ─── SVG → PDF image ──────────────────────────────────────────────────────────
-async function loadSvgAsImage(svg, widthPt, heightPt, pdfDoc) {
+/**
+ * Rasterize an SVG string to a PNG buffer at 2x scale.
+ * Pure compute — no pdf-lib interaction — so it is safe to run in parallel.
+ */
+async function rasterizeSvgToPng(svg, widthPt, heightPt) {
     let canvasLib;
     try {
         canvasLib = await import('@napi-rs/canvas');
@@ -409,11 +416,117 @@ async function loadSvgAsImage(svg, widthPt, heightPt, pdfDoc) {
         const img = new canvasLib.Image();
         img.src = Buffer.from(svg);
         ctx.drawImage(img, 0, 0, widthPx, heightPx);
-        const pngBuffer = canvas.toBuffer('image/png');
-        return pdfDoc.embedPng(pngBuffer);
+        return canvas.toBuffer('image/png');
     }
     catch (err) {
         throw new PretextPdfError('SVG_RENDER_FAILED', `Failed to rasterize SVG: ${err instanceof Error ? err.message : String(err)}`);
+    }
+}
+async function loadSvgAsImage(svg, widthPt, heightPt, pdfDoc) {
+    const pngBuffer = await rasterizeSvgToPng(svg, widthPt, heightPt);
+    return pdfDoc.embedPng(pngBuffer);
+}
+/** Maximum number of vector-asset rasterization tasks allowed to run in parallel. */
+export const VECTOR_RASTER_CONCURRENCY = 4;
+/**
+ * Bounded-parallel allSettled. Runs at most `limit` tasks concurrently and
+ * collects per-task fulfilled/rejected results in the original order.
+ */
+async function allSettledWithLimit(items, limit) {
+    const results = new Array(items.length);
+    let cursor = 0;
+    async function next() {
+        while (cursor < items.length) {
+            const idx = cursor++;
+            try {
+                const value = await items[idx]();
+                results[idx] = { status: 'fulfilled', value };
+            }
+            catch (reason) {
+                results[idx] = { status: 'rejected', reason };
+            }
+        }
+    }
+    const workerCount = Math.min(Math.max(1, limit), items.length);
+    await Promise.all(Array.from({ length: workerCount }, () => next()));
+    return results;
+}
+/**
+ * Load SVG/QR/barcode/chart elements:
+ *   Phase A — generate svg + rasterize to PNG in parallel (CPU/I/O bound, safe to fan out)
+ *   Phase B — embed PNGs sequentially because pdf-lib xref mutation is not concurrency-safe
+ *
+ * One failed asset must not block other embeds (error isolation matches prior behavior).
+ */
+async function loadVectorAssets(doc, pdfDoc, imageMap, contentWidth, allowedDirs, warn) {
+    const tasks = [];
+    for (let i = 0; i < doc.content.length; i++) {
+        const el = doc.content[i];
+        if (el.type === 'svg') {
+            tasks.push({ key: `svg-${i}`, index: i, kind: 'svg', run: async () => {
+                    const svgContent = await resolveSvgContent(el, allowedDirs);
+                    const svgWithContent = { type: 'svg', svg: svgContent, width: el.width, height: el.height, align: el.align, spaceBefore: el.spaceBefore, spaceAfter: el.spaceAfter };
+                    const { widthPt, heightPt } = resolveSvgDimensions(svgWithContent, contentWidth);
+                    return rasterizeSvgToPng(svgContent, widthPt, heightPt);
+                } });
+        }
+        else if (el.type === 'qr-code') {
+            tasks.push({ key: `qr-${i}`, index: i, kind: 'qr-code', run: async () => {
+                    const svgString = await generateQrSvg(el);
+                    const sizePt = el.size ?? 80;
+                    return rasterizeSvgToPng(svgString, sizePt, sizePt);
+                } });
+        }
+        else if (el.type === 'barcode') {
+            tasks.push({ key: `barcode-${i}`, index: i, kind: 'barcode', run: async () => {
+                    const svgString = await generateBarcodeSvg(el);
+                    const widthPt = el.width ?? 200;
+                    const heightPt = el.height ?? 60;
+                    return rasterizeSvgToPng(svgString, widthPt, heightPt);
+                } });
+        }
+        else if (el.type === 'chart') {
+            tasks.push({ key: `chart-${i}`, index: i, kind: 'chart', run: async () => {
+                    const svgString = await generateChartSvg(el, contentWidth);
+                    const widthPt = el.width ?? contentWidth;
+                    const heightPt = el.height ?? 300;
+                    return rasterizeSvgToPng(svgString, widthPt, heightPt);
+                } });
+        }
+    }
+    if (tasks.length === 0)
+        return;
+    // Phase A: bounded-parallel rasterization. allSettled isolates per-task failures.
+    // Cap concurrency to avoid resource exhaustion (sharp/svg2pdfkit workers, FDs)
+    // when a document carries many vector assets.
+    const results = await allSettledWithLimit(tasks.map(t => () => t.run()), VECTOR_RASTER_CONCURRENCY);
+    // Phase B: MUST remain sequential — pdf-lib xref mutation is not concurrency-safe
+    for (let ti = 0; ti < tasks.length; ti++) {
+        const task = tasks[ti];
+        const result = results[ti];
+        if (result.status === 'rejected') {
+            const err = result.reason;
+            // SVG failures historically propagated (file/url/render errors thrown).
+            if (task.kind === 'svg')
+                throw err;
+            if (err instanceof PretextPdfError)
+                throw err;
+            const message = err instanceof Error ? err.message : String(err);
+            warn(`[pretext-pdf] ${task.kind} load failed at index ${task.index} (CHART_LOAD_FAILED): ${message}. Slot will be blank in PDF.`);
+            continue;
+        }
+        try {
+            const pdfImage = await pdfDoc.embedPng(result.value);
+            imageMap.set(task.key, pdfImage);
+        }
+        catch (err) {
+            if (task.kind === 'svg')
+                throw err;
+            if (err instanceof PretextPdfError)
+                throw err;
+            const message = err instanceof Error ? err.message : String(err);
+            warn(`[pretext-pdf] ${task.kind} embed failed at index ${task.index} (CHART_LOAD_FAILED): ${message}. Slot will be blank in PDF.`);
+        }
     }
 }
 /**
@@ -489,68 +602,7 @@ export async function loadImages(doc, pdfDoc, contentWidth, plugins, logger) {
             // Continue without this image rather than crashing
         }
     }
-    // Load SVG elements — rasterize to PNG and embed
-    for (let i = 0; i < doc.content.length; i++) {
-        const el = doc.content[i];
-        if (el.type === 'svg') {
-            const key = `svg-${i}`;
-            const svgContent = await resolveSvgContent(el, allowedDirs);
-            const svgWithContent = { type: 'svg', svg: svgContent, width: el.width, height: el.height, align: el.align, spaceBefore: el.spaceBefore, spaceAfter: el.spaceAfter };
-            const { widthPt, heightPt } = resolveSvgDimensions(svgWithContent, contentWidth);
-            const pdfImage = await loadSvgAsImage(svgContent, widthPt, heightPt, pdfDoc);
-            imageMap.set(key, pdfImage);
-        }
-        else if (el.type === 'qr-code') {
-            const key = `qr-${i}`;
-            try {
-                const svgString = await generateQrSvg(el);
-                const sizePt = el.size ?? 80;
-                const pdfImage = await loadSvgAsImage(svgString, sizePt, sizePt, pdfDoc);
-                imageMap.set(key, pdfImage);
-            }
-            catch (err) {
-                if (err instanceof PretextPdfError)
-                    throw err;
-                const code = 'CHART_LOAD_FAILED';
-                const message = err instanceof Error ? err.message : String(err);
-                warn(`[pretext-pdf] qr-code load failed at index ${i} (${code}): ${message}. Slot will be blank in PDF.`);
-            }
-        }
-        else if (el.type === 'barcode') {
-            const key = `barcode-${i}`;
-            try {
-                const svgString = await generateBarcodeSvg(el);
-                const widthPt = el.width ?? 200;
-                const heightPt = el.height ?? 60;
-                const pdfImage = await loadSvgAsImage(svgString, widthPt, heightPt, pdfDoc);
-                imageMap.set(key, pdfImage);
-            }
-            catch (err) {
-                if (err instanceof PretextPdfError)
-                    throw err;
-                const code = 'CHART_LOAD_FAILED';
-                const message = err instanceof Error ? err.message : String(err);
-                warn(`[pretext-pdf] barcode load failed at index ${i} (${code}): ${message}. Slot will be blank in PDF.`);
-            }
-        }
-        else if (el.type === 'chart') {
-            const key = `chart-${i}`;
-            try {
-                const svgString = await generateChartSvg(el, contentWidth);
-                const widthPt = el.width ?? contentWidth;
-                const heightPt = el.height ?? 300;
-                const pdfImage = await loadSvgAsImage(svgString, widthPt, heightPt, pdfDoc);
-                imageMap.set(key, pdfImage);
-            }
-            catch (err) {
-                if (err instanceof PretextPdfError)
-                    throw err;
-                const code = 'CHART_LOAD_FAILED';
-                const message = err instanceof Error ? err.message : String(err);
-                warn(`[pretext-pdf] chart load failed at index ${i} (${code}): ${message}. Slot will be blank in PDF.`);
-            }
-        }
-    }
+    await loadVectorAssets(doc, pdfDoc, imageMap, contentWidth, allowedDirs, warn);
     // Load plugin assets
     if (plugins && plugins.length > 0) {
         for (let i = 0; i < doc.content.length; i++) {
@@ -633,7 +685,7 @@ async function loadImageBytes(el, key, allowedDirs) {
         throw new PretextPdfError('IMAGE_LOAD_FAILED', `Image "${key}": 'src' must be a non-empty string path, URL, or Uint8Array`);
     }
     if (src.startsWith('https://') || src.startsWith('http://')) {
-        await assertSafeUrl(src, 'IMAGE_LOAD_FAILED', `Image "${key}"`);
+        // SSRF validation happens inside fetchWithTimeout — no need to pre-validate
         let resp;
         try {
             resp = await fetchWithTimeout(src, 'IMAGE_LOAD_FAILED', `Image "${key}"`);

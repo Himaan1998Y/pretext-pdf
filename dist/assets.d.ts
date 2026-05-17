@@ -4,7 +4,8 @@ import type { ImageMap } from './types-internal.js';
 import type { PluginDefinition } from './plugin-types.js';
 /**
  * Enforce allowedFileDirs: resolved absolute path must start with an allowed dir.
- * No-op when allowedFileDirs is unset (backwards-compatible default).
+ * Deny-by-default: when allowedFileDirs is undefined or empty, file:// access is
+ * rejected unless the caller explicitly configures the allowed directories.
  */
 export declare function assertPathAllowed(resolvedPath: string, allowedDirs: string[] | undefined, label: string): void;
 /**
@@ -28,6 +29,21 @@ export declare function resolveAndValidateUrl(url: string, errorCode: 'IMAGE_LOA
  * tests and call sites that only need the validation side-effect still work.
  */
 export declare function assertSafeUrl(url: string, errorCode: 'IMAGE_LOAD_FAILED' | 'SVG_LOAD_FAILED', label: string): Promise<void>;
+/**
+ * Fetch with a hard 10-second timeout AND a manual redirect chain that
+ * re-validates each hop against `resolveAndValidateUrl`. Without manual
+ * redirect handling, a public URL could 302 to `http://127.0.0.1:8080/internal`
+ * and bypass the upfront check — the connection would still be made to
+ * the private target.
+ *
+ * Each hop creates a fresh undici Agent that pins the socket to the IP
+ * that just passed validation. This defeats DNS-rebinding TOCTOU attacks
+ * where an attacker controls a TTL=0 DNS record and swaps the answer
+ * between our `dns.lookup()` and the actual TCP connect.
+ */
+export declare function fetchWithTimeout(url: string, errorCode: 'IMAGE_LOAD_FAILED' | 'SVG_LOAD_FAILED', label: string): Promise<Response>;
+/** Maximum number of vector-asset rasterization tasks allowed to run in parallel. */
+export declare const VECTOR_RASTER_CONCURRENCY = 4;
 /**
  * Stage 2b: Load and embed all images into pdfDoc.
  * Runs after loadFonts(), receives the same pdfDoc.

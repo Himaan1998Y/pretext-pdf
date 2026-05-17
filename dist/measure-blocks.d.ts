@@ -5,11 +5,11 @@
 import type { ContentElement, ColumnDef, PdfDocument } from './types.js';
 import type { MeasuredBlock, ImageMap } from './types-internal.js';
 import { HyphenatorOpts } from './measure-text.js';
-export declare function measureBlock(element: ContentElement, contentWidth: number, doc: PdfDocument, hyphenatorOpts?: HyphenatorOpts): Promise<MeasuredBlock | MeasuredBlock[]>;
+export declare function measureBlock(element: ContentElement, contentWidth: number, doc: PdfDocument, hyphenatorOpts?: HyphenatorOpts, wordWidthCache?: Map<string, number>): Promise<MeasuredBlock | MeasuredBlock[]>;
 /** Measure an image element with its known imageMap key */
 export declare function measureImageWithKey(element: import('./types.js').ImageElement, imageKey: string, imageMap: ImageMap, contentWidth: number, pageContentHeight: number): Promise<MeasuredBlock>;
-export declare function measureFloatImageBlock(element: import('./types.js').ImageElement, imageKey: string, imageMap: ImageMap, contentWidth: number, pageContentHeight: number, doc: import('./types.js').PdfDocument): Promise<MeasuredBlock>;
-export declare function measureFloatGroup(element: import('./types.js').FloatGroupElement, imageKey: string, imageMap: ImageMap, contentWidth: number, pageContentHeight: number, doc: PdfDocument, hyphenatorOpts?: HyphenatorOpts): Promise<MeasuredBlock>;
+export declare function measureFloatImageBlock(element: import('./types.js').ImageElement, imageKey: string, imageMap: ImageMap, contentWidth: number, pageContentHeight: number, doc: import('./types.js').PdfDocument, wordWidthCache?: Map<string, number>): Promise<MeasuredBlock>;
+export declare function measureFloatGroup(element: import('./types.js').FloatGroupElement, imageKey: string, imageMap: ImageMap, contentWidth: number, pageContentHeight: number, doc: PdfDocument, hyphenatorOpts?: HyphenatorOpts, wordWidthCache?: Map<string, number>): Promise<MeasuredBlock>;
 /**
  * Resolve column width definitions to concrete pt values.
  * Fixed widths are used as-is. Star widths ('2*', '*') share the remaining space.

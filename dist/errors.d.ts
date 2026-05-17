@@ -9,6 +9,6 @@ export type ErrorCode = 'VALIDATION_ERROR' | 'FONT_LOAD_FAILED' | 'FONT_EMBED_FA
  */
 export declare class PretextPdfError extends Error {
     readonly code: ErrorCode;
-    constructor(code: ErrorCode, message: string);
+    constructor(code: ErrorCode, message: string, options?: ErrorOptions);
 }
 //# sourceMappingURL=errors.d.ts.map

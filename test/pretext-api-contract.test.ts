@@ -1,5 +1,8 @@
 /**
- * Vendored pretext API contract test — CANARY file.
+ * Vendored pretext API contract test — local export-shape guard for the
+ * vendored pretext layout module. NOT an upstream version canary: pretext
+ * is vendored at src/vendor/pretext/ since v1.1.0 and no longer tracks an
+ * npm dependency. See UPSTREAM.md.
  *
  * Documents exactly which exports pretext-pdf depends on from the vendored
  * pretext engine at src/vendor/pretext/layout.ts.

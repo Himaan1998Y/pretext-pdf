@@ -7,13 +7,53 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.3.3] — 2026-05-17
+
+### Fixed
+
+- **Parallel rasterization concurrency cap** — `loadVectorAssets` now runs at
+  most 4 SVG/QR/barcode/chart rasterization tasks concurrently (was unbounded).
+  Prevents file-descriptor / worker exhaustion on documents with many vector
+  assets. New exported constant: `VECTOR_RASTER_CONCURRENCY`.
+- **Word-width cache memory bound** — `measureWord` now FIFO-evicts at 50,000
+  entries to bound memory for long-running processes that reuse a single
+  `wordWidthCache`. New exported constant: `WORD_WIDTH_CACHE_MAX`.
+
+### Changed
+
+- **Pretext API contract test reframed** — `test/pretext-api-contract.test.ts`
+  header clarified: this is a local export-shape guard for the vendored
+  pretext layout module, not an upstream version canary. Pretext has been
+  vendored at `src/vendor/pretext/` since v1.1.0.
+- **CHANGELOG clarification on v1.3.2 parallel rasterization** — see updated
+  v1.3.2 entry below; the speedup is real for I/O-bound fan-out, but CPU
+  rasterization still serializes on the V8 main thread.
+
+### Documented (not changed)
+
+- **Word-width cache scope (H1)** — the cache is currently consulted on the
+  hyphenation path (`measureTextWithHyphenation`) only. The non-hyphenation
+  branch of `measureText` delegates directly to pretext's `layoutWithLines`
+  to preserve CJK character-level breaking, RTL/bidi, Thai segmentation,
+  kerning, and justify semantics that word-by-word summing would diverge
+  from. Documents that do not configure a hyphenator will not see
+  cross-paragraph cache reuse; this is intentional for correctness.
+
+---
+
 ## [1.3.2] — 2026-05-17
 
 ### Performance
 
 - Removed double DNS resolution in image/SVG fetch (one lookup per remote asset, not two)
 - Parallel SVG/QR/barcode generation+rasterization (sequential embed retained for pdf-lib safety)
+  - Sub-note (added in v1.3.3): the parallelism is real for the I/O-bound fan-out
+    (remote SVG fetches overlap). CPU rasterization (sharp/svg2pdfkit) still
+    contends on the V8 main thread, so wall-clock improvement is dominated by
+    remote-asset latency, not raster throughput.
 - Document-level word-width measurement cache (cross-paragraph dedup of common-word measurements)
+  - Sub-note (added in v1.3.3): the cache is consulted on the hyphenation code
+    path only. See v1.3.3 "Documented (not changed)" for the rationale.
 
 ---
 

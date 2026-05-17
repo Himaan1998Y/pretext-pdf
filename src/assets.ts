@@ -522,6 +522,35 @@ async function loadSvgAsImage(
   return pdfDoc.embedPng(pngBuffer)
 }
 
+/** Maximum number of vector-asset rasterization tasks allowed to run in parallel. */
+export const VECTOR_RASTER_CONCURRENCY = 4
+
+/**
+ * Bounded-parallel allSettled. Runs at most `limit` tasks concurrently and
+ * collects per-task fulfilled/rejected results in the original order.
+ */
+async function allSettledWithLimit<T>(
+  items: ReadonlyArray<() => Promise<T>>,
+  limit: number,
+): Promise<PromiseSettledResult<T>[]> {
+  const results: PromiseSettledResult<T>[] = new Array(items.length)
+  let cursor = 0
+  async function next(): Promise<void> {
+    while (cursor < items.length) {
+      const idx = cursor++
+      try {
+        const value = await items[idx]!()
+        results[idx] = { status: 'fulfilled', value }
+      } catch (reason) {
+        results[idx] = { status: 'rejected', reason }
+      }
+    }
+  }
+  const workerCount = Math.min(Math.max(1, limit), items.length)
+  await Promise.all(Array.from({ length: workerCount }, () => next()))
+  return results
+}
+
 /**
  * Load SVG/QR/barcode/chart elements:
  *   Phase A — generate svg + rasterize to PNG in parallel (CPU/I/O bound, safe to fan out)
@@ -577,8 +606,10 @@ async function loadVectorAssets(
   }
   if (tasks.length === 0) return
 
-  // Phase A: parallel rasterization. allSettled isolates per-task failures.
-  const results = await Promise.allSettled(tasks.map(t => t.run()))
+  // Phase A: bounded-parallel rasterization. allSettled isolates per-task failures.
+  // Cap concurrency to avoid resource exhaustion (sharp/svg2pdfkit workers, FDs)
+  // when a document carries many vector assets.
+  const results = await allSettledWithLimit(tasks.map(t => () => t.run()), VECTOR_RASTER_CONCURRENCY)
 
   // Phase B: MUST remain sequential — pdf-lib xref mutation is not concurrency-safe
   for (let ti = 0; ti < tasks.length; ti++) {
