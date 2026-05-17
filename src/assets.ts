@@ -214,7 +214,7 @@ function createPinnedAgent(ip: string, family: 4 | 6): Agent {
  * where an attacker controls a TTL=0 DNS record and swaps the answer
  * between our `dns.lookup()` and the actual TCP connect.
  */
-async function fetchWithTimeout(
+export async function fetchWithTimeout(
   url: string,
   errorCode: 'IMAGE_LOAD_FAILED' | 'SVG_LOAD_FAILED',
   label: string

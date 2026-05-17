@@ -19,7 +19,11 @@
  */
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { assertSafeUrl, resolveAndValidateUrl } from '../dist/assets.js'
+import { assertSafeUrl, resolveAndValidateUrl, fetchWithTimeout } from '../dist/assets.js'
+import http from 'node:http'
+import type { AddressInfo } from 'node:net'
+
+const { fromPdfmake } = await import('../dist/compat.js')
 
 describe('v0.8.3 — SSRF: IPv4-mapped IPv6 bypass', () => {
   const cases: Array<[string, string]> = [
@@ -198,5 +202,47 @@ describe('v1.2.2 — PATH_TRAVERSAL deny-by-default', () => {
       () => resolveAndValidateUrl('javascript:alert(1)', 'IMAGE_LOAD_FAILED', 'Image'),
       /javascript:.*not allowed|refused scheme|invalid URL/i
     )
+  })
+})
+
+describe('v1.3.0 — redirect-chain SSRF (302 → private IP)', () => {
+  test('fetchWithTimeout rejects when a public URL 302s to a private IP', async () => {
+    // Spin up a local server that 302s to http://127.0.0.1:1/private.
+    // The first hop validation will block since the local server is itself
+    // on 127.0.0.1, which is private. This proves that per-hop validation
+    // rejects private targets even when reached through redirect.
+    const server = http.createServer((_req, res) => {
+      res.writeHead(302, { Location: 'http://127.0.0.1:1/private' })
+      res.end()
+    })
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+    const port = (server.address() as AddressInfo).port
+    try {
+      await assert.rejects(
+        () => fetchWithTimeout(`http://127.0.0.1:${port}/start`, 'IMAGE_LOAD_FAILED', 'Image'),
+        /private or internal addresses|HTTPS/,
+        'redirect chain landing on private IP must be rejected'
+      )
+    } finally {
+      await new Promise<void>(resolve => server.close(() => resolve()))
+    }
+  })
+})
+
+describe('v1.3.0 — extended scheme blocklist in compat.ts', () => {
+  for (const scheme of ['vbscript:', 'blob:', 'about:'] as const) {
+    test(`fromPdfmake strips ${scheme} image src`, () => {
+      const result = fromPdfmake({
+        content: [{ image: `${scheme}foo`, width: 200, height: 150 }],
+      })
+      assert.strictEqual(result.content.length, 0, `${scheme} image should be stripped`)
+    })
+  }
+
+  test('fromPdfmake strips file:// even with leading whitespace (whitespace-bypass fix)', () => {
+    const result = fromPdfmake({
+      content: [{ image: '  file:///etc/passwd', width: 200, height: 150 }],
+    })
+    assert.strictEqual(result.content.length, 0, 'whitespace-prefixed file:// must be stripped')
   })
 })

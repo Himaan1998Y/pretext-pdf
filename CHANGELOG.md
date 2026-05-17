@@ -7,6 +7,24 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.3.0] — 2026-05-17
+
+### ⚠️ BREAKING (retroactive note covering v1.2.2)
+
+- **`assertPathAllowed` is now deny-by-default.** Documents using `file://` image sources without an explicit `allowedFileDirs` configuration will throw `PATH_TRAVERSAL`. This was shipped in v1.2.2 as a security fix but is technically a breaking change — consumers on `^1.2.0` who upgrade past v1.2.1 must either set `allowedFileDirs` or migrate away from `file://` sources. v1.3.0 is the recommended upgrade target with full semver signal.
+
+### Fixed
+
+- **Scheme guard whitespace bypass** in `compat.ts` — leading whitespace in image src (e.g. `" file:///etc/passwd"`) no longer bypasses scheme stripping.
+- **Extended scheme blocklist** in `compat.ts` — added `vbscript:`, `blob:`, `about:` alongside existing `file://`, `data:`, `javascript:`.
+
+### Tests
+
+- Added redirect-chain SSRF test using a local mock HTTP server.
+- Pinned CLI exit-code assertion to detect regressions.
+
+---
+
 ## [1.2.2] — 2026-05-17
 
 ### Security

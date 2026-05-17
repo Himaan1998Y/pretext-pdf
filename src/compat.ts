@@ -322,8 +322,9 @@ function translateNodeInner(node: PdfmakeObjectNode, ctx: TranslateCtx): Content
   // is not set; strip them and warn rather than pass potentially dangerous URLs.
   if (typeof node.image === 'string') {
     const imgSrc = node.image
-    const lc = imgSrc.toLowerCase()
-    if (lc.startsWith('file://') || lc.startsWith('data:') || lc.startsWith('javascript:')) {
+    const lc = imgSrc.trim().toLowerCase()
+    const BLOCKED_SCHEMES = ['file://', 'data:', 'javascript:', 'vbscript:', 'blob:', 'about:']
+    if (BLOCKED_SCHEMES.some(s => lc.startsWith(s))) {
       // Scheme is not safe to forward — return empty to skip the image
       return []
     }

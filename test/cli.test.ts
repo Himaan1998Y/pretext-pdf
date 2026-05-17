@@ -185,7 +185,7 @@ describe('render errors and output', () => {
     // Since v1.2.2, validateDocument() runs before render(). Validation errors
     // exit with code 1 (user error); render errors exit with code 2. An unknown
     // element type is caught at validation time, so exit code 1 is now correct.
-    assert.ok(result.status === 1 || result.status === 2, `unexpected exit code — stderr: ${result.stderr}`)
+    assert.strictEqual(result.status, 1, 'validation error should exit 1')
 
     // Expect "pretext-pdf: " prefix in stderr.
     assert.match(
