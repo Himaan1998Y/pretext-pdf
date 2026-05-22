@@ -24,7 +24,7 @@ import {
   renderWatermark,
   renderFootnoteZone,
   renderHeaderFooter,
-} from './render-blocks.js'
+} from './render-blocks/index.js'
 import {
   buildOutlineTree,
   renderTocEntry,
