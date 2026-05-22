@@ -7,6 +7,27 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.3.6] — 2026-05-23
+
+Architecture-sprint scaffolding release: vendor integrity check, concurrent isolation tests, signing import correctness, public API tripwire.
+
+### Added
+
+- **Boot-time vendor integrity check (#12)** — `src/version-check.ts` exports `assertVendorIntegrity()`, called once at the start of every `render()`. Verifies the vendored pretext version (`src/vendor/pretext/VERSION.ts`) is in the compatible range. Warns (does not throw) on drift. Inline semver matcher avoids adding a `semver` dependency.
+- **Concurrent validate/render isolation tests (#25)** — `test/validate-concurrent.test.ts` exercises 8 parallel `validate()` calls plus 4 parallel `render()` calls across different fonts AND different scripts (en/he/ar/th). Byte-identical fingerprints between parallel and sequential runs prove `vendor/pretext/measurement.ts` and `vendor/pretext/analysis.ts` shared state holds up under concurrent use.
+- **Public API surface tripwire** — `test/public-api-surface.test.ts` snapshots all 15 runtime exports across 6 entry points. Will guard against accidental API drift during the upcoming v1.4.0 god-file splits.
+- **P12/CMS crypto verification test (#26)** — `test/signatures-crypto.test.ts` adds a real `crypto.createVerify('RSA-SHA256')` round-trip with positive + negative cases. **Currently `t.skip`'d** — see KNOWN ISSUES below.
+- **`pretextPdf.mcpCompat`** field in `package.json` — declares `>=1.4.0 <2.0.0` compatibility range for the pretext-pdf-mcp consumer. MCP-side check ships separately.
+
+### Fixed
+
+- **`signpdf` v3 API + import correctness** — `src/post-process.ts` was destructuring `pdflibAddPlaceholder` from `@signpdf/signpdf` where it does not exist; the symbol lives in `@signpdf/placeholder-pdf-lib`. Also updated to the v3 API (`new P12Signer(buffer, { passphrase })` instead of `signer.sign(buffer, { passphrase })`). Added `@signpdf/placeholder-pdf-lib` and `@signpdf/signer-p12` to `peerDependencies` + `peerDependenciesMeta.optional` (mirroring `@signpdf/signpdf`).
+- **`SIGNATURE_DEP_MISSING` error message** — now identifies exactly which `@signpdf/*` packages are missing and tells the user which to install, instead of always listing all three.
+
+### KNOWN ISSUES (deferred to follow-up sprint)
+
+- **Signing path is architecturally non-functional** — even with correct imports, `@cantoo/pdf-lib`'s serializer is fork-incompatible with `@signpdf/placeholder-pdf-lib`. The placeholder ByteRange dict is emitted in a shape that `@signpdf/utils.findByteRange` cannot parse. End-to-end signing has never worked. The crypto verify test (#26) is correctly written and ready to run once signing is repaired. Three fix paths exist: `@signpdf/placeholder-plain` swap (breaks AcroForm), porting placeholder-pdf-lib onto cantoo primitives, or a merge-bytes approach. None are in v1.3.6 scope. The `SIGNATURE_DEP_MISSING` message now pre-warns callers.
+
 ## [1.3.5] — 2026-05-22
 
 ### Fixed

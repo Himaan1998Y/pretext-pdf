@@ -25,16 +25,29 @@ export async function applySignature(
   let signpdfMod: SignpdfModule
   let placeholderMod: PlaceholderModule
   let signerP12Mod: SignerP12Module
-  try {
-    signpdfMod = await import('@signpdf/signpdf' as string) as SignpdfModule
-    placeholderMod = await import('@signpdf/placeholder-pdf-lib' as string) as PlaceholderModule
-    signerP12Mod = await import('@signpdf/signer-p12' as string) as SignerP12Module
-  } catch {
+  const signpdfPackages = [
+    { name: '@signpdf/signpdf', load: () => import('@signpdf/signpdf' as string) },
+    { name: '@signpdf/placeholder-pdf-lib', load: () => import('@signpdf/placeholder-pdf-lib' as string) },
+    { name: '@signpdf/signer-p12', load: () => import('@signpdf/signer-p12' as string) },
+  ] as const
+  const missing: string[] = []
+  const loaded: Record<string, unknown> = {}
+  for (const pkg of signpdfPackages) {
+    try {
+      loaded[pkg.name] = await pkg.load()
+    } catch {
+      missing.push(pkg.name)
+    }
+  }
+  if (missing.length > 0) {
     throw new PretextPdfError(
       'SIGNATURE_DEP_MISSING',
-      'Cryptographic signing requires the @signpdf/signpdf, @signpdf/placeholder-pdf-lib, and @signpdf/signer-p12 packages. Install them: npm install @signpdf/signpdf @signpdf/placeholder-pdf-lib @signpdf/signer-p12. NOTE: signing currently non-functional due to @cantoo/pdf-lib + @signpdf/placeholder-pdf-lib fork incompatibility — see CHANGELOG v1.3.6.'
+      `Cryptographic signing requires the @signpdf/signpdf, @signpdf/placeholder-pdf-lib, and @signpdf/signer-p12 packages. Missing: ${missing.join(', ')}. Install: npm install ${missing.join(' ')}. NOTE: signing currently non-functional due to @cantoo/pdf-lib + @signpdf/placeholder-pdf-lib fork incompatibility — see CHANGELOG v1.3.6.`
     )
   }
+  signpdfMod = loaded['@signpdf/signpdf'] as SignpdfModule
+  placeholderMod = loaded['@signpdf/placeholder-pdf-lib'] as PlaceholderModule
+  signerP12Mod = loaded['@signpdf/signer-p12'] as SignerP12Module
 
   const { SignPdf } = signpdfMod
   const { pdflibAddPlaceholder } = placeholderMod
