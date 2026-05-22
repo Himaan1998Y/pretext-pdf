@@ -1648,6 +1648,29 @@ function validateElement(
       break
     }
 
+    // @ts-expect-error - toc-entry is internal but validated defensively
+    case 'toc-entry': {
+      // toc-entry elements are produced internally by the TOC two-pass processor;
+      // users normally don't author them. Validate shape defensively in case they do.
+      const tocEntry = el as unknown as import('./types-internal.js').TocEntryElement
+      if (typeof tocEntry.text !== 'string') {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (toc-entry): 'text' must be a string`)
+      }
+      if (typeof tocEntry.pageNumber !== 'number' || !isFinite(tocEntry.pageNumber) || tocEntry.pageNumber < 0) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (toc-entry): 'pageNumber' must be a non-negative finite number`)
+      }
+      if (tocEntry.level !== undefined && ![1, 2, 3, 4].includes(tocEntry.level)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (toc-entry): 'level' must be 1, 2, 3, or 4`)
+      }
+      if (tocEntry.levelIndent !== undefined && (typeof tocEntry.levelIndent !== 'number' || tocEntry.levelIndent < 0 || !isFinite(tocEntry.levelIndent))) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (toc-entry): 'levelIndent' must be a non-negative finite number`)
+      }
+      if (tocEntry.leader !== undefined && (typeof tocEntry.leader !== 'string' || tocEntry.leader.length === 0)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (toc-entry): 'leader' must be a non-empty string`)
+      }
+      break
+    }
+
     case 'comment': {
       const commentEl = el as CommentElement
       if (!commentEl.contents || typeof commentEl.contents !== 'string' || commentEl.contents.trim() === '') {

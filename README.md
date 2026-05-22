@@ -960,6 +960,9 @@ See [SECURITY.md](SECURITY.md) for disclosure policy.
 | **0.9.0** | **CLI, pdfmake compat shim, GFM tables + task lists** | ✅ |
 | **1.0.0** | **Plugin API (custom element types), strict validation, `PdfBuilder` fluent API** | ✅ |
 | **1.0.2–1.0.6** | **`validateDocument()`, JSON Schema export, full schema coverage, audit fixes** | ✅ |
+| **1.1.0** | **Vendored pretext layout engine, removed `@chenglou/pretext` npm dep** | ✅ |
+| **1.2.x** | **Discriminated union types, security hardening (SSRF, isError), benchmark corpora** | ✅ |
+| **1.3.0–1.3.4** | **DNS dedup, parallel raster, word-width cache (~1.66x speedup); drift guards; toc-entry validation** | ✅ |
 | Future | Variable fonts, OpenType features, PDF/A, PDF/UA accessibility | 🔜 |
 
 See [docs/ROADMAP.md](docs/ROADMAP.md).

@@ -7,6 +7,58 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.3.5] — 2026-05-22
+
+### Fixed
+
+- **`toc-entry` drift-guard regression** —
+  `test/drift-guards.test.ts` was failing because `src/validate.ts` had no
+  `case 'toc-entry':` arm. `toc-entry` elements are produced internally by
+  the TOC two-pass processor, but the drift guard correctly insists every
+  registered `ElementType` has a validator case. Added a defensive validator
+  for `text`, `pageNumber`, `level`, `levelIndent`, and `leader` so
+  user-authored `toc-entry` payloads (rare but possible) fail loud instead
+  of slipping through.
+
+### Removed
+
+- **`test/pretext-api-contract.test.ts`** —
+  Reframed in v1.3.3 as a local export-shape guard for the vendored pretext
+  layout module, but the test was tautological: it could only fail if
+  someone hand-edited `src/vendor/pretext/*.ts` to remove an export, in
+  which case TypeScript would already fail the build. Deleted along with
+  its entry in the `test:contract` npm script. Drift guards in
+  `test/drift-guards.test.ts` cover the real risk (registry vs. switch
+  arms going out of sync).
+
+### Performance
+
+- **v1.3.2+ benchmark numbers captured** —
+  Re-ran the seven core corpora against `benchmarks/benchmark-baseline.json`
+  (recorded 2026-04-10 at v1.3.0). Results documented in
+  `benchmarks/v1.3.2-results.md`: ~1.66x geometric-mean speedup across
+  corpora, with the largest wins on text-heavy workloads (table-stress
+  -52%, punctuation-heavy -51%, rtl-layout -43%). Confirms the DNS dedup,
+  parallel raster, and word-width cache work landed in v1.3.2 was real
+  rather than aspirational.
+
+### Docs
+
+- **README version table extended** —
+  Added 1.1.x (vendor switch), 1.2.x (security + benchmarks), and
+  1.3.0–1.3.4 (perf + drift guards) rows so the version table no longer
+  stops at 1.0.6.
+
+### Tooling
+
+- **`scripts/run-bench-snapshot.mjs`** —
+  Small one-shot runner that prints avg/min render time per corpus across
+  three measured runs (after a warmup). Used to capture the v1.3.5
+  benchmark results above; useful for ad-hoc perf checks without touching
+  the regression-guarded `test/benchmark-baseline.test.ts`.
+
+---
+
 ## [1.3.4] — 2026-05-17
 
 ### Fixed
