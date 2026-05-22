@@ -8,13 +8,19 @@ import { assertPathAllowed } from './assets.js';
  */
 export async function applySignature(pdfBytes, sig, allowedFileDirs) {
     let signpdfMod;
+    let placeholderMod;
+    let signerP12Mod;
     try {
         signpdfMod = await import('@signpdf/signpdf');
+        placeholderMod = await import('@signpdf/placeholder-pdf-lib');
+        signerP12Mod = await import('@signpdf/signer-p12');
     }
     catch {
-        throw new PretextPdfError('SIGNATURE_DEP_MISSING', 'Cryptographic signing requires the @signpdf/signpdf package. Install it: npm install @signpdf/signpdf');
+        throw new PretextPdfError('SIGNATURE_DEP_MISSING', 'Cryptographic signing requires the @signpdf/signpdf, @signpdf/placeholder-pdf-lib, and @signpdf/signer-p12 packages. Install them: npm install @signpdf/signpdf @signpdf/placeholder-pdf-lib @signpdf/signer-p12. NOTE: signing currently non-functional due to @cantoo/pdf-lib + @signpdf/placeholder-pdf-lib fork incompatibility — see CHANGELOG v1.3.6.');
     }
-    const { SignPdf, pdflibAddPlaceholder } = signpdfMod;
+    const { SignPdf } = signpdfMod;
+    const { pdflibAddPlaceholder } = placeholderMod;
+    const { P12Signer } = signerP12Mod;
     let p12Buffer;
     try {
         if (sig.p12 instanceof Uint8Array) {
@@ -46,9 +52,10 @@ export async function applySignature(pdfBytes, sig, allowedFileDirs) {
     });
     const pdfWithPlaceholder = await pdfDoc.save({ useObjectStreams: false });
     const signer = new SignPdf();
+    const p12Signer = new P12Signer(p12Buffer, sig.passphrase !== undefined ? { passphrase: sig.passphrase } : undefined);
     let signedBuffer;
     try {
-        signedBuffer = await signer.sign(Buffer.from(pdfWithPlaceholder), p12Buffer, sig.passphrase !== undefined ? { passphrase: sig.passphrase } : undefined);
+        signedBuffer = await signer.sign(Buffer.from(pdfWithPlaceholder), p12Signer);
     }
     catch (e) {
         throw new PretextPdfError('SIGNATURE_FAILED', `PDF signing failed: ${e instanceof Error ? e.message : String(e)}`);

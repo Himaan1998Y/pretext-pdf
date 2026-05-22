@@ -15,19 +15,30 @@ export async function applySignature(
 ): Promise<Uint8Array> {
   type SignpdfModule = {
     SignPdf: any
+  }
+  type PlaceholderModule = {
     pdflibAddPlaceholder: (opts: { pdfDoc: PDFDocument; reason?: string; location?: string; contactInfo?: string; name?: string }) => void
   }
+  type SignerP12Module = {
+    P12Signer: new (p12Buffer: Buffer | Uint8Array, options?: { passphrase?: string; asn1StrictParsing?: boolean }) => any
+  }
   let signpdfMod: SignpdfModule
+  let placeholderMod: PlaceholderModule
+  let signerP12Mod: SignerP12Module
   try {
     signpdfMod = await import('@signpdf/signpdf' as string) as SignpdfModule
+    placeholderMod = await import('@signpdf/placeholder-pdf-lib' as string) as PlaceholderModule
+    signerP12Mod = await import('@signpdf/signer-p12' as string) as SignerP12Module
   } catch {
     throw new PretextPdfError(
       'SIGNATURE_DEP_MISSING',
-      'Cryptographic signing requires the @signpdf/signpdf package. Install it: npm install @signpdf/signpdf'
+      'Cryptographic signing requires the @signpdf/signpdf, @signpdf/placeholder-pdf-lib, and @signpdf/signer-p12 packages. Install them: npm install @signpdf/signpdf @signpdf/placeholder-pdf-lib @signpdf/signer-p12. NOTE: signing currently non-functional due to @cantoo/pdf-lib + @signpdf/placeholder-pdf-lib fork incompatibility — see CHANGELOG v1.3.6.'
     )
   }
 
-  const { SignPdf, pdflibAddPlaceholder } = signpdfMod
+  const { SignPdf } = signpdfMod
+  const { pdflibAddPlaceholder } = placeholderMod
+  const { P12Signer } = signerP12Mod
 
   let p12Buffer: Buffer
   try {
@@ -59,12 +70,15 @@ export async function applySignature(
 
   const pdfWithPlaceholder = await pdfDoc.save({ useObjectStreams: false })
   const signer = new SignPdf()
+  const p12Signer = new P12Signer(
+    p12Buffer,
+    sig.passphrase !== undefined ? { passphrase: sig.passphrase } : undefined
+  )
   let signedBuffer: Buffer
   try {
     signedBuffer = await signer.sign(
       Buffer.from(pdfWithPlaceholder),
-      p12Buffer,
-      sig.passphrase !== undefined ? { passphrase: sig.passphrase } : undefined
+      p12Signer
     )
   } catch (e) {
     throw new PretextPdfError(

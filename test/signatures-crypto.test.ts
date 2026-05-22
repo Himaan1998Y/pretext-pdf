@@ -1,8 +1,40 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as path from 'node:path'
+import * as crypto from 'node:crypto'
+import forge from 'node-forge'
 import { render } from '../src/index.js'
 import { PretextPdfError } from '../src/errors.js'
+
+/**
+ * Build a self-signed RSA-2048 cert + P12 (PKCS#12) bundle in-memory for
+ * cryptographic verification tests. Returns the P12 DER bytes and the
+ * passphrase used to encrypt it.
+ */
+function buildSelfSignedP12(passphrase = 'test-pass'): { p12Bytes: Uint8Array; passphrase: string } {
+  const keys = forge.pki.rsa.generateKeyPair(2048)
+  const cert = forge.pki.createCertificate()
+  cert.publicKey = keys.publicKey
+  cert.serialNumber = '01'
+  cert.validity.notBefore = new Date()
+  cert.validity.notAfter = new Date()
+  cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 1)
+  const attrs = [
+    { name: 'commonName', value: 'pretext-pdf test cert' },
+    { name: 'organizationName', value: 'pretext-pdf' },
+  ]
+  cert.setSubject(attrs)
+  cert.setIssuer(attrs)
+  cert.sign(keys.privateKey, forge.md.sha256.create())
+
+  const p12Asn1 = forge.pkcs12.toPkcs12Asn1(keys.privateKey, [cert], passphrase, {
+    algorithm: '3des',
+  })
+  const p12Der = forge.asn1.toDer(p12Asn1).getBytes()
+  const p12Bytes = new Uint8Array(p12Der.length)
+  for (let i = 0; i < p12Der.length; i += 1) p12Bytes[i] = p12Der.charCodeAt(i) & 0xff
+  return { p12Bytes, passphrase }
+}
 
 test('Phase 9A — Cryptographic Signatures', async (t) => {
 
@@ -132,6 +164,121 @@ test('Phase 9A — Cryptographic Signatures', async (t) => {
       signature: { invisible: true }
     })
     assert.ok(pdf instanceof Uint8Array, 'Invisible sig works without p12')
+  })
+
+  // KNOWN-BROKEN: pretext-pdf signing path is non-functional end-to-end.
+  // @cantoo/pdf-lib serializer is fork-incompatible with @signpdf/placeholder-pdf-lib —
+  // emits malformed /ByteRange dict. Discovered 2026-05-23. Architectural follow-up needed.
+  // Three fix paths: placeholder-plain swap (breaks AcroForm), port to cantoo primitives,
+  // or merge-bytes approach. Test is correct; skip until signing is repaired.
+  await t.test('P12 signature verifies cryptographically (real CMS verify)', { skip: 'signing path non-functional — see comment above' }, async () => {
+    // Build a self-signed P12 in-memory and sign a real document with it.
+    const { p12Bytes, passphrase } = buildSelfSignedP12('crypto-verify-pass')
+
+    const pdfU8 = await render({
+      content: [
+        { type: 'heading', level: 1, text: 'Cryptographically Signed' },
+        { type: 'paragraph', text: 'This PDF should produce a valid CMS signature.' },
+      ],
+      signature: {
+        p12: p12Bytes,
+        passphrase,
+        signerName: 'Crypto Verify',
+        reason: 'CMS Verification Test',
+      },
+    })
+    const pdf = Buffer.from(pdfU8)
+    assert.equal(new TextDecoder().decode(pdfU8.slice(0, 4)), '%PDF')
+
+    // Locate /ByteRange [a b c d] — written by signpdf into the signed PDF.
+    const byteRangeMatch = /\/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/.exec(
+      pdf.toString('latin1')
+    )
+    assert.ok(byteRangeMatch, '/ByteRange must be present in signed PDF')
+    const [a, b, c, d] = byteRangeMatch.slice(1, 5).map(Number)
+
+    // Concatenate the two signed ranges (everything except the /Contents <hex> blob).
+    const signedRange = Buffer.concat([pdf.subarray(a, a + b), pdf.subarray(c, c + d)])
+
+    // Extract the hex /Contents blob: it lives between byte offsets a+b and c
+    // (excluding the surrounding '<' and '>' brackets, and trailing 00 padding).
+    const contentsHex = pdf
+      .subarray(a + b, c)
+      .toString('latin1')
+      .replace(/^[^<]*</, '')
+      .replace(/>[^>]*$/, '')
+      .replace(/(?:00)+$/, '')
+    assert.ok(contentsHex.length > 0, '/Contents hex blob must not be empty')
+    const cmsDer = Buffer.from(contentsHex, 'hex')
+    assert.ok(cmsDer.length > 0, 'CMS DER must decode from hex')
+
+    // Parse CMS SignedData via node-forge.
+    const asn1 = forge.asn1.fromDer(forge.util.createBuffer(cmsDer.toString('binary')))
+    const p7 = forge.pkcs7.messageFromAsn1(asn1) as forge.pkcs7.PkcsSignedData
+    assert.ok(p7.certificates && p7.certificates.length > 0, 'CMS must contain at least one cert')
+    assert.ok(p7.rawCapture && (p7.rawCapture as any).signature, 'CMS must contain signer signature bytes')
+
+    // Pull signer cert + signature bytes + algorithm.
+    const signerCert = p7.certificates[0]
+    const signerPubKey = forge.pki.publicKeyToPem(signerCert.publicKey)
+    const sigBinary = (p7.rawCapture as any).signature as string
+    const signatureBytes = Buffer.from(sigBinary, 'binary')
+
+    // Determine the digest algorithm. signpdf defaults to RSA-SHA256.
+    // Decode signer info digest algorithm OID; fall back to SHA-256.
+    const digestAlgOid = (p7.rawCapture as any).digestAlgorithm
+      ? forge.asn1.derToOid((p7.rawCapture as any).digestAlgorithm)
+      : forge.pki.oids.sha256
+    const oidToHash: Record<string, string> = {
+      [forge.pki.oids.sha256]: 'RSA-SHA256',
+      [forge.pki.oids.sha384]: 'RSA-SHA384',
+      [forge.pki.oids.sha512]: 'RSA-SHA512',
+      [forge.pki.oids.sha1]: 'RSA-SHA1',
+    }
+    const verifyAlgo = oidToHash[digestAlgOid] || 'RSA-SHA256'
+
+    // CMS attached/detached: signpdf produces signed attributes (authenticatedAttributes).
+    // When present, the signature is over the DER-encoded SET of authenticatedAttributes,
+    // not the raw signedRange. Detect and verify accordingly.
+    const authAttrs = (p7.rawCapture as any).authenticatedAttributes as any[] | undefined
+    let dataToVerify: Buffer
+    if (authAttrs && authAttrs.length > 0) {
+      // Re-encode authenticatedAttributes as a SET (tag 0x31), per RFC 5652 §5.4.
+      const set = forge.asn1.create(forge.asn1.Class.UNIVERSAL, forge.asn1.Type.SET, true, authAttrs)
+      const der = forge.asn1.toDer(set).getBytes()
+      dataToVerify = Buffer.from(der, 'binary')
+
+      // Sanity check: the messageDigest attribute inside authAttrs must equal the
+      // hash of signedRange, proving the CMS attests to our signed bytes.
+      const expectedDigest = crypto.createHash('sha256').update(signedRange).digest()
+      const mdAttr = authAttrs.find((attr: any) => {
+        const oid = forge.asn1.derToOid(attr.value[0].value)
+        return oid === forge.pki.oids.messageDigest
+      })
+      assert.ok(mdAttr, 'messageDigest signed attribute must be present')
+      const mdValue = Buffer.from(mdAttr.value[1].value[0].value, 'binary')
+      assert.deepEqual(mdValue, expectedDigest, 'messageDigest must equal SHA-256(signedRange)')
+    } else {
+      dataToVerify = signedRange
+    }
+
+    // Positive verification.
+    const okVerifier = crypto.createVerify(verifyAlgo)
+    okVerifier.update(dataToVerify)
+    const verified = okVerifier.verify(signerPubKey, signatureBytes)
+    assert.equal(verified, true, 'CMS signature must verify against signer public key')
+
+    // Negative test: mutate one byte of the signed range. When authAttrs are
+    // used, mutate the messageDigest input (signedRange) and recompute — the
+    // signature over the *original* authAttrs should no longer match a freshly
+    // computed messageDigest. We verify by mutating dataToVerify directly,
+    // which is what the verifier actually checks.
+    const tampered = Buffer.from(dataToVerify)
+    tampered[Math.floor(tampered.length / 2)] ^= 0xff
+    const badVerifier = crypto.createVerify(verifyAlgo)
+    badVerifier.update(tampered)
+    const tamperedVerified = badVerifier.verify(signerPubKey, signatureBytes)
+    assert.equal(tamperedVerified, false, 'Tampered data must NOT verify')
   })
 
   await t.test('multiple signature fields in document', async () => {
