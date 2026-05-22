@@ -43,7 +43,7 @@ describe('v1.3.2 #8 — DNS resolution de-duplication for remote assets', () => 
   afterEach(() => { spy.restore() })
 
   test('fetchWithTimeout performs exactly ONE dns.lookup per remote URL (was 2 pre-v1.3.2)', async () => {
-    const { fetchWithTimeout } = await import('../dist/assets.js') as any
+    const { fetchWithTimeout } = await import('../src/assets.js') as any
     const hostname = 'no-such-host-pretext-pdf-test-12345.invalid'
     spy.counter.clear()
     try {
@@ -56,7 +56,7 @@ describe('v1.3.2 #8 — DNS resolution de-duplication for remote assets', () => 
   })
 
   test('assertSafeUrl + fetchWithTimeout (the OLD double-call pattern) would do 2 lookups — guard against regression', async () => {
-    const { assertSafeUrl, fetchWithTimeout } = await import('../dist/assets.js') as any
+    const { assertSafeUrl, fetchWithTimeout } = await import('../src/assets.js') as any
     const hostname = 'no-such-host-pretext-pdf-test-67890.invalid'
     spy.counter.clear()
     // Simulate the old code path that v1.3.2 removed.

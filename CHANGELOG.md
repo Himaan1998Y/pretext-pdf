@@ -7,6 +7,34 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.3.4] — 2026-05-17
+
+### Fixed
+
+- **DNS dedup test now imports from source** —
+  `test/assets-dns-dedup.test.ts` previously imported `fetchWithTimeout` /
+  `assertSafeUrl` from `../dist/assets.js`, which would silently pass against
+  a stale build (false confidence). Switched to `../src/assets.js` so the
+  test always runs against the current source tree under tsx.
+
+### Added
+
+- **FIFO eviction boundary test for word-width cache** —
+  `test/measure-text-cache.test.ts` now asserts that when the cache is
+  pre-filled to `WORD_WIDTH_CACHE_MAX` and a new `measureWord` call is made,
+  `cache.size` stays at the cap, the oldest insertion (`syn0`) is evicted,
+  and a re-accessed entry (`syn1`) survives — proving FIFO semantics, not LRU.
+
+### Changed
+
+- **Constant tunability scope documented** — `VECTOR_RASTER_CONCURRENCY` and
+  `WORD_WIDTH_CACHE_MAX` are exported as read-only constants for observability
+  and test introspection. Consumers wanting different values must fork;
+  runtime tunability (env vars or options) is a future enhancement and not
+  planned for the v1.x line.
+
+---
+
 ## [1.3.3] — 2026-05-17
 
 ### Fixed
