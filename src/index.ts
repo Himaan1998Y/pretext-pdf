@@ -3,6 +3,7 @@ import type { PdfDocument, FootnoteDefElement, RenderOptions } from './types.js'
 import { PretextPdfError } from './errors.js'
 import { runPipeline } from './pipeline.js'
 import { applyPostProcessing } from './post-process.js'
+import { assertVendorIntegrity } from './version-check.js'
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -113,6 +114,7 @@ export function createFootnoteSet(
  * @public
  */
 export async function render(doc: PdfDocument, options?: RenderOptions): Promise<Uint8Array> {
+  assertVendorIntegrity(options?.logger)
   if (typeof Intl?.Segmenter !== 'function') {
     throw new PretextPdfError('RENDER_FAILED', 'Intl.Segmenter is not available in this runtime. Upgrade to Node.js 18+ or set NODE_ICU_DATA to a full-icu data file.')
   }
