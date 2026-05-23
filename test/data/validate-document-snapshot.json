@@ -639,6 +639,26 @@
       }
     ]
   },
+  "metadata-keywords-control-char": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "metadata.keywords[1] must not contain null bytes or newline characters"
+      }
+    ]
+  },
+  "metadata-keywords-too-long": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "metadata.keywords[0] must not exceed 1000 characters"
+      }
+    ]
+  },
   "content-empty": {
     "valid": false,
     "errorCount": 1,

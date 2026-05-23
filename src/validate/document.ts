@@ -316,9 +316,15 @@ export function validateDocumentLevel(doc: PdfDocument, ctx: ValidationContext):
       throw new PretextPdfError('VALIDATION_ERROR', 'metadata.producer must be a non-empty string')
     }
     // Validate free-text fields for injection chars and length
-    for (const field of ['title', 'author', 'subject', 'keywords', 'creator', 'producer'] as const) {
+    for (const field of ['title', 'author', 'subject', 'creator', 'producer'] as const) {
       const val = m[field]
       if (val !== undefined && typeof val === 'string') validateMetadataString(val, field)
+    }
+    // keywords is string[] — validate each entry
+    if (Array.isArray(m.keywords)) {
+      m.keywords.forEach((kw, i) => {
+        if (typeof kw === 'string') validateMetadataString(kw, `keywords[${i}]`)
+      })
     }
   }
 }

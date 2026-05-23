@@ -121,6 +121,8 @@ const fixtures: Record<string, unknown> = {
   // ── metadata ──
   'metadata-bad-language': { content: goodContent, metadata: { language: '' } },
   'metadata-bad-producer': { content: goodContent, metadata: { producer: '   ' } },
+  'metadata-keywords-control-char': { content: goodContent, metadata: { keywords: ['ok', '\x00malicious'] } },
+  'metadata-keywords-too-long': { content: goodContent, metadata: { keywords: ['a'.repeat(1001)] } },
 
   // ── content guards (sanity, these stay in index.ts) ──
   'content-empty': { content: [] },
