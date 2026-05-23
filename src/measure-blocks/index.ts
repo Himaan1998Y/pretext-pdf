@@ -20,7 +20,7 @@ import type { MeasuredBlock } from '../types-internal.js'
 import { PretextPdfError } from '../errors.js'
 import { buildFontKey } from '../measure.js'
 import { measureRichText } from '../rich-text.js'
-import { HyphenatorOpts, detectAndReorderRTL, measureText } from '../measure-text.js'
+import { HyphenatorOpts, detectAndReorderRTL } from '../measure-text.js'
 import { LINE_HEIGHT_BODY } from '../render-utils.js'
 
 import {
