@@ -57,7 +57,13 @@ export async function tokenizeCodeForHighlighting(
     try {
       const mod = await import('highlight.js' as string)
       _hljsCache = mod.default ?? mod
-    } catch { /* not installed */ }
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException)?.code
+      if (code !== 'ERR_MODULE_NOT_FOUND' && code !== 'MODULE_NOT_FOUND') {
+        console.warn(`[pretext-pdf] highlight.js installed but failed to load: ${e instanceof Error ? e.message : String(e)}`)
+      }
+      // ERR_MODULE_NOT_FOUND / MODULE_NOT_FOUND is expected when optional dep absent — silent
+    }
   }
   if (!_hljsCache) return undefined
   const hljs = _hljsCache
