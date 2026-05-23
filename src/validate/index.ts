@@ -536,7 +536,7 @@ function validateElement(
 
   // Cycle guard is owned by the per-type validators (validateList opens its
   // own withCycleGuard scope at the top of list.ts, validateFloatGroup does
-  // the same in structural.ts). An outer guard here would run a no-op body
+  // the same in forms-floats.ts). An outer guard here would run a no-op body
   // and finally-delete the element from `seen` BEFORE the inner guard adds
   // it, so it never actually protected anything. Removed in v1.4.1 (M1).
 
