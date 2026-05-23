@@ -24,13 +24,16 @@ describe('element type drift guards', () => {
     )
   })
 
-  test('validate.ts has a case arm for every element type', () => {
-    const source = readFileSync(join(ROOT, 'src', 'validate.ts'), 'utf8')
+  test('validate dispatcher has a case arm for every element type', () => {
+    // Post v1.4.0 #11a split: the dispatcher lives in src/validate/index.ts;
+    // the per-element bodies live in src/validate/elements/*. Scan the
+    // orchestrator file since that's where the switch statement is.
+    const source = readFileSync(join(ROOT, 'src', 'validate', 'index.ts'), 'utf8')
     const missing = ELEMENT_TYPES.filter(type => !source.includes(`case '${type}':`) && !source.includes(`case "${type}":`))
     assert.deepEqual(
       missing,
       [],
-      `validate.ts is missing case arms for: ${missing.join(', ')}`
+      `validate/index.ts is missing case arms for: ${missing.join(', ')}`
     )
   })
 

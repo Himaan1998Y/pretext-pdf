@@ -3,7 +3,7 @@ import type { PdfDocument, Margins, RenderOptions } from './types-public/index.j
 import type { PageGeometry, FontMap, ImageMap, MeasuredBlock } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 import { resolvePageDimensions } from './page-sizes.js'
-import { validate } from './validate.js'
+import { validate } from './validate/index.js'
 import { loadFonts } from './fonts.js'
 import { loadImages } from './assets.js'
 import { measureAllBlocks, measureHeaderFooterHeight } from './measure.js'

@@ -13,7 +13,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import type { PluginDefinition, PluginMeasureContext, PluginMeasureResult, PluginRenderContext } from '../src/plugin-types.js'
-import { validate } from '../src/validate.js'
+import { validate } from '../src/validate/index.js'
 import { render } from '../src/index.js'
 import { prepareLayoutState } from '../src/layout-state.js'
 import type { PdfDocument, RenderOptions } from '../src/index.js'

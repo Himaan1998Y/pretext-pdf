@@ -57,7 +57,7 @@ export type { ErrorCode } from './errors.js'
 export type { NamedPageSize } from './page-sizes.js'
 export { createPdf } from './builder.js'
 export type { PdfBuilder, PdfBuilderOptions } from './builder.js'
-export { validate, validateDocument } from './validate.js'
+export { validate, validateDocument } from './validate/index.js'
 
 let _fnSetCounter = 0
 
