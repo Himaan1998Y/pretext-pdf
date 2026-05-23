@@ -3,7 +3,7 @@
  * @internal Not part of the stable public API. Subject to change without a semver bump.
  */
 import { PDFDocument } from '@cantoo/pdf-lib'
-import type { PdfDocument, RenderOptions } from './types-public.js'
+import type { PdfDocument, RenderOptions } from './types-public/index.js'
 import type { MeasuredBlock, PaginatedDocument, PageGeometry, FontMap, ImageMap } from './types-internal.js'
 import { stageValidate, stageInit, stageLoadAssets, stageFinalizeGeo, stageMeasure, stagePaginate } from './pipeline.js'
 import { PretextPdfError } from './errors.js'

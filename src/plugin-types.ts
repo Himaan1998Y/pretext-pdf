@@ -24,7 +24,7 @@
  * @beta
  */
 
-import type { PdfDocument, Margins } from './types-public.js'
+import type { PdfDocument, Margins } from './types-public/index.js'
 
 // ─── Context types ────────────────────────────────────────────────────────────
 

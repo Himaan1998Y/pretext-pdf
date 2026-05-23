@@ -1,4 +1,4 @@
-import type { ContentElement, FootnoteDefElement } from './types-public.js'
+import type { ContentElement, FootnoteDefElement } from './types-public/index.js'
 import type { MeasuredBlock, PaginatedDocument } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 import { paginate } from './paginate.js'

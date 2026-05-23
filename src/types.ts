@@ -50,4 +50,4 @@ export type {
   FootnoteDefElement,
   TocElement,
   RenderOptions,
-} from './types-public.js'
+} from './types-public/index.js'

@@ -1,5 +1,5 @@
 import { PDFDocument, PDFName, PDFString } from '@cantoo/pdf-lib'
-import type { PdfDocument, Margins, RenderOptions } from './types-public.js'
+import type { PdfDocument, Margins, RenderOptions } from './types-public/index.js'
 import type { PageGeometry, FontMap, ImageMap, MeasuredBlock } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 import { resolvePageDimensions } from './page-sizes.js'
@@ -73,7 +73,7 @@ export async function stageLoadAssets(
   pdfDoc: PDFDocument,
   contentWidth: number,
   plugins?: import('./plugin-types.js').PluginDefinition[],
-  logger?: import('./types-public.js').Logger,
+  logger?: import('./types-public/index.js').Logger,
 ): Promise<{ fontMap: FontMap; imageMap: ImageMap }> {
   // Sequential: both mutate pdfDoc's cross-reference table — concurrent mutation causes intermittent xref corruption.
   const fontMap = await loadFonts(doc, pdfDoc)
@@ -157,7 +157,7 @@ export async function stageRender(
   pdfDoc: PDFDocument,
   geo: PageGeometry,
   plugins?: import('./plugin-types.js').PluginDefinition[],
-  logger?: import('./types-public.js').Logger,
+  logger?: import('./types-public/index.js').Logger,
 ): Promise<Uint8Array> {
   return renderDocument(paginatedDoc, doc, fontMap, imageMap, pdfDoc, geo, plugins, logger)
 }

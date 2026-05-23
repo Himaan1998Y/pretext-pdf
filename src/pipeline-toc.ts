@@ -1,4 +1,4 @@
-import type { PdfDocument } from './types-public.js'
+import type { PdfDocument } from './types-public/index.js'
 import type { MeasuredBlock } from './types-internal.js'
 import { paginate } from './paginate.js'
 

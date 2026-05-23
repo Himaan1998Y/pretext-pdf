@@ -6,7 +6,7 @@
  * Public schema types live in types-public.ts.
  */
 
-import type { ContentElement, CalloutElement, BlockquoteElement, FootnoteDefElement } from './types-public.js'
+import type { ContentElement, CalloutElement, BlockquoteElement, FootnoteDefElement } from './types-public/index.js'
 
 /**
  * Internal block element representing a single Table of Contents entry produced by
@@ -216,7 +216,7 @@ export interface PaginatedDocument {
 export interface PageGeometry {
   pageWidth: number
   pageHeight: number
-  margins: import('./types-public.js').Margins
+  margins: import('./types-public/index.js').Margins
   contentWidth: number
   contentHeight: number
   headerHeight: number

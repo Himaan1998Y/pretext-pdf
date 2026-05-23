@@ -9,7 +9,7 @@
  * in-tree, so a hard failure would brick the library for an end user who is
  * unable to fix it.
  */
-import type { Logger } from './types-public.js'
+import type { Logger } from './types-public/index.js'
 import { VENDORED_PRETEXT_VERSION } from './vendor/pretext/VERSION.js'
 
 /**

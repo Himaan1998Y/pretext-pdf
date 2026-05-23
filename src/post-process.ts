@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { PDFDocument } from '@cantoo/pdf-lib'
-import type { PdfDocument } from './types-public.js'
+import type { PdfDocument } from './types-public/index.js'
 import { PretextPdfError } from './errors.js'
 import { assertPathAllowed } from './assets.js'
 
