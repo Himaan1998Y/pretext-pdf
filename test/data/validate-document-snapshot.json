@@ -569,6 +569,56 @@
       }
     ]
   },
+  "fonts-empty-family": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "'family' must be a non-empty string"
+      }
+    ]
+  },
+  "fonts-bad-weight": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "'weight' must be 400 or 700"
+      }
+    ]
+  },
+  "fonts-missing-src": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "'src' is required (file path or Uint8Array)"
+      }
+    ]
+  },
+  "fonts-bad-style": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "'style' must be 'normal' or 'italic'"
+      }
+    ]
+  },
+  "fonts-url-src": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "'src' contains a URL (http:) — use 'bundled', a file path, or Uint8Array instead"
+      }
+    ]
+  },
   "metadata-bad-language": {
     "valid": false,
     "errorCount": 1,

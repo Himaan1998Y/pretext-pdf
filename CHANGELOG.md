@@ -7,6 +7,39 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.5.0] — 2026-05-24
+
+Architecture sprint completing the v1.4.0 god-file split debt. Six items shipped, single minor release. **No public API changes** — guarded by `test/public-api-surface.test.ts`. **No behavioral changes** — Item A's security-critical extraction guarded by new `test/validate-document-snapshot.test.ts` (68 fixtures, bit-exact preservation verified).
+
+### Changed (internal structure — non-breaking)
+
+- **`src/validate/index.ts` (594L) → orchestrator (322L) + `src/validate/document.ts` (324L)** —
+  Extracted 11 doc-level check categories (pageSize, margins, fonts, header/footer, defaultParagraphStyle, sections, watermark, encryption, signature, bookmarks, hyphenation, metadata) into a new `validateDocumentLevel(doc, ctx)` function. Single function with labeled `// ── name ──` blocks. **Security-critical**: snapshot tripwire test (68 fixtures across all 11 categories) verified bit-exact error preservation through the move.
+- **`src/measure-blocks/index.ts` (337L) → dispatcher (243L) + `src/measure-blocks/simple-blocks.ts` (151L)** —
+  Extracted 7 simple measurement arms (spacer, page-break, comment, form-field, hr, toc, footnote-def). Throw-guards for image/svg/qr-code/barcode/chart stay in dispatcher (security invariants tied to routing).
+- **`src/validate/elements/structural.ts` (239L grab-bag) → `structural-simple.ts` (120L) + `forms-floats.ts` (128L)** —
+  Split light element validators (spacer, hr, toc, toc-entry, comment) from heavy ones (form-field, footnote-def, float-group). Cleaner separation of concerns.
+
+### Added
+
+- **`src/validate/elements/README.md`** — Placement guide + validator signature contract + `_ctx` policy documentation + `withCycleGuard` usage guidance. Onboarding aid for adding new element types.
+- **`test/validate-document-snapshot.test.ts`** + `test/data/validate-document-snapshot.json` — Bit-exact error preservation tripwire for `validateDocumentLevel`. 68 fixtures across pageSize, margins, fonts, header/footer, defaultParagraphStyle, sections, watermark, encryption, signature, bookmarks, hyphenation, metadata, content guards, and valid-doc sanity cases.
+
+### Fixed
+
+- **`dist/` no longer tracked in git** (168 files removed) — was already in `.gitignore` but tracked from prior history.
+
+### Notes
+
+- 12 commits across 6 items, each independently revertable via the 3-commit-per-split pattern (stage → route → delete) proven in v1.4.0.
+- Test suite: 416 pass / 1 skip / 0 fail throughout the sprint, plus the new snapshot tripwire test (passes against generated baseline).
+- Public API surface unchanged: 15 runtime exports × 6 entry points.
+- `_ctx` policy decision: keep underscore-prefixed param for validators that don't currently consume context. Documented in `validate/elements/README.md` — stable signature lets future strict-mode or context-aware checks be added without changing call sites.
+- `loadedFamilies` initialization order: populated after `validateDocumentLevel` returns. Audit confirmed no order dependency — `document.ts` never reads `loadedFamilies`, only `validateFontSpec` for shape validation.
+- Path-traversal pre-flight in `validateImage` deferred to v2.0 — runtime SSRF + `allowedFileDirs` guards already provide defense-in-depth.
+
+---
+
 ## [1.4.1] — 2026-05-23
 
 Cleanup batch addressing audit findings surfaced by the v1.4.0 god-file split. Five MEDIUM-severity items, all internal — no public API changes, no behavioral changes for callers using documented schemas. Test suite unchanged: 416 pass / 1 skip / 0 fail.

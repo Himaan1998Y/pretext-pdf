@@ -111,6 +111,13 @@ const fixtures: Record<string, unknown> = {
   'hyphenation-bad-leftMin': { content: goodContent, hyphenation: { language: 'en-us', leftMin: 0 } },
   'hyphenation-bad-rightMin': { content: goodContent, hyphenation: { language: 'en-us', rightMin: 10 } },
 
+  // ── fonts (validateFontSpec) ──
+  'fonts-empty-family': { content: goodContent, fonts: [{ family: '', src: 'x.ttf' }] },
+  'fonts-bad-weight': { content: goodContent, fonts: [{ family: 'X', weight: 300, src: 'x.ttf' }] },
+  'fonts-missing-src': { content: goodContent, fonts: [{ family: 'X' }] },
+  'fonts-bad-style': { content: goodContent, fonts: [{ family: 'X', style: 'oblique', src: 'x.ttf' }] },
+  'fonts-url-src': { content: goodContent, fonts: [{ family: 'X', src: 'http://evil.example.com/f.ttf' }] },
+
   // ── metadata ──
   'metadata-bad-language': { content: goodContent, metadata: { language: '' } },
   'metadata-bad-producer': { content: goodContent, metadata: { producer: '   ' } },
