@@ -1,0 +1,622 @@
+{
+  "pageSize-bad-array": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "pageSize array must be [width, height] with two positive finite numbers in pt"
+      }
+    ]
+  },
+  "pageSize-non-finite": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "pageSize array must be [width, height] with two positive finite numbers in pt"
+      }
+    ]
+  },
+  "pageSize-too-large": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "pageSize [20000, 100] exceeds maximum 14400pt (200 inches). Values this large cause rendering overflow."
+      }
+    ]
+  },
+  "margins-negative": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "margins.top must be a non-negative finite number. Got: -5"
+      }
+    ]
+  },
+  "margins-non-finite": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "margins.left must be a non-negative finite number. Got: Infinity"
+      }
+    ]
+  },
+  "margins-page-too-small-width": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "PAGE_TOO_SMALL",
+        "message": "Left+right margins (60+60) exceed page width (100pt). Content area would be zero or negative."
+      }
+    ]
+  },
+  "margins-page-too-small-height": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "PAGE_TOO_SMALL",
+        "message": "Top+bottom margins (60+60) exceed page height (100pt). Content area would be zero or negative."
+      }
+    ]
+  },
+  "header-text-not-string": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.header.text must be a string"
+      }
+    ]
+  },
+  "header-bad-fontSize": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.header.fontSize must be a positive finite number"
+      }
+    ]
+  },
+  "header-bad-align": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.header.align must be 'left', 'center', or 'right'"
+      }
+    ]
+  },
+  "header-bad-fontWeight": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.header.fontWeight must be 400 or 700"
+      }
+    ]
+  },
+  "header-bad-color": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.header.color must be a 6-digit hex string like '#666666'. Got: 'red'"
+      }
+    ]
+  },
+  "footer-text-not-string": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.footer.text must be a string"
+      }
+    ]
+  },
+  "dps-not-object": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.defaultParagraphStyle must be an object"
+      }
+    ]
+  },
+  "dps-null": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.defaultParagraphStyle must be an object"
+      }
+    ]
+  },
+  "dps-bad-fontSize": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.defaultParagraphStyle.fontSize must be a number > 0 and <= 500"
+      }
+    ]
+  },
+  "dps-bad-lineHeight": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.defaultParagraphStyle.lineHeight must be a positive finite number"
+      }
+    ]
+  },
+  "dps-bad-color": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.defaultParagraphStyle.color must be a 6-digit hex string like '#000000'. Got: '#xyz123'"
+      }
+    ]
+  },
+  "dps-bad-align": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.defaultParagraphStyle.align must be 'left', 'center', 'right', or 'justify'"
+      }
+    ]
+  },
+  "dps-bad-letterSpacing": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.defaultParagraphStyle.letterSpacing must be a number >= 0 and <= 200"
+      }
+    ]
+  },
+  "dps-bad-fontWeight": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.defaultParagraphStyle.fontWeight must be 400 or 700"
+      }
+    ]
+  },
+  "sections-not-array": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.sections must be an array"
+      }
+    ]
+  },
+  "sections-bad-fromPage": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.sections[0].fromPage must be a positive integer"
+      }
+    ]
+  },
+  "sections-bad-toPage": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.sections[0].toPage must be a positive integer"
+      }
+    ]
+  },
+  "sections-from-greater-than-to": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.sections[0].fromPage (5) must be <= toPage (3)"
+      }
+    ]
+  },
+  "sections-header-text-not-string": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.sections[0].header.text must be a string"
+      }
+    ]
+  },
+  "sections-header-bad-align": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.sections[0].header.align must be 'left', 'center', or 'right'"
+      }
+    ]
+  },
+  "watermark-empty": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.watermark requires either text or image — received an object with neither."
+      }
+    ]
+  },
+  "watermark-bad-opacity": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.watermark.opacity must be a number 0.0–1.0"
+      }
+    ]
+  },
+  "watermark-bad-fontSize": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.watermark.fontSize must be a positive finite number and <= 500"
+      }
+    ]
+  },
+  "watermark-bad-fontWeight": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.watermark.fontWeight must be 400 or 700"
+      }
+    ]
+  },
+  "watermark-bad-color": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.watermark.color must be a 6-digit hex string. Got: 'red'"
+      }
+    ]
+  },
+  "watermark-non-finite-rotation": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.watermark.rotation must be a finite number"
+      }
+    ]
+  },
+  "watermark-rotation-out-of-range": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "WATERMARK_ROTATION_OUT_OF_RANGE",
+        "message": "doc.watermark.rotation must be between -360 and 360 degrees"
+      }
+    ]
+  },
+  "encryption-userPassword-not-string": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.encryption.userPassword must be a string if provided"
+      }
+    ]
+  },
+  "encryption-userPassword-empty": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.encryption.userPassword must not be an empty string — an empty password provides no access control. Omit userPassword for permissions-only encryption."
+      }
+    ]
+  },
+  "encryption-ownerPassword-not-string": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.encryption.ownerPassword must be a string if provided"
+      }
+    ]
+  },
+  "encryption-ownerPassword-empty": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.encryption.ownerPassword must not be an empty string"
+      }
+    ]
+  },
+  "signature-bad-width": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "signature.width must be a positive number"
+      }
+    ]
+  },
+  "signature-bad-height": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "signature.height must be a positive number"
+      }
+    ]
+  },
+  "signature-bad-page": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "signature.page must be a non-negative integer"
+      }
+    ]
+  },
+  "signature-bad-borderColor": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "signature.borderColor must be a 6-digit hex color e.g. \"#000000\""
+      }
+    ]
+  },
+  "signature-bad-fontSize": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "signature.fontSize must be a positive number"
+      }
+    ]
+  },
+  "signature-bad-p12-type": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "signature.p12 must be a file path string or Uint8Array of certificate bytes"
+      }
+    ]
+  },
+  "signature-empty-p12-string": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "signature.p12 must not be an empty string"
+      }
+    ]
+  },
+  "signature-bad-passphrase": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "signature.passphrase must be a string"
+      }
+    ]
+  },
+  "signature-bad-contactInfo": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "signature.contactInfo must be a string"
+      }
+    ]
+  },
+  "signature-bad-invisible": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "signature.invisible must be a boolean"
+      }
+    ]
+  },
+  "signature-and-encryption": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "SIGNATURE_CERT_AND_ENCRYPTION",
+        "message": "Cannot use both signature.p12 (cryptographic signing) and encryption together — the encryption step would invalidate the cryptographic signature."
+      }
+    ]
+  },
+  "bookmarks-bad-minLevel": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.bookmarks.minLevel must be 1, 2, 3, or 4"
+      }
+    ]
+  },
+  "bookmarks-bad-maxLevel": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.bookmarks.maxLevel must be 1, 2, 3, or 4"
+      }
+    ]
+  },
+  "bookmarks-min-greater-than-max": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.bookmarks.minLevel must be ≤ maxLevel"
+      }
+    ]
+  },
+  "hyphenation-no-language": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.hyphenation.language is required (e.g. \"en-us\")"
+      }
+    ]
+  },
+  "hyphenation-bad-language": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.hyphenation.language must be a BCP47 tag like \"en-us\" or \"de\" (letters and hyphens only). Got: \"en_US\""
+      }
+    ]
+  },
+  "hyphenation-bad-minWordLength": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.hyphenation.minWordLength must be 2–20"
+      }
+    ]
+  },
+  "hyphenation-bad-leftMin": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.hyphenation.leftMin must be 1–5"
+      }
+    ]
+  },
+  "hyphenation-bad-rightMin": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.hyphenation.rightMin must be 1–5"
+      }
+    ]
+  },
+  "metadata-bad-language": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "metadata.language must be a non-empty string (BCP47 tag e.g. \"en-US\")"
+      }
+    ]
+  },
+  "metadata-bad-producer": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "metadata.producer must be a non-empty string"
+      }
+    ]
+  },
+  "content-empty": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "document.content must be a non-empty array"
+      }
+    ]
+  },
+  "content-not-array": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "document.content must be a non-empty array"
+      }
+    ]
+  },
+  "valid-minimal": {
+    "valid": true,
+    "errorCount": 0,
+    "errors": []
+  },
+  "valid-with-options": {
+    "valid": true,
+    "errorCount": 0,
+    "errors": []
+  }
+}
