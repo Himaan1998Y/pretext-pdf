@@ -19,6 +19,12 @@ const MEASURE_DISPATCHER_EXCLUDES = new Set([
   'toc-entry', // guarded as internal-only at the top of measureBlock (line 45 throw)
 ])
 
+// Types absent from validate/index.ts dispatcher because they are rejected by an
+// explicit pre-switch throw — the case arm would be unreachable dead code.
+const VALIDATE_DISPATCHER_EXCLUDES = new Set([
+  'toc-entry', // rejected by pre-switch throw at validate/index.ts (internal-only type)
+])
+
 describe('element type drift guards', () => {
   test('ELEMENT_TYPES matches ALLOWED_PROPS keys exactly', () => {
     const fromTypes = [...ELEMENT_TYPES].sort()
@@ -35,7 +41,8 @@ describe('element type drift guards', () => {
     // the per-element bodies live in src/validate/elements/*. Scan the
     // orchestrator file since that's where the switch statement is.
     const source = readFileSync(join(ROOT, 'src', 'validate', 'index.ts'), 'utf8')
-    const missing = ELEMENT_TYPES.filter(type => !source.includes(`case '${type}':`) && !source.includes(`case "${type}":`))
+    const validateTypes = ELEMENT_TYPES.filter(t => !VALIDATE_DISPATCHER_EXCLUDES.has(t))
+    const missing = validateTypes.filter(type => !source.includes(`case '${type}':`) && !source.includes(`case "${type}":`))
     assert.deepEqual(
       missing,
       [],

@@ -56,7 +56,6 @@ import {
   validateSpacer,
   validateHr,
   validateToc,
-  validateTocEntry,
   validateComment,
 } from './elements/structural-simple.js'
 import {
@@ -293,8 +292,6 @@ function validateElement(
     case 'blockquote':      validateBlockquote(el, prefix, ctx); break
     case 'callout':         validateCallout(el, prefix, ctx); break
     case 'toc':             validateToc(el, prefix, ctx); break
-    // @ts-expect-error - toc-entry is internal but validated defensively
-    case 'toc-entry':       validateTocEntry(el, prefix, ctx); break
     case 'comment':         validateComment(el, prefix, ctx); break
     case 'form-field':      validateFormField(el, prefix, ctx); break
     case 'footnote-def':    validateFootnoteDef(el, prefix, ctx); break
