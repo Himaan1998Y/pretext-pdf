@@ -7,7 +7,6 @@
 
 import { runPipeline } from './pipeline.js'
 import { applyPostProcessing } from './post-process.js'
-import { validate } from './validate/index.js'
 import type {
   PdfDocument,
   ContentElement,

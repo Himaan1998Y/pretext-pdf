@@ -23,7 +23,6 @@ export async function measureTable(
 ): Promise<MeasuredBlock> {
   const baseFontFamily = doc.defaultFont ?? 'Inter'
   const fontSize = element.fontSize ?? baseFontSize
-  const lineHeight = doc.defaultLineHeight ?? (fontSize * LINE_HEIGHT_BODY)
   const cellPaddingH = element.cellPaddingH ?? 8
   const cellPaddingV = element.cellPaddingV ?? 6
   const borderWidth = element.borderWidth ?? 0.5

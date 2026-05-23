@@ -223,7 +223,7 @@ export async function measureBlockquote(
 export async function measureCallout(
   element: CalloutElement,
   contentWidth: number,
-  doc: PdfDocument,
+  _doc: PdfDocument,
   baseFontSize: number,
   baseFont: string,
   hyphenatorOpts?: HyphenatorOpts,
@@ -278,7 +278,7 @@ export async function measureCallout(
 export async function measureCode(
   element: CodeBlockElement,
   contentWidth: number,
-  doc: PdfDocument,
+  _doc: PdfDocument,
   baseFontSize: number,
   wordWidthCache?: Map<string, number>,
 ): Promise<MeasuredBlock> {

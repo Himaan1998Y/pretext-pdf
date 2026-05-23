@@ -13,6 +13,12 @@ const RENDER_PIPELINE_ONLY_TYPES = new Set([
   'toc', // converted to 'toc-entry' elements by the TOC two-pass processor
 ])
 
+// Types absent from measure-blocks/index.ts dispatcher because measureAllBlocks() handles
+// them with content-index context before falling through to the per-block measurer.
+const MEASURE_DISPATCHER_EXCLUDES = new Set([
+  'toc-entry', // guarded as internal-only at the top of measureBlock (line 45 throw)
+])
+
 describe('element type drift guards', () => {
   test('ELEMENT_TYPES matches ALLOWED_PROPS keys exactly', () => {
     const fromTypes = [...ELEMENT_TYPES].sort()
@@ -45,6 +51,19 @@ describe('element type drift guards', () => {
       missing,
       [],
       `render.ts is missing case arms for: ${missing.join(', ')}`
+    )
+  })
+
+  test('measure-blocks dispatcher has a case arm for every element type', () => {
+    // Post v1.4.0 #11b split: measureBlock dispatcher lives in src/measure-blocks/index.ts.
+    // Scan the orchestrator file for case-arm completeness — mirrors validate + render guards.
+    const measureTypes = ELEMENT_TYPES.filter(t => !MEASURE_DISPATCHER_EXCLUDES.has(t))
+    const source = readFileSync(join(ROOT, 'src', 'measure-blocks', 'index.ts'), 'utf8')
+    const missing = measureTypes.filter(type => !source.includes(`case '${type}':`) && !source.includes(`case "${type}":`))
+    assert.deepEqual(
+      missing,
+      [],
+      `measure-blocks/index.ts is missing case arms for: ${missing.join(', ')}`
     )
   })
 })

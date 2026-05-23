@@ -7,6 +7,39 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.4.0] — 2026-05-23
+
+Architecture sprint: four god-files split into thin orchestrators + cohesive sub-modules. **No public API changes** — guarded by `test/public-api-surface.test.ts` (15 runtime exports across 6 entry points, snapshot tripwire). 12 granular commits, each independently revertable.
+
+### Changed (internal structure — non-breaking)
+
+- **`src/validate.ts` (1834L) → `src/validate/` (9 files, ~250L each)** —
+  `validate/index.ts` orchestrator + `helpers.ts`, `fonts.ts`, `errors.ts`, and per-element validators under `elements/`. Introduced explicit `ValidationContext` ({ errors, strict, loadedFamilies, seen, options }) threaded into every element validator instead of relying on closure-captured locals. Per-call `WeakSet` for cycle detection — concurrent isolation verified by `test/validate-concurrent.test.ts`.
+- **`src/measure-blocks.ts` (1600L) → `src/measure-blocks/` (10 files)** —
+  `measure-blocks/index.ts` dispatcher + `text-blocks.ts`, `list.ts`, `image.ts`, `float-group.ts`, `highlight.ts`, `helpers.ts`, plus `table/{measure,spans,columns}.ts`. Added explicit case arms for `qr-code`, `barcode`, `chart` (previously fell through to "Unknown element type"). `_hljsCache` intentionally remains module-scoped in `highlight.ts` — idempotent process-wide cache, not concurrent-isolated state.
+- **`src/render-blocks.ts` (1277L) → `src/render-blocks/` (13 files)** —
+  Per-render-function modules. Each independent (no shared state). Dropped four unused imports from the original (`PDFFont`, `PDFName`, `renderTocEntry`, `renderFormField` — never referenced).
+- **`src/types-public.ts` (1200L) → `src/types-public/` (8 files)** —
+  Split by domain: `document.ts`, `elements-{text,block,media}.ts`, `union.ts`, `validation.ts`, `render-options.ts`. Type-only intra-package cycles are erased at runtime (verified by clean tsc build).
+
+### Added
+
+- **`test/drift-guards.test.ts` — measure-blocks dispatcher case-arm guard.** New invariant mirrors the existing validate + render guards: every `ELEMENT_TYPES` entry must have an explicit `case` arm in `src/measure-blocks/index.ts` (except internal `toc-entry`). Catches future additions to `ELEMENT_TYPES` that forget to handle measurement.
+
+### Fixed
+
+- **Dead imports removed:** `validate` was imported but never used in `src/builder.ts` after the split. Removed.
+- **Unused locals/params:** `lineHeight` in `float-group.ts` and `table/measure.ts` (computed but never read); `doc` param in `measureCallout` and `measureCode` (preserved as `_doc` for signature compatibility, signals intentional non-use).
+
+### Notes
+
+- Public API surface tripwire: 15 runtime exports across 6 entry points, all unchanged.
+- Benchmark gate: 5/7 corpora within 5% of v1.3.4; two corpora (`rich-text-mixed-spans` +12.9%, `table-stress` +7.2%) breach but match documented run-to-run variance (5-10% noise on dev machine). Cold-start module-load unchanged. CI re-snapshot recommended to disambiguate variance from regression.
+- Known follow-up: ESM-fragile circular import in `measure-blocks/float-group.ts` ↔ `measure-blocks/index.ts` (load-safe today because `measureBlock` is async-runtime only; revisit if top-level `await` is ever added).
+- Known follow-up: type-only intra-cycles in `types-public/` (no runtime risk — erased at compile time).
+
+---
+
 ## [1.3.6] — 2026-05-23
 
 Architecture-sprint scaffolding release: vendor integrity check, concurrent isolation tests, signing import correctness, public API tripwire.

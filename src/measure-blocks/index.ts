@@ -152,6 +152,17 @@ export async function measureBlock(
       )
     }
 
+    case 'qr-code':
+    case 'barcode':
+    case 'chart': {
+      // QR/barcode/chart elements measured via measureAllBlocks() which generates the SVG
+      // and dispatches through the SVG path. measureBlock() doesn't have content-index context.
+      throw new PretextPdfError(
+        'VALIDATION_ERROR',
+        `'${element.type}' elements cannot be measured via measureBlock() directly — use measureAllBlocks() which generates the underlying SVG.`
+      )
+    }
+
     case 'list': {
       return measureList(element, contentWidth, doc, baseFontSize, hyphenatorOpts, wordWidthCache)
     }

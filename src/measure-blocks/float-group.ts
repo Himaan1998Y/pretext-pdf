@@ -65,7 +65,6 @@ export async function measureFloatGroup(
 
     for (const block of blocks) {
       const fontSize = block.fontSize || baseFontSize
-      const lineHeight = block.lineHeight || (fontSize * LINE_HEIGHT_BODY)
 
       // Extract text from lines or rich-lines
       let lines: PretextLine[] = []
