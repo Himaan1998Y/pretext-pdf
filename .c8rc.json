@@ -3,7 +3,7 @@
   "include": ["src/**/*.ts"],
   "exclude": [
     "src/cli.ts",
-    "src/types-public.ts",
+    "src/types-public/**",
     "src/types-internal.ts",
     "src/types.ts",
     "src/schema.ts",

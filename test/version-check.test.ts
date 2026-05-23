@@ -7,7 +7,7 @@
  */
 import { test, describe, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import type { Logger } from '../src/types-public.js'
+import type { Logger } from '../src/types-public/index.js'
 import {
   assertVendorIntegrity,
   matchesRange,
