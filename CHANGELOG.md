@@ -7,6 +7,26 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.4.1] — 2026-05-23
+
+Cleanup batch addressing audit findings surfaced by the v1.4.0 god-file split. Five MEDIUM-severity items, all internal — no public API changes, no behavioral changes for callers using documented schemas. Test suite unchanged: 416 pass / 1 skip / 0 fail.
+
+### Fixed
+
+- **M1 — Dead outer `withCycleGuard` removed from `validateElement` dispatcher (`src/validate/index.ts`).** The dispatcher wrapped `list` and `float-group` cases in an outer `withCycleGuard` with an empty body, then the inner element validators (`validateList` in `elements/list.ts`, `validateFloatGroup` in `elements/structural.ts`) immediately opened their own guard on the same element. The outer guard ran a no-op body and `finally`-deleted the element from `seen` BEFORE the inner guard added it — dead code communicating false intent. The inner validators own the guard. Import of `withCycleGuard` also dropped from `index.ts` since it is no longer used there.
+- **M2 — `measure-blocks/float-group.ts ↔ measure-blocks/index.ts` runtime cycle broken (Option C: dependency injection).** `float-group.ts` previously imported `measureBlock` from `./index.js`, while `index.ts` re-exported `measureFloatGroup` from `./float-group.js` — a real ESM cycle that hoisting tolerated but which violated module-boundary discipline. Resolved by promoting `measureBlock` to an explicit parameter of `measureFloatGroup` (new exported `MeasureBlockFn` type). The sole caller (the orchestrator in `measure.ts`) already has `measureBlock` in scope, so the change is non-invasive. Option C was chosen over Option A (inlining the dispatch — too much duplication) and Option B (extracting `dispatch.ts` — restructured more than needed for a one-edge cycle).
+
+### Changed
+
+- **M3 — Concurrent validate test annotated with sync-vs-async semantics (`test/validate-concurrent.test.ts`).** Added a comment block above the parallel-validate `describe` clarifying that `validateDocument` is synchronous, so `Promise.all` over it cannot exercise real concurrent execution. The test now explicitly documents what it does prove (shape stability across N invocations) versus what it does not (concurrent isolation — guaranteed structurally by the per-call `WeakSet` opened at the top of `validate()` in `src/validate/index.ts`). The async render-path tests later in the same file DO exercise real concurrency because `render()` crosses `await` boundaries.
+- **M4 — Benchmark harness upgraded (`scripts/run-bench-snapshot.mjs`).** Default measured runs raised from 3 to 10. New `--runs N` CLI flag for callers to override (CI: 5, dev: 3, full: 10). Output now reports `median`, `p90`, and `min` in addition to `avg`. Variance on cold-tsx invocations can hit ±70%, which made any <10% regression gate meaningless at N=3.
+
+### Added
+
+- **M5 — URL scheme check in `validateImage` (`src/validate/elements/media.ts`).** When `el.src` is a string that looks like a URL (matches `data:`, `javascript:`, `vbscript:`, `blob:`, `about:`, `file:`, or any `scheme://` form), the validator now routes through `validateUrl` from `validate/helpers.ts`. Matches the runtime SSRF guard's posture in `src/compat.ts` so validate-only callers (CLI lint, MCP `validate_document` tool) catch unsafe schemes pre-flight instead of letting them through to the asset-loader guard. http/https/ftp/mailto/anchor links still pass.
+
+---
+
 ## [1.4.0] — 2026-05-23
 
 Architecture sprint: four god-files split into thin orchestrators + cohesive sub-modules. **No public API changes** — guarded by `test/public-api-surface.test.ts` (15 runtime exports across 6 entry points, snapshot tripwire). 12 granular commits, each independently revertable.

@@ -44,6 +44,25 @@ function pdfFingerprint(pdf: Uint8Array): string {
 }
 
 // ─── 1. Parallel validate() across 8 different element kinds ──────────────────
+//
+// NOTE (v1.4.1, M3): validateDocument is synchronous. JavaScript never
+// interleaves sync function calls, so Promise.all over a list of sync
+// validateDocument calls cannot actually exercise concurrent execution —
+// each call runs to completion before the next begins.
+//
+// What this test DOES prove: shape stability across N invocations
+// (parallel[i] === sequential[i] for every i), which would surface any
+// per-call accumulator that retained state from the previous call.
+//
+// What this test does NOT prove: concurrent isolation under real
+// interleaving. That guarantee comes structurally from code inspection of
+// validate/index.ts — `validate()` opens a fresh per-call WeakSet at the
+// top of every invocation, so there is no shared mutable state for
+// concurrent callers to collide on in the first place.
+//
+// The async render-path tests later in this file (describe block #2 and
+// onward) DO exercise real concurrent execution because render() is async
+// and crosses await boundaries that JS may interleave.
 
 describe('item #25 — parallel validate() isolation', () => {
   test('8 parallel validates of different element kinds, each error path scoped to its own doc', async () => {

@@ -198,7 +198,7 @@ export async function measureAllBlocks(
       if (!imageMap.has(imageKey)) {
         continue
       }
-      const block = await measureFloatGroup(el, imageKey, imageMap, contentWidth, pageContentHeight, doc, hyphenatorOpts, wordWidthCache)
+      const block = await measureFloatGroup(el, imageKey, imageMap, contentWidth, pageContentHeight, doc, measureBlock, hyphenatorOpts, wordWidthCache)
       results.push(block)
     } else {
       const plugin = plugins ? findPlugin(plugins, el.type) : undefined

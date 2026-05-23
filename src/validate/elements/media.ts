@@ -5,7 +5,19 @@
  */
 import type { ContentElement } from '../../types.js'
 import { PretextPdfError } from '../../errors.js'
-import { HEX_COLOR_REGEX, type ValidationContext } from '../helpers.js'
+import { HEX_COLOR_REGEX, validateUrl, type ValidationContext } from '../helpers.js'
+
+// v1.4.1 (M5): pre-flight URL scheme check. Matches the assets.ts runtime
+// SSRF guard's posture so validate-only callers (CLI lint, MCP validate
+// tool) catch unsafe schemes before render time.
+const URL_LIKE_PREFIXES = ['data:', 'javascript:', 'vbscript:', 'blob:', 'about:', 'file:']
+
+function looksLikeUrl(src: string): boolean {
+  const lc = src.toLowerCase()
+  if (URL_LIKE_PREFIXES.some(p => lc.startsWith(p))) return true
+  // Generic scheme test: any `scheme://...` form (http, https, ftp, gopher, …)
+  return /^[a-z][a-z0-9+.-]*:\/\//.test(lc)
+}
 
 export function validateImage(
   el: Extract<ContentElement, { type: 'image' }>,
@@ -17,6 +29,13 @@ export function validateImage(
   }
   if (typeof el.src === 'string' && (el.src.startsWith('\\\\') || el.src.startsWith('//'))) {
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (image): 'src' must not be a UNC/network path`)
+  }
+  if (typeof el.src === 'string' && looksLikeUrl(el.src)) {
+    // validateUrl throws VALIDATION_ERROR for any scheme outside the
+    // SAFE_URL_SCHEME allow-list (http, https, mailto, ftp, anchor).
+    // data:/javascript:/blob:/file: all fail here, matching the assets.ts
+    // BLOCKED_SCHEMES guard.
+    validateUrl(el.src, `${prefix} (image): 'src'`)
   }
   const fmt = el.format ?? 'auto'
   if (fmt !== 'png' && fmt !== 'jpg' && fmt !== 'auto') {

@@ -2,13 +2,25 @@
  * measure-blocks/float-group.ts — Multi-paragraph float-group measurement.
  */
 
-import type { FloatGroupElement, ImageElement, PdfDocument } from '../types.js'
+import type { ContentElement, FloatGroupElement, ImageElement, PdfDocument } from '../types.js'
 import type { MeasuredBlock, ImageMap, PretextLine, RichLine } from '../types-internal.js'
 import { PretextPdfError } from '../errors.js'
 import { HyphenatorOpts } from '../measure-text.js'
 import { LINE_HEIGHT_BODY } from '../render-utils.js'
 import { measureImageWithKey } from './image.js'
-import { measureBlock } from './index.js'
+
+// v1.4.1 (M2): measureBlock is injected by the caller instead of imported
+// from './index.js'. The previous import created a structural cycle
+// (index.ts → float-group.ts → index.ts) that ESM hoisting tolerated but
+// which broke the module boundary. The single caller (measure.ts) already
+// has measureBlock in scope, so threading it as a parameter is non-invasive.
+export type MeasureBlockFn = (
+  element: ContentElement,
+  contentWidth: number,
+  doc: PdfDocument,
+  hyphenatorOpts?: HyphenatorOpts,
+  wordWidthCache?: Map<string, number>,
+) => Promise<MeasuredBlock | MeasuredBlock[]>
 
 export async function measureFloatGroup(
   element: FloatGroupElement,
@@ -17,6 +29,7 @@ export async function measureFloatGroup(
   contentWidth: number,
   pageContentHeight: number,
   doc: PdfDocument,
+  measureBlock: MeasureBlockFn,
   hyphenatorOpts?: HyphenatorOpts,
   wordWidthCache?: Map<string, number>,
 ): Promise<MeasuredBlock> {

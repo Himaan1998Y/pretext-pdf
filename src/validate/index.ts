@@ -31,7 +31,6 @@ import {
   formatErrors,
   validateFontSpec,
   validateMetadataString,
-  withCycleGuard,
   type ValidationContext,
 } from './helpers.js'
 import { validateFontReferences } from './fonts.js'
@@ -533,12 +532,11 @@ function validateElement(
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix}: 'toc-entry' is an internal type and cannot be used in document content`)
   }
 
-  // Cycle guard at entry point for container elements
-  if (el.type === 'list' || el.type === 'float-group') {
-    withCycleGuard(ctx.seen, el, depth + 1, prefix, () => {
-      // Will validate content within the guarded scope
-    })
-  }
+  // Cycle guard is owned by the per-type validators (validateList opens its
+  // own withCycleGuard scope at the top of list.ts, validateFloatGroup does
+  // the same in structural.ts). An outer guard here would run a no-op body
+  // and finally-delete the element from `seen` BEFORE the inner guard adds
+  // it, so it never actually protected anything. Removed in v1.4.1 (M1).
 
   // Strict: check element properties match allowed set for type
   if (ctx.strict) {

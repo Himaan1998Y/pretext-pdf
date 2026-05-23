@@ -6,6 +6,13 @@
  * measureFloatGroup, resolveColumnWidths) is re-exported from here so callers
  * can either import the dispatcher directly or, for legacy paths,
  * `src/measure-blocks.ts` (a one-line barrel onto this file).
+ *
+ * v1.4.1 (M2): float-group.ts no longer imports measureBlock from this
+ * module. Callers (measure.ts orchestrator) pass measureBlock in as a
+ * parameter to break the runtime import cycle:
+ *   was:  float-group.ts -> ./index.js -> ./float-group.js (cycle)
+ *   now:  index.ts re-exports measureFloatGroup; float-group.ts has no
+ *         back-edge to index.ts.
  */
 
 import type { ContentElement, PdfDocument } from '../types.js'
