@@ -10,7 +10,7 @@ import type {
   MeasuredBlock, ImageMap
 } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
-import { measureBlock } from './measure-blocks.js'
+import { measureBlock } from './measure-blocks/index.js'
 import { getPretext, HyphenatorOpts, getHyphenator } from './measure-text.js'
 import { LINE_HEIGHT_BODY } from './render-utils.js'
 import type { PluginDefinition } from './plugin-types.js'
@@ -133,7 +133,7 @@ export async function measureAllBlocks(
   pageContentHeight: number,
   plugins?: PluginDefinition[]
 ): Promise<MeasuredBlock[]> {
-  const { measureImageWithKey, measureFloatImageBlock } = await import('./measure-blocks.js')
+  const { measureImageWithKey, measureFloatImageBlock } = await import('./measure-blocks/index.js')
 
   const results: MeasuredBlock[] = []
 
@@ -192,7 +192,7 @@ export async function measureAllBlocks(
       ;(block as unknown as Record<string, unknown>).element = el
       results.push(block)
     } else if (el.type === 'float-group') {
-      const { measureFloatGroup } = await import('./measure-blocks.js')
+      const { measureFloatGroup } = await import('./measure-blocks/index.js')
       const imageKey = `float-group-${i}`
       // Skip float-groups if their image failed to load
       if (!imageMap.has(imageKey)) {
