@@ -88,7 +88,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
   })
 
   await t.test('callout in multi-page document paginates correctly', async () => {
-    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { measureBlock } = await import('../dist/measure-blocks/index.js')
     const { paginate } = await import('../dist/paginate.js')
 
     const opts = { defaultFont: 'Inter', fonts: [] }
@@ -124,7 +124,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
   // measurer-level isolation (upstream).
 
   await t.test('paginator places next block at height + spaceAfter (not double)', async () => {
-    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { measureBlock } = await import('../dist/measure-blocks/index.js')
     const { paginate } = await import('../dist/paginate.js')
 
     const calloutEl: any = {
@@ -161,7 +161,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
   })
 
   await t.test('callout block.height does not bake in spaceAfter (regression: double-counting)', async () => {
-    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { measureBlock } = await import('../dist/measure-blocks/index.js')
 
     const el: any = {
       type: 'callout',
@@ -199,7 +199,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
   // Fix: availableForLines = available - topPad - bottomPadReserve - titleH (first chunk only).
 
   await t.test('titled callout split across pages: first chunk line count accounts for titleHeight', async () => {
-    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { measureBlock } = await import('../dist/measure-blocks/index.js')
     const { paginate } = await import('../dist/paginate.js')
 
     const el: any = {
@@ -246,7 +246,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
   // a regression that made calloutTitleH always-positive would not be caught by the titled test.
 
   await t.test('untitled callout splits without titleHeight reservation', async () => {
-    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { measureBlock } = await import('../dist/measure-blocks/index.js')
     const { paginate } = await import('../dist/paginate.js')
 
     const el: any = {
@@ -279,7 +279,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
   // that forgets to reset currentPageY would show continuation.yFromTop > 0.
 
   await t.test('split callout: continuation chunk starts at yFromTop === 0 on next page', async () => {
-    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { measureBlock } = await import('../dist/measure-blocks/index.js')
     const { paginate } = await import('../dist/paginate.js')
 
     const el: any = {
@@ -313,7 +313,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
   // from the middle of a page, not just from the top.
 
   await t.test('callout entering splitBlock mid-page (non-zero currentY) splits correctly', async () => {
-    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { measureBlock } = await import('../dist/measure-blocks/index.js')
     const { paginate } = await import('../dist/paginate.js')
 
     const opts = { defaultFont: 'Inter', fonts: [] }
@@ -353,7 +353,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
   // invalid state directly so the throw path has explicit coverage.
 
   await t.test('paginator throws PAGINATION_FAILED when callout block is missing calloutData', async () => {
-    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { measureBlock } = await import('../dist/measure-blocks/index.js')
     const { paginate } = await import('../dist/paginate.js')
 
     const block = await measureBlock(
@@ -383,7 +383,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
   // Post-fix: validateMeasuredBlocks does field-level typeof + isFinite checks.
 
   await t.test('paginator rejects callout with partial calloutData (non-finite fields)', async () => {
-    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { measureBlock } = await import('../dist/measure-blocks/index.js')
     const { paginate } = await import('../dist/paginate.js')
 
     const block = await measureBlock(
@@ -412,7 +412,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
   // silently masked a missing field.
 
   await t.test('paginator rejects blockquote with partial padding fields', async () => {
-    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { measureBlock } = await import('../dist/measure-blocks/index.js')
     const { paginate } = await import('../dist/paginate.js')
 
     const block = await measureBlock(
@@ -442,7 +442,7 @@ test('Phase 8D — Callout Boxes', async (t) => {
   // throw and the document would fail to render.
 
   await t.test('paginate accepts a non-callout-only document (calloutTitleHeight non-callout path)', async () => {
-    const { measureBlock } = await import('../dist/measure-blocks.js')
+    const { measureBlock } = await import('../dist/measure-blocks/index.js')
     const { paginate } = await import('../dist/paginate.js')
 
     const opts = { defaultFont: 'Inter', fonts: [] }
