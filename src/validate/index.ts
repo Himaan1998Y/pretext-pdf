@@ -58,10 +58,12 @@ import {
   validateToc,
   validateTocEntry,
   validateComment,
+} from './elements/structural-simple.js'
+import {
   validateFormField,
   validateFootnoteDef,
   validateFloatGroup,
-} from './elements/structural.js'
+} from './elements/forms-floats.js'
 
 /**
  * Validate a PdfDocument and throw a {@link PretextPdfError} if any errors are found.
