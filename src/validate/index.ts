@@ -1,13 +1,17 @@
 /**
  * validate/index.ts — Orchestrator + public validate() / validateDocument().
  *
- * Top-level orchestration of document-level checks (page size, margins, fonts,
- * metadata, encryption, watermark, signature, etc.) and dispatching per-element
- * validation to the submodules in ./elements/. The dispatch order and every
- * error code/message is preserved bit-exact from the pre-split src/validate.ts.
+ * Top-level orchestration: plugin pre-flight, doc-shape guards, memory caps,
+ * ValidationContext construction, document-level check dispatch (delegated to
+ * ./document.ts), per-element dispatch (delegated to ./elements/*), footnote
+ * cross-validation, and the strict-error flush. Every error code/message is
+ * preserved bit-exact from the pre-split src/validate.ts.
  *
  * Extracted in v1.4.0 #11a — the original src/validate.ts was 1834 lines and
- * is now a thin re-export barrel pointing here.
+ * is now a thin re-export barrel pointing here. In v1.5.0 item A the inline
+ * document-level checks (pageSize, margins, fonts, header/footer,
+ * defaultParagraphStyle, sections, watermark, encryption, signature,
+ * bookmarks, hyphenation, metadata) were extracted into ./document.ts.
  */
 import type {
   PdfDocument,
@@ -17,7 +21,6 @@ import type {
   Logger,
 } from '../types.js'
 import { PretextPdfError } from '../errors.js'
-import { resolvePageDimensions } from '../page-sizes.js'
 import { ALLOWED_PROPS, ALLOWED_PROPS_SUB } from '../allowed-props.js'
 import { ELEMENT_TYPES } from '../element-types.js'
 import { findPlugin, runPluginValidate } from '../plugin-registry.js'
