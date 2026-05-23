@@ -24,7 +24,7 @@ export function renderFootnoteZone(
   doc: PdfDocument,
   geo: PageGeometry
 ): void {
-  const { pageHeight, margins, footerHeight, contentWidth } = geo
+  const { margins, footerHeight, contentWidth } = geo
   const SEPARATOR_PADDING = 6 // pt above and below the separator line
 
   // Zone top in PDF coords (Y=0 at bottom of page)

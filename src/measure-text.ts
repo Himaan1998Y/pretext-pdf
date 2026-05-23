@@ -261,7 +261,6 @@ function insertThaiBreaks(text: string): string {
   if (!seg) return text  // no ICU data — return unchanged; lines may overflow
 
   const result: string[] = []
-  let inThaiRun = false
 
   // Process character by character, only segmenting Thai/Lao runs
   const parts = text.split(/([\u0E00-\u0EFF]+)/)
@@ -523,7 +522,7 @@ export async function measureText(
   fontFamily: string,
   fontWeight: 400 | 700,
   maxWidth: number,
-  lineHeight: number,
+  _lineHeight: number,
   hyphenatorOpts?: HyphenatorOpts,
   wordWidthCache?: Map<string, number>,
 ): Promise<Array<{ text: string; width: number }>> {

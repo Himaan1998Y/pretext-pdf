@@ -49,10 +49,8 @@ const DOC_KEYS = [
   'hyphenation', 'metadata', 'defaultParagraphStyle', 'sections', 'content',
   'flattenForms', 'onImageLoadError', 'onFormFieldError', 'renderDate', 'allowedFileDirs',
 ] as const
-type _Doc = Exact<PdfDocument, typeof DOC_KEYS>
 
 const METADATA_KEYS = ['title', 'author', 'subject', 'keywords', 'creator', 'language', 'producer'] as const
-type _Metadata = Exact<DocumentMetadata, typeof METADATA_KEYS>
 
 const PARAGRAPH_KEYS = [
   'type', 'text', 'dir', 'fontSize', 'lineHeight', 'fontFamily', 'fontWeight', 'color',
@@ -60,7 +58,6 @@ const PARAGRAPH_KEYS = [
   'strikethrough', 'url', 'columns', 'columnGap', 'hyphenate', 'letterSpacing',
   'smallCaps', 'tabularNumbers', 'annotation',
 ] as const
-type _Paragraph = Exact<ParagraphElement, typeof PARAGRAPH_KEYS>
 
 const HEADING_KEYS = [
   'type', 'level', 'text', 'dir', 'fontFamily', 'fontWeight', 'fontSize', 'lineHeight',
@@ -68,131 +65,144 @@ const HEADING_KEYS = [
   'strikethrough', 'bookmark', 'hyphenate', 'url', 'anchor', 'letterSpacing', 'smallCaps',
   'tabularNumbers', 'annotation',
 ] as const
-type _Heading = Exact<HeadingElement, typeof HEADING_KEYS>
 
 const SPACER_KEYS = ['type', 'height'] as const
-type _Spacer = Exact<SpacerElement, typeof SPACER_KEYS>
 
 const TABLE_KEYS = [
   'type', 'columns', 'rows', 'dir', 'headerRows', 'borderColor', 'borderWidth',
   'headerBgColor', 'fontSize', 'cellPaddingH', 'cellPaddingV', 'spaceAfter', 'spaceBefore',
 ] as const
-type _Table = Exact<TableElement, typeof TABLE_KEYS>
 
 const COLUMN_DEF_KEYS = ['width', 'align'] as const
-type _ColumnDef = Exact<ColumnDef, typeof COLUMN_DEF_KEYS>
 
 const TABLE_ROW_KEYS = ['cells', 'isHeader'] as const
-type _TableRow = Exact<TableRow, typeof TABLE_ROW_KEYS>
 
 const TABLE_CELL_KEYS = [
   'text', 'dir', 'align', 'fontWeight', 'fontFamily', 'fontSize', 'color', 'bgColor',
   'colspan', 'rowspan', 'tabularNumbers',
 ] as const
-type _TableCell = Exact<TableCell, typeof TABLE_CELL_KEYS>
 
 const IMAGE_KEYS = [
   'type', 'src', 'format', 'width', 'height', 'align', 'spaceAfter', 'spaceBefore',
   'float', 'floatWidth', 'floatGap', 'floatText', 'floatSpans', 'floatFontSize',
   'floatFontFamily', 'floatColor',
 ] as const
-type _Image = Exact<ImageElement, typeof IMAGE_KEYS>
 
 const SVG_KEYS = ['type', 'svg', 'src', 'width', 'height', 'align', 'spaceBefore', 'spaceAfter'] as const
-type _Svg = Exact<SvgElement, typeof SVG_KEYS>
 
 const QR_CODE_KEYS = [
   'type', 'data', 'size', 'errorCorrectionLevel', 'foreground', 'background', 'margin',
   'align', 'spaceBefore', 'spaceAfter',
 ] as const
-type _QrCode = Exact<QrCodeElement, typeof QR_CODE_KEYS>
 
 const BARCODE_KEYS = [
   'type', 'symbology', 'data', 'width', 'height', 'includeText', 'align', 'spaceBefore', 'spaceAfter',
 ] as const
-type _Barcode = Exact<BarcodeElement, typeof BARCODE_KEYS>
 
 const CHART_KEYS = ['type', 'spec', 'width', 'height', 'caption', 'align', 'spaceBefore', 'spaceAfter'] as const
-type _Chart = Exact<ChartElement, typeof CHART_KEYS>
 
 const LIST_KEYS = [
   'type', 'style', 'items', 'marker', 'indent', 'markerWidth', 'fontSize', 'lineHeight',
   'itemSpaceAfter', 'spaceAfter', 'spaceBefore', 'color', 'nestedNumberingStyle',
 ] as const
-type _List = Exact<ListElement, typeof LIST_KEYS>
 
 const LIST_ITEM_KEYS = ['text', 'dir', 'fontWeight', 'items'] as const
-type _ListItem = Exact<ListItem, typeof LIST_ITEM_KEYS>
 
 const HR_KEYS = ['type', 'thickness', 'color', 'spaceAbove', 'spaceBelow', 'spaceBefore', 'spaceAfter'] as const
-type _Hr = Exact<HorizontalRuleElement, typeof HR_KEYS>
 
 const PAGE_BREAK_KEYS = ['type'] as const
-type _PageBreak = Exact<PageBreakElement, typeof PAGE_BREAK_KEYS>
 
 const CODE_KEYS = [
   'type', 'text', 'dir', 'fontFamily', 'fontSize', 'lineHeight', 'bgColor', 'color',
   'padding', 'spaceAfter', 'spaceBefore', 'keepTogether', 'language', 'highlightTheme',
 ] as const
-type _Code = Exact<CodeBlockElement, typeof CODE_KEYS>
 
 const RICH_PARAGRAPH_KEYS = [
   'type', 'spans', 'dir', 'fontSize', 'lineHeight', 'align', 'bgColor', 'spaceBefore',
   'spaceAfter', 'keepTogether', 'columns', 'columnGap', 'letterSpacing', 'smallCaps',
   'tabularNumbers',
 ] as const
-type _RichParagraph = Exact<RichParagraphElement, typeof RICH_PARAGRAPH_KEYS>
 
 const INLINE_SPAN_KEYS = [
   'text', 'dir', 'fontFamily', 'fontWeight', 'fontStyle', 'color', 'fontSize', 'underline',
   'strikethrough', 'url', 'href', 'verticalAlign', 'smallCaps', 'letterSpacing', 'footnoteRef',
 ] as const
-type _InlineSpan = Exact<InlineSpan, typeof INLINE_SPAN_KEYS>
 
 const BLOCKQUOTE_KEYS = [
   'type', 'text', 'dir', 'borderColor', 'borderWidth', 'bgColor', 'color', 'fontFamily',
   'fontWeight', 'fontStyle', 'fontSize', 'lineHeight', 'padding', 'paddingH', 'paddingV',
   'align', 'spaceBefore', 'spaceAfter', 'keepTogether', 'underline', 'strikethrough',
 ] as const
-type _Blockquote = Exact<BlockquoteElement, typeof BLOCKQUOTE_KEYS>
 
 const CALLOUT_KEYS = [
   'type', 'content', 'style', 'title', 'backgroundColor', 'borderColor', 'color', 'titleColor',
   'fontFamily', 'fontWeight', 'fontSize', 'lineHeight', 'padding', 'paddingH', 'paddingV',
   'spaceAfter', 'spaceBefore', 'keepTogether', 'dir',
 ] as const
-type _Callout = Exact<CalloutElement, typeof CALLOUT_KEYS>
 
 const COMMENT_KEYS = ['type', 'contents', 'author', 'color', 'open', 'spaceAfter'] as const
-type _Comment = Exact<CommentElement, typeof COMMENT_KEYS>
 
 const FORM_FIELD_KEYS = [
   'type', 'fieldType', 'name', 'label', 'placeholder', 'defaultValue', 'multiline',
   'maxLength', 'checked', 'options', 'defaultSelected', 'width', 'height', 'fontSize',
   'borderColor', 'backgroundColor', 'spaceAfter', 'spaceBefore', 'keepTogether',
 ] as const
-type _FormField = Exact<FormFieldElement, typeof FORM_FIELD_KEYS>
 
 const FOOTNOTE_DEF_KEYS = ['type', 'id', 'text', 'fontSize', 'fontFamily', 'spaceAfter'] as const
-type _FootnoteDef = Exact<FootnoteDefElement, typeof FOOTNOTE_DEF_KEYS>
 
 const TOC_KEYS = [
   'type', 'title', 'showTitle', 'minLevel', 'maxLevel', 'fontSize', 'titleFontSize',
   'levelIndent', 'leader', 'entrySpacing', 'fontFamily', 'spaceBefore', 'spaceAfter',
 ] as const
-type _Toc = Exact<TocElement, typeof TOC_KEYS>
 
 const TOC_ENTRY_KEYS = ['type', 'text', 'pageNumber', 'level', 'levelIndent', 'leader', 'fontFamily', 'fontWeight'] as const
-type _TocEntry = Exact<TocEntryElement, typeof TOC_ENTRY_KEYS>
 
 const FLOAT_GROUP_KEYS = ['type', 'image', 'float', 'floatWidth', 'floatGap', 'content', 'spaceBefore', 'spaceAfter'] as const
-type _FloatGroup = Exact<FloatGroupElement, typeof FLOAT_GROUP_KEYS>
 
 const ANNOTATION_KEYS = ['contents', 'author', 'color', 'open'] as const
-type _Annotation = Exact<AnnotationSpec, typeof ANNOTATION_KEYS>
 
 const ENCRYPTION_KEYS = ['userPassword', 'ownerPassword', 'permissions'] as const
-type _Encryption = Exact<EncryptionSpec, typeof ENCRYPTION_KEYS>
+
+/**
+ * Compile-time drift guard — fails the build if any element/sub-structure type
+ * gains or loses a property without the corresponding KEYS array being updated.
+ * Consolidated from per-type `type _X = Exact<...>` aliases in v1.5.1 (M5a) to
+ * keep noUnusedLocals enabled without 30 unused-type warnings. The tuple is
+ * referenced via `export type` so TypeScript counts it as used.
+ */
+export type _AllowedPropsDriftGuard = [
+  Exact<PdfDocument, typeof DOC_KEYS>,
+  Exact<DocumentMetadata, typeof METADATA_KEYS>,
+  Exact<ParagraphElement, typeof PARAGRAPH_KEYS>,
+  Exact<HeadingElement, typeof HEADING_KEYS>,
+  Exact<SpacerElement, typeof SPACER_KEYS>,
+  Exact<TableElement, typeof TABLE_KEYS>,
+  Exact<ColumnDef, typeof COLUMN_DEF_KEYS>,
+  Exact<TableRow, typeof TABLE_ROW_KEYS>,
+  Exact<TableCell, typeof TABLE_CELL_KEYS>,
+  Exact<ImageElement, typeof IMAGE_KEYS>,
+  Exact<SvgElement, typeof SVG_KEYS>,
+  Exact<QrCodeElement, typeof QR_CODE_KEYS>,
+  Exact<BarcodeElement, typeof BARCODE_KEYS>,
+  Exact<ChartElement, typeof CHART_KEYS>,
+  Exact<ListElement, typeof LIST_KEYS>,
+  Exact<ListItem, typeof LIST_ITEM_KEYS>,
+  Exact<HorizontalRuleElement, typeof HR_KEYS>,
+  Exact<PageBreakElement, typeof PAGE_BREAK_KEYS>,
+  Exact<CodeBlockElement, typeof CODE_KEYS>,
+  Exact<RichParagraphElement, typeof RICH_PARAGRAPH_KEYS>,
+  Exact<InlineSpan, typeof INLINE_SPAN_KEYS>,
+  Exact<BlockquoteElement, typeof BLOCKQUOTE_KEYS>,
+  Exact<CalloutElement, typeof CALLOUT_KEYS>,
+  Exact<CommentElement, typeof COMMENT_KEYS>,
+  Exact<FormFieldElement, typeof FORM_FIELD_KEYS>,
+  Exact<FootnoteDefElement, typeof FOOTNOTE_DEF_KEYS>,
+  Exact<TocElement, typeof TOC_KEYS>,
+  Exact<TocEntryElement, typeof TOC_ENTRY_KEYS>,
+  Exact<FloatGroupElement, typeof FLOAT_GROUP_KEYS>,
+  Exact<AnnotationSpec, typeof ANNOTATION_KEYS>,
+  Exact<EncryptionSpec, typeof ENCRYPTION_KEYS>,
+]
 
 // ─── Runtime Sets created from key arrays ─────────────────────────────────────
 

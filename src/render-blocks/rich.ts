@@ -27,7 +27,7 @@ export function renderRichParagraph(
   footnoteNumbering?: Map<string, number>
 ): void {
   const { measuredBlock, startLine, endLine, yFromTop } = pagedBlock
-  const { element, richLines, lineHeight, fontSize } = measuredBlock
+  const { element, richLines } = measuredBlock
   const tabularNumbers = element.type === 'rich-paragraph' && (element as RichParagraphElement).tabularNumbers === true
 
   if (!richLines || richLines.length === 0) return

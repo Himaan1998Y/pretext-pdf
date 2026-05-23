@@ -512,16 +512,6 @@ async function rasterizeSvgToPng(svg: string, widthPt: number, heightPt: number)
   }
 }
 
-async function loadSvgAsImage(
-  svg: string,
-  widthPt: number,
-  heightPt: number,
-  pdfDoc: PDFDocument
-): Promise<import('@cantoo/pdf-lib').PDFImage> {
-  const pngBuffer = await rasterizeSvgToPng(svg, widthPt, heightPt)
-  return pdfDoc.embedPng(pngBuffer)
-}
-
 /** Maximum number of vector-asset rasterization tasks allowed to run in parallel. */
 export const VECTOR_RASTER_CONCURRENCY = 4
 

@@ -125,7 +125,7 @@ export function renderFloatGroup(
   geo: PageGeometry,
   fontMap: FontMap,
   imageMap: ImageMap,
-  pdfDoc: PDFDocument,
+  _pdfDoc: PDFDocument,
 ): void {
   const { measuredBlock, yFromTop } = pagedBlock
   const fd = measuredBlock.floatGroupData!

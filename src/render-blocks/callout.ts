@@ -21,7 +21,6 @@ export function renderCallout(
   fontMap: FontMap
 ): void {
   const { measuredBlock, startLine, endLine, yFromTop } = pagedBlock
-  const el = measuredBlock.element as import('../types.js').CalloutElement
   const cd = measuredBlock.calloutData
   if (!cd) return
 

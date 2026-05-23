@@ -117,7 +117,6 @@ export async function measureRichText(
     const fontFamily = span.fontFamily ?? baseFont
     const fontWeight = span.fontWeight ?? 400
     const fontStyle = span.fontStyle ?? 'normal'
-    const color = span.color ?? '#000000'
     const spanFontSize = span.fontSize ?? fontSize
     // URLs auto-apply LINK_COLOR_DEFAULT + underline when no explicit color is set.
     const effectiveColor = span.url && !span.color ? LINK_COLOR_DEFAULT : (span.color ?? '#000000')

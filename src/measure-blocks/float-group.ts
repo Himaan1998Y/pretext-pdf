@@ -6,7 +6,6 @@ import type { ContentElement, FloatGroupElement, ImageElement, PdfDocument } fro
 import type { MeasuredBlock, ImageMap, PretextLine, RichLine } from '../types-internal.js'
 import { PretextPdfError } from '../errors.js'
 import { HyphenatorOpts } from '../measure-text.js'
-import { LINE_HEIGHT_BODY } from '../render-utils.js'
 import { measureImageWithKey } from './image.js'
 
 // v1.4.1 (M2): measureBlock is injected by the caller instead of imported
@@ -57,7 +56,6 @@ export async function measureFloatGroup(
   const imageRenderHeight = imageBlock.imageData!.renderHeight
 
   // Measure each content element in the text column
-  const baseFontSize = doc.defaultFontSize ?? 12
   const textItems: Array<{
     lines: PretextLine[]
     richLines?: RichLine[]
@@ -77,8 +75,6 @@ export async function measureFloatGroup(
     const blocks = Array.isArray(measuredEl) ? measuredEl : [measuredEl]
 
     for (const block of blocks) {
-      const fontSize = block.fontSize || baseFontSize
-
       // Extract text from lines or rich-lines
       let lines: PretextLine[] = []
       if (block.richLines && block.richLines.length > 0) {

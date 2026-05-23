@@ -1,4 +1,4 @@
-import { PDFDocument, PDFName, PDFString, PDFNull } from '@cantoo/pdf-lib'
+import { PDFDocument } from '@cantoo/pdf-lib'
 import type {
   PdfDocument, Logger
 } from './types.js'
@@ -54,7 +54,7 @@ export async function renderDocument(
 ): Promise<Uint8Array> {
   const warn = logger ? logger.warn.bind(logger) : console.warn.bind(console)
   if (logger?.warn) setBidiWarnFn(logger.warn.bind(logger))
-  const { pageWidth, pageHeight, margins, contentWidth } = geo
+  const { pageWidth, pageHeight } = geo
 
   // Pre-compute token values that don't change per page
   const rawDate = doc.renderDate ? (doc.renderDate instanceof Date ? doc.renderDate : new Date(doc.renderDate)) : new Date()

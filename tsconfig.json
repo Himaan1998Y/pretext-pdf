@@ -9,6 +9,8 @@
     "noImplicitAny": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
+    "noUnusedParameters": true,
+    "noUnusedLocals": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,

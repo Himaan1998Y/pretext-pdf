@@ -3,7 +3,7 @@
  * These are meta-layer concerns distinct from content block rendering.
  */
 
-import { PDFDocument, PDFFont, PDFName, PDFNull, PDFRef, PDFString, rgb } from '@cantoo/pdf-lib'
+import { PDFDocument, PDFName, PDFNull, PDFRef, PDFString, rgb } from '@cantoo/pdf-lib'
 import type { PaginatedDocument, FontMap, PageGeometry, PagedBlock } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 import { toPdfY, hexToRgb } from './render-utils.js'
@@ -113,7 +113,6 @@ export function renderTocEntry(
   fontMap: FontMap,
 ): void {
   const { measuredBlock, startLine, endLine, yFromTop } = pagedBlock
-  const element = measuredBlock.element as import('./types-internal.js').TocEntryElement
   const tocData = measuredBlock.tocEntryData!
   const lines = measuredBlock.lines.slice(startLine, endLine)
   if (lines.length === 0) return
