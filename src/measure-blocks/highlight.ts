@@ -81,7 +81,8 @@ export async function tokenizeCodeForHighlighting(
       ? hljs.highlightAuto(text)
       : hljs.highlight(text, { language })
     highlighted = result.value
-  } catch {
+  } catch (e) {
+    console.warn(`[pretext-pdf] syntax highlighting failed for language "${language}": ${e instanceof Error ? e.message : String(e)}`)
     return undefined
   }
 
