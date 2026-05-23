@@ -63,9 +63,11 @@ export async function installNodePolyfill(): Promise<void> {
   }
 
   // Register bundled Inter fonts so Pretext can measure them accurately
-  const fontVariants: Array<{ paths: (string | null)[]; family: string }> = [
+  const fontVariants: Array<{ paths: (string | null)[]; family: string; weight: string; style: string }> = [
     {
       family: 'Inter',
+      weight: '400',
+      style: 'normal',
       paths: [
         resolveInterWoff2('inter-latin-400-normal.woff2'),
         resolveInterWoff2('inter-all-400-normal.woff2'),
@@ -76,6 +78,8 @@ export async function installNodePolyfill(): Promise<void> {
       // Register bold as the same family — @napi-rs/canvas (Skia) uses the
       // bold variant automatically when the CSS font string includes "bold"
       family: 'Inter',
+      weight: '700',
+      style: 'normal',
       paths: [
         resolveInterWoff2('inter-latin-700-normal.woff2'),
         resolveInterWoff2('inter-all-700-normal.woff2'),
@@ -86,16 +90,21 @@ export async function installNodePolyfill(): Promise<void> {
 
   let anyLoaded = false
   for (const variant of fontVariants) {
+    let variantLoaded = false
     for (const fontPath of variant.paths) {
       if (fontPath && fs.existsSync(fontPath)) {
         try {
           GlobalFonts.registerFromPath(fontPath, variant.family)
+          variantLoaded = true
           anyLoaded = true
           break // Move to next variant
         } catch {
           // Try next candidate path
         }
       }
+    }
+    if (!variantLoaded) {
+      console.warn(`[pretext-pdf] Could not register ${variant.family} ${variant.weight} ${variant.style} font for canvas measurement — text metrics may be inaccurate for this variant`)
     }
   }
 
