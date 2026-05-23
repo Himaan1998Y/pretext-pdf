@@ -339,6 +339,26 @@
       }
     ]
   },
+  "watermark-image-http": {
+    "valid": true,
+    "errorCount": 0,
+    "errors": []
+  },
+  "watermark-image-javascript": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "URL scheme not allowed — only http, https, mailto, ftp, and anchor (#) links are permitted. Got: \"javascript:alert(1)\""
+      }
+    ]
+  },
+  "watermark-image-relative-ok": {
+    "valid": true,
+    "errorCount": 0,
+    "errors": []
+  },
   "encryption-userPassword-not-string": {
     "valid": false,
     "errorCount": 1,

@@ -5,19 +5,12 @@
  */
 import type { ContentElement } from '../../types.js'
 import { PretextPdfError } from '../../errors.js'
-import { HEX_COLOR_REGEX, validateUrl, type ValidationContext } from '../helpers.js'
+import { HEX_COLOR_REGEX, looksLikeUrl, validateUrl, type ValidationContext } from '../helpers.js'
 
 // v1.4.1 (M5): pre-flight URL scheme check. Matches the assets.ts runtime
 // SSRF guard's posture so validate-only callers (CLI lint, MCP validate
-// tool) catch unsafe schemes before render time.
-const URL_LIKE_PREFIXES = ['data:', 'javascript:', 'vbscript:', 'blob:', 'about:', 'file:']
-
-function looksLikeUrl(src: string): boolean {
-  const lc = src.toLowerCase()
-  if (URL_LIKE_PREFIXES.some(p => lc.startsWith(p))) return true
-  // Generic scheme test: any `scheme://...` form (http, https, ftp, gopher, …)
-  return /^[a-z][a-z0-9+.-]*:\/\//.test(lc)
-}
+// tool) catch unsafe schemes before render time. Helper moved to helpers.ts
+// in v1.5.1 (H1) so the watermark validator can share it.
 
 export function validateImage(
   el: Extract<ContentElement, { type: 'image' }>,

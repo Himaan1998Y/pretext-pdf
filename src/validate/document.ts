@@ -23,8 +23,10 @@ import {
   HEX_COLOR_REGEX,
   LANGUAGE_TAG_REGEX,
   assertUnknownProps,
+  looksLikeUrl,
   validateFontSpec,
   validateMetadataString,
+  validateUrl,
   type ValidationContext,
 } from './helpers.js'
 
@@ -199,6 +201,13 @@ export function validateDocumentLevel(doc: PdfDocument, ctx: ValidationContext):
       if (wm.rotation < -360 || wm.rotation > 360) {
         throw new PretextPdfError('WATERMARK_ROTATION_OUT_OF_RANGE', 'doc.watermark.rotation must be between -360 and 360 degrees')
       }
+    }
+    // v1.5.1 (H1): pre-flight URL scheme check for image src. Matches the
+    // posture used by validateImage so validate-only callers (CLI lint, MCP
+    // validate tool) catch unsafe schemes (javascript:, data:, file:, …)
+    // before render time. Relative paths fall through unchanged.
+    if (typeof wm.image === 'string' && looksLikeUrl(wm.image)) {
+      validateUrl(wm.image, "doc.watermark.image")
     }
   }
 

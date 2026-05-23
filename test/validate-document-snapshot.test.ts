@@ -75,6 +75,9 @@ const fixtures: Record<string, unknown> = {
   'watermark-bad-color': { content: goodContent, watermark: { text: 'x', color: 'red' } },
   'watermark-non-finite-rotation': { content: goodContent, watermark: { text: 'x', rotation: Infinity } },
   'watermark-rotation-out-of-range': { content: goodContent, watermark: { text: 'x', rotation: 400 } },
+  'watermark-image-http': { content: goodContent, watermark: { image: 'http://evil.example.com/wm.png' } },
+  'watermark-image-javascript': { content: goodContent, watermark: { image: 'javascript:alert(1)' } },
+  'watermark-image-relative-ok': { content: goodContent, watermark: { image: './ok.png' } },
 
   // ── encryption ──
   'encryption-userPassword-not-string': { content: goodContent, encryption: { userPassword: 123 } },

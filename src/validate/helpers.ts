@@ -155,6 +155,19 @@ export function formatErrors(errors: string[]): string {
   return header + msgs.join('\n') + suffix
 }
 
+// URL-shaped detection used by validators that accept either a file path
+// or a remote URL (image src, watermark image). Matches the runtime SSRF
+// guard's posture so validate-only callers catch unsafe schemes pre-render.
+const URL_LIKE_PREFIXES = ['data:', 'javascript:', 'vbscript:', 'blob:', 'about:', 'file:']
+
+/** Returns true if the string looks like a URL (scheme://... or a known scheme prefix) */
+export function looksLikeUrl(src: string): boolean {
+  const lc = src.toLowerCase()
+  if (URL_LIKE_PREFIXES.some(p => lc.startsWith(p))) return true
+  // Generic scheme test: any `scheme://...` form (http, https, ftp, gopher, …)
+  return /^[a-z][a-z0-9+.-]*:\/\//.test(lc)
+}
+
 /** Validate a hyperlink URL — throws VALIDATION_ERROR for unsafe schemes */
 export function validateUrl(url: string, prefix: string): void {
   if (!SAFE_URL_SCHEME.test(url)) {
