@@ -29,6 +29,10 @@ import {
 } from './text-blocks.js'
 import { measureList } from './list.js'
 import { measureTable } from './table/measure.js'
+import {
+  measureSpacer, measurePageBreak, measureComment, measureFormField,
+  measureHr, measureToc, measureFootnoteDef,
+} from './simple-blocks.js'
 
 // Re-export the table column-width resolver for external consumers / tests.
 export { resolveColumnWidths } from './table/columns.js'
@@ -54,65 +58,19 @@ export async function measureBlock(
 
   switch (element.type) {
     case 'spacer': {
-      return {
-        element,
-        height: element.height,
-        lines: [],
-        fontSize: 0,
-        lineHeight: 0,
-        fontKey: '',
-        spaceAfter: 0,
-        spaceBefore: 0,
-      }
+      return measureSpacer(element)
     }
 
     case 'page-break': {
-      return {
-        element,
-        height: 0,
-        lines: [],
-        fontSize: 0,
-        lineHeight: 0,
-        fontKey: '',
-        spaceAfter: 0,
-        spaceBefore: 0,
-      }
+      return measurePageBreak(element)
     }
 
     case 'comment': {
-      return {
-        element,
-        height: 20,
-        lines: [],
-        fontSize: 0,
-        lineHeight: 0,
-        fontKey: '',
-        spaceAfter: (element as import('../types.js').CommentElement).spaceAfter ?? 0,
-        spaceBefore: 0,
-      }
+      return measureComment(element as import('../types.js').CommentElement)
     }
 
     case 'form-field': {
-      const el = element as import('../types.js').FormFieldElement
-      const fs = el.fontSize ?? baseFontSize
-      const labelHeight = el.label ? fs * LINE_HEIGHT_BODY + 4 : 0
-      let fieldHeight = el.height
-      if (!fieldHeight) {
-        if (el.fieldType === 'text' && el.multiline) fieldHeight = 60
-        else if (el.fieldType === 'radio') fieldHeight = 20 * Math.max(1, el.options?.length ?? 1)
-        else fieldHeight = 24
-      }
-      return {
-        element,
-        height: labelHeight + fieldHeight + (el.spaceAfter ?? 8),
-        lines: [],
-        fontSize: fs,
-        lineHeight: fieldHeight,
-        fontKey: buildFontKey(baseFont, 400, 'normal'),
-        spaceAfter: el.spaceAfter ?? 8,
-        spaceBefore: el.spaceBefore ?? 0,
-        formFieldData: { labelHeight, fieldHeight },
-      }
+      return measureFormField(element as import('../types.js').FormFieldElement, baseFontSize, baseFont)
     }
 
     case 'paragraph': {
@@ -124,19 +82,7 @@ export async function measureBlock(
     }
 
     case 'hr': {
-      const spaceAbove = element.spaceAbove ?? element.spaceBefore ?? 12
-      const thickness = element.thickness ?? 0.5
-      const spaceBelow = element.spaceBelow ?? element.spaceAfter ?? 12
-      return {
-        element,
-        height: spaceAbove + thickness + spaceBelow,
-        lines: [],
-        fontSize: 0,
-        lineHeight: 0,
-        fontKey: '',
-        spaceAfter: 0,
-        spaceBefore: 0,
-      }
+      return measureHr(element)
     }
 
     case 'image': {
@@ -277,51 +223,11 @@ export async function measureBlock(
     }
 
     case 'toc': {
-      // Placeholder: zero height. Will be replaced by actual TOC entries in two-pass mode.
-      return {
-        element,
-        height: 0,
-        lines: [],
-        fontSize: 0,
-        lineHeight: 0,
-        fontKey: '',
-        spaceAfter: element.spaceAfter ?? 0,
-        spaceBefore: element.spaceBefore ?? 0,
-      } satisfies MeasuredBlock
+      return measureToc(element)
     }
 
     case 'footnote-def': {
-      const fn = element as import('../types.js').FootnoteDefElement
-      const fnBaseFontSize = doc.defaultFontSize ?? 12
-      const fontSize = fn.fontSize ?? Math.max(8, fnBaseFontSize - 2)
-      const lineHeight = fontSize * LINE_HEIGHT_BODY
-      const fontFamily = fn.fontFamily ?? doc.defaultFont ?? 'Inter'
-      const fontKey = buildFontKey(fontFamily, 400, 'normal')
-
-      // Measure the def text with a 20pt left indent (for the number prefix space)
-      const textLines = await measureText(
-        fn.text,
-        fontSize,
-        fontFamily,
-        400,
-        contentWidth - 20,  // leave space for "N. " prefix
-        lineHeight,
-        undefined,
-        wordWidthCache
-      )
-
-      const height = textLines.length * lineHeight
-
-      return {
-        element,
-        height,
-        lines: textLines,
-        fontSize,
-        lineHeight,
-        fontKey,
-        spaceAfter: fn.spaceAfter ?? 4,
-        spaceBefore: 0,
-      }
+      return measureFootnoteDef(element as import('../types.js').FootnoteDefElement, contentWidth, doc, wordWidthCache)
     }
 
     case 'float-group': {
