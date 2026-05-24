@@ -5,7 +5,7 @@
 import type { ContentElement, FloatGroupElement, ImageElement, PdfDocument } from '../types.js'
 import type { MeasuredBlock, ImageMap, PretextLine, RichLine } from '../types-internal.js'
 import { PretextPdfError } from '../errors.js'
-import { HyphenatorOpts } from '../measure-text.js'
+import type { HyphenatorOpts } from '../measure-text.js'
 import { measureImageWithKey } from './image.js'
 
 // v1.4.1 (M2): measureBlock is injected by the caller instead of imported

@@ -11,6 +11,7 @@
     "exactOptionalPropertyTypes": true,
     "noUnusedParameters": true,
     "noUnusedLocals": true,
+    "verbatimModuleSyntax": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,

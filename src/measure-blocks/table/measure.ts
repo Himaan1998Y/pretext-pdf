@@ -7,7 +7,8 @@ import type {
   MeasuredBlock, MeasuredTableData, MeasuredTableRow, MeasuredTableCell, PretextLine,
 } from '../../types-internal.js'
 import { buildFontKey } from '../../measure.js'
-import { measureText, HyphenatorOpts, detectAndReorderRTL } from '../../measure-text.js'
+import { measureText, detectAndReorderRTL } from '../../measure-text.js'
+import type { HyphenatorOpts } from '../../measure-text.js'
 import { LINE_HEIGHT_BODY } from '../../render-utils.js'
 import { measureNaturalTextWidth } from '../helpers.js'
 import { buildSpanGrid, computeActiveBoundaries } from './spans.js'

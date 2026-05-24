@@ -10,7 +10,8 @@ import type {
   MeasuredBlock, ImageMap
 } from './types-internal.js'
 import { measureBlock } from './measure-blocks/index.js'
-import { getPretext, HyphenatorOpts, getHyphenator } from './measure-text.js'
+import { getPretext, getHyphenator } from './measure-text.js'
+import type { HyphenatorOpts } from './measure-text.js'
 import { LINE_HEIGHT_BODY } from './render-utils.js'
 import type { PluginDefinition } from './plugin-types.js'
 import { findPlugin, runPluginMeasure } from './plugin-registry.js'
