@@ -7,6 +7,30 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.5.1] — 2026-05-24
+
+Hotfix batch closing 9 audit findings from the 6-agent v1.5.0 review. **No public API changes** — guarded by `test/public-api-surface.test.ts`. **No behavior changes other than the documented fixes**. Snapshot baseline expanded from 68 to 73 fixtures (5 new: 2 metadata.keywords + 3 watermark.image).
+
+### Security
+
+- **Watermark image URL scheme validation (H1)** — `doc.watermark.image` now passes through the same `validateUrl` pre-flight check used by `validateImage`. Unsafe schemes (`javascript:`, `data:`, `vbscript:`, `blob:`, `about:`, `file:`) are rejected at validate-time so CLI lint and MCP validate tools catch them before render. Relative file paths fall through unchanged. The shared URL-shape helper `looksLikeUrl` was moved from `validate/elements/media.ts` to `validate/helpers.ts`.
+
+### Fixed
+
+- **`metadata.keywords[]` element validation (H3)** — Previously, `for (const field of [...'keywords'...])` was paired with `typeof val === 'string'`, which silently no-op'd for the `string[]`-shaped `keywords` field. Each keyword entry is now validated for control-character injection and the 1000-character length cap via `validateMetadataString(kw, \`keywords[\${i}]\`)`.
+- **highlight.js dynamic-import error logging (H4)** — Previously, `catch { /* not installed */ }` silently swallowed every failure including real module-load errors. The catch now logs a warning unless the error code is `ERR_MODULE_NOT_FOUND`/`MODULE_NOT_FOUND` (the only legitimate "optional dep absent" signal).
+- **`hljs.highlight()` runtime exception logging (M2)** — Same silent-fallback issue as H4 but for tokenization failures. Now logs a warning naming the language before falling back to plain text.
+- **Font-variant registration logging (M3)** — `installNodePolyfill` now tracks per-variant success and warns when an individual Inter weight (400 or 700) fails to register, instead of only warning when *both* failed. Text metrics for the missing variant may be inaccurate; operators see this in logs.
+
+### Changed
+
+- **Removed redundant `as import('...').X` casts in `validate/elements/forms-floats.ts` (M1)** — `validateFormField`, `validateFootnoteDef`, and `validateFloatGroup` already accept `Extract<ContentElement, { type: 'X' }>`-typed `el`. The inner `const ff = el as FormFieldElement` casts were no-ops; removed.
+- **Removed unreachable `toc-entry` validator (M4)** — The pre-switch throw at `validate/index.ts:260` already rejects `toc-entry` before dispatch. The `case 'toc-entry':` arm (guarded with `@ts-expect-error`) and the `validateTocEntry` function in `validate/elements/structural-simple.ts` were unreachable dead code. Drift-guard test updated with `VALIDATE_DISPATCHER_EXCLUDES` (mirrors the existing `MEASURE_DISPATCHER_EXCLUDES` pattern) to keep the orchestrator scan honest.
+- **tsconfig: `noUnusedParameters` + `noUnusedLocals` enabled (M5a)** — Catches dead destructured locals and unused imports at build time. Cascade: 51 errors → 0. 30 of those were per-type `type _X = Exact<...>` drift guards in `allowed-props.ts` (load-bearing scaffolding) — consolidated into a single exported tuple `_AllowedPropsDriftGuard` that TypeScript counts as used. The remaining 20 were genuine unused-locals / unused-imports cleanup across measure, render, rich-text, and assets modules.
+- **tsconfig: `verbatimModuleSyntax` enabled (M5b)** — Enforces `import type` discipline. Cascade was only 6 errors, all `HyphenatorOpts` runtime imports that needed splitting into `import type`. Well under the 30-line cascade-defer threshold.
+
+---
+
 ## [1.5.0] — 2026-05-24
 
 Architecture sprint completing the v1.4.0 god-file split debt. Six items shipped, single minor release. **No public API changes** — guarded by `test/public-api-surface.test.ts`. **No behavioral changes** — Item A's security-critical extraction guarded by new `test/validate-document-snapshot.test.ts` (68 fixtures, bit-exact preservation verified).
