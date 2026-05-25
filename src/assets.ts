@@ -7,39 +7,15 @@ import { PretextPdfError } from './errors.js'
 import type { PluginDefinition } from './plugin-types.js'
 import { findPlugin, runPluginLoadAsset } from './plugin-registry.js'
 import { redactPath } from './assets/util/redact-path.js'
+import { assertPathAllowed } from './assets/security/path-allowlist.js'
 
 // v1.6.0 commit 4/16: redactPath extracted to assets/util/redact-path.ts.
-// Re-export so any external consumer that imports it from this module
-// (the previous home) keeps working.
-export { redactPath }
+// v1.6.0 commit 5/16: assertPathAllowed extracted to assets/security/path-allowlist.ts.
+// Re-exported here so existing consumers (fonts.ts, post-process.ts, the
+// public API surface) keep importing from `./assets.js` unchanged.
+export { redactPath, assertPathAllowed }
 
 // ─── Security helpers ─────────────────────────────────────────────────────────
-
-/**
- * Enforce allowedFileDirs: resolved absolute path must start with an allowed dir.
- * Deny-by-default: when allowedFileDirs is undefined or empty, file:// access is
- * rejected unless the caller explicitly configures the allowed directories.
- */
-export function assertPathAllowed(resolvedPath: string, allowedDirs: string[] | undefined, label: string): void {
-  if (!allowedDirs || allowedDirs.length === 0) {
-    throw new PretextPdfError(
-      'PATH_TRAVERSAL',
-      `${label} src uses a local file path but doc.allowedFileDirs is not set. ` +
-      `Configure allowedFileDirs to explicitly list the directories from which files may be read.`
-    )
-  }
-  const norm = resolvedPath.replace(/\\/g, '/')
-  const allowed = allowedDirs.some(dir => {
-    const d = dir.replace(/\\/g, '/').replace(/\/$/, '')
-    return norm === d || norm.startsWith(d + '/')
-  })
-  if (!allowed) {
-    throw new PretextPdfError(
-      'PATH_TRAVERSAL',
-      `${label} src is outside allowedFileDirs. Configure doc.allowedFileDirs to include the file's directory.`
-    )
-  }
-}
 
 /**
  * Normalize alternative IPv4 notations to dotted-decimal form so the
