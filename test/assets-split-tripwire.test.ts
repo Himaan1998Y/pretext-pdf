@@ -136,22 +136,11 @@ function extractError(err: unknown): CapturedError {
  * we can call the internal function for sanitizer assertions.
  */
 async function getSanitizer(): Promise<(svg: string) => string> {
-  // sanitizeSvg is not exported. We re-derive the behavior by importing the
-  // source module text and instantiating its regex stripping in-line here.
-  // Keeping in sync with src/assets.ts sanitizeSvg() is the whole point of
-  // this tripwire — if the source diverges, MA-4/MA-5 fixtures will surface
-  // the change.
-  return (svg: string): string => {
-    if (svg.length > 5 * 1024 * 1024) return svg
-    let s = svg.replace(/<script\b[^>]*\/>/gi, '')
-    s = s.replace(/<script[\s\S]*?<\/script>/gi, '')
-    s = s.replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
-    s = s.replace(
-      /(<(?:image|use)\b[^>]*?)\s+(?:xlink:)?href\s*=\s*["'](?:file|data|javascript):[^"']*["']/gi,
-      '$1',
-    )
-    return s
-  }
+  // v1.6.0 Phase 0a: sanitizeSvg is now exported from dist/assets.js so the
+  // tripwire couples directly to source behavior. Drift in src/assets.ts will
+  // surface here as a baseline mismatch.
+  const mod = (await import('../dist/assets.js')) as { sanitizeSvg: (s: string) => string }
+  return mod.sanitizeSvg
 }
 
 // ─── Mock HTTP server (fixtures 19–21) ────────────────────────────────────────

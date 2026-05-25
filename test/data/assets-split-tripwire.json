@@ -190,13 +190,13 @@
   "MA4-svg-foreignObject": {
     "kind": "sanitize",
     "result": {
-      "foreignObjectStripped": false
+      "foreignObjectStripped": true
     }
   },
   "MA5-svg-javascript-href": {
     "kind": "sanitize",
     "result": {
-      "javascriptHrefStripped": false
+      "javascriptHrefStripped": true
     }
   },
   "MA6-mixed-valid-and-ssrf": {
