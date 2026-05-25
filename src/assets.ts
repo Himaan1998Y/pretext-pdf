@@ -13,6 +13,7 @@ import {
   type ResolvedSafeUrl,
 } from './assets/security/url-validation.js'
 import { fetchWithTimeout } from './assets/security/fetch.js'
+import { sanitizeSvg, SVG_MAX_BYTES } from './assets/svg/sanitize.js'
 
 // v1.6.0 commit 4/16: redactPath extracted to assets/util/redact-path.ts.
 // v1.6.0 commit 5/16: assertPathAllowed extracted to assets/security/path-allowlist.ts.
@@ -24,62 +25,19 @@ import { fetchWithTimeout } from './assets/security/fetch.js'
 //   to assets/security/fetch.ts. (HIGH-RISK: undici Agent stays lazy — no
 //   module-level allocation in either old or new home.) The undici import
 //   moved with it.
+// v1.6.0 commit 9/16: sanitizeSvg + SVG_MAX_BYTES constant extracted to
+//   assets/svg/sanitize.ts. Re-exported here so svg-sanitizer.test.ts and
+//   the assets-split-tripwire keep working via dist/assets.js.
 // Re-exported here so existing consumers (fonts.ts, post-process.ts, the
 // public API surface, and direct test imports from `dist/assets.js`
-// — security-ssrf, security-ipv4-bypass, assets-dns-dedup) keep working
-// unchanged.
+// — security-ssrf, security-ipv4-bypass, assets-dns-dedup, svg-sanitizer)
+// keep working unchanged.
 export { redactPath, assertPathAllowed, normalizeIpv4Hostname }
 export { resolveAndValidateUrl, assertSafeUrl, fetchWithTimeout }
+export { sanitizeSvg }
 export type { ResolvedSafeUrl }
 
-// ─── Security helpers ─────────────────────────────────────────────────────────
-
-/**
- * Strip dangerous content from SVG before rasterization:
- * - <script> blocks
- * - on* event handler attributes
- * - <image>/<use> with file://, data:, or javascript: hrefs (local-file and injection vectors)
- * - <foreignObject> (HTML escape hatch into the SVG content model)
- * - <a> elements whose xlink:href / href use javascript:, vbscript:, or data:
- * - CSS expression(...) inside <style> blocks (legacy IE XSS vector)
- *
- * v1.6.0 Phase 0a (commit 3/16) added the last three to harden against
- * payloads that survived the previous regex chain.
- */
-export function sanitizeSvg(svg: string): string {
-  // Skip regex passes on oversized strings — canvas will reject them anyway
-  if (svg.length > SVG_MAX_BYTES) return svg
-  // Remove self-closing <script/> then paired <script>...</script> blocks
-  let s = svg.replace(/<script\b[^>]*\/>/gi, '')
-  s = s.replace(/<script[\s\S]*?<\/script>/gi, '')
-  // Remove event handler attributes (onload, onclick, onerror, etc.)
-  s = s.replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
-  // Remove <image> and <use> hrefs pointing to unsafe schemes
-  s = s.replace(
-    /(<(?:image|use)\b[^>]*?)\s+(?:xlink:)?href\s*=\s*["'](?:file|data|javascript):[^"']*["']/gi,
-    '$1'
-  )
-  // v1.6.0: strip <foreignObject> entirely — it's an HTML escape hatch and
-  // the only XML-in-SVG construct that can host arbitrary tags.
-  s = s.replace(/<foreignObject\b[^>]*\/>/gi, '')
-  s = s.replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, '')
-  // v1.6.0: strip dangerous hrefs from <a> (xlink:href or plain href).
-  // Drop only the attribute, not the whole <a>, so the surrounding text content
-  // (children of <a>) still renders.
-  s = s.replace(
-    /\s+(?:xlink:)?href\s*=\s*["'](?:javascript|vbscript|data):[^"']*["']/gi,
-    ''
-  )
-  // v1.6.0: strip CSS expression(...) inside <style> blocks. Replace just the
-  // expression call with an empty string so the surrounding stylesheet stays
-  // parseable.
-  s = s.replace(/expression\s*\([^)]*\)/gi, '')
-  return s
-}
-
 // ─── SVG helpers ──────────────────────────────────────────────────────────────
-
-const SVG_MAX_BYTES = 5 * 1024 * 1024  // 5 MB — prevent ReDoS on giant SVG strings
 
 function parseSvgViewBox(svg: string): { width: number; height: number } | null {
   if (svg.length > SVG_MAX_BYTES) return null
