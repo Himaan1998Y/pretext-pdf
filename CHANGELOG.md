@@ -7,6 +7,31 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.5.2] — 2026-05-25
+
+Security hotfix. **No public API changes.** **Upgrade recommended for any deployment that accepts user-controlled image / SVG URLs.**
+
+### Security
+
+- **CVE-class SSRF bypass via IPv4 alternative notations** — `isPrivateAddress` in `src/assets.ts` applied dotted-decimal regexes (`/^127\./`, `/^10\./`, …) against `URL#hostname`. The WHATWG URL parser does NOT normalize non-dotted IPv4 forms, so an attacker could reach private services by encoding the target in any inet_aton-compatible form:
+  - Pure decimal: `https://2130706433/x` → 127.0.0.1
+  - Pure hex: `https://0x7f000001/x` → 127.0.0.1
+  - Octal octet: `https://0177.0.0.1/x` → 127.0.0.1
+  - Hex octet: `https://0x7f.0.0.1/x` → 127.0.0.1
+  - Short form: `https://127.1/x` → 127.0.0.1
+
+  Without normalization, `parsed.hostname` is e.g. `"2130706433"`, the private-range regex chain misses it, the `isIpv4Literal` (4-dot) check misses it, and the URL falls through to DNS — which on Linux's `getaddrinfo` resolves to 127.0.0.1 and bypasses the SSRF guard. Same vector reaches RFC 1918 ranges (10/8, 192.168/16, 172.16/12), link-local (169.254.169.254 — AWS IMDS), and CGNAT.
+
+  **Fix:** new internal helper `normalizeIpv4Hostname()` implements inet_aton-style parsing (decimal/octal/hex per part, short-form packing for 1/2/3-part inputs, strict 32-bit range guard). `resolveAndValidateUrl` normalizes before the private-IP check AND before DNS, then treats the normalized form as an IP literal so undici never re-resolves a non-dotted private encoding. `isPrivateAddress` also normalizes its input as defense-in-depth on the post-DNS path. Public alternative encodings (e.g. `134744072` == 8.8.8.8) continue to resolve and fetch normally.
+
+  **Test coverage:** new `test/security-ipv4-bypass.test.ts` adds 24 cases — every blocked encoding above, public regression cases, plus direct unit tests for `normalizeIpv4Hostname` (round-trips, range guards, malformed-octal rejection, public-IP allowlist). Wired into the `test:phases` stage; phases stage grows from 417 to 441 tests.
+
+### Fixed
+
+- **`measure-blocks/float-group.ts` — fontSize fallback intent clarified** — v1.5.1 M5a removed a dead `baseFontSize = doc.defaultFontSize ?? 12` plus per-block `fontSize = block.fontSize || baseFontSize` local that was never read (the item assignment used `block.fontSize` directly). Audit of upstream measure helpers (measure-paragraph, measure-heading, …) confirms `block.fontSize` is always populated with a positive value for real content, so the fallback would never have fired in practice. Added a leading comment so future contributors don't reintroduce the fallback in the mistaken belief that `block.fontSize === 0` is a real case. No behavior change.
+
+---
+
 ## [1.5.1] — 2026-05-24
 
 Hotfix batch closing 9 audit findings from the 6-agent v1.5.0 review. **No public API changes** — guarded by `test/public-api-surface.test.ts`. **No behavior changes other than the documented fixes**. Snapshot baseline expanded from 68 to 73 fixtures (5 new: 2 metadata.keywords + 3 watermark.image).
