@@ -1,5 +1,4 @@
 import { PDFDocument } from '@cantoo/pdf-lib'
-import { Agent, fetch as undiciFetch } from 'undici'
 import type { PdfDocument, ImageElement, SvgElement, QrCodeElement, BarcodeElement, ChartElement, Logger } from './types.js'
 import type { ImageMap } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
@@ -13,6 +12,7 @@ import {
   assertSafeUrl,
   type ResolvedSafeUrl,
 } from './assets/security/url-validation.js'
+import { fetchWithTimeout } from './assets/security/fetch.js'
 
 // v1.6.0 commit 4/16: redactPath extracted to assets/util/redact-path.ts.
 // v1.6.0 commit 5/16: assertPathAllowed extracted to assets/security/path-allowlist.ts.
@@ -20,107 +20,19 @@ import {
 // v1.6.0 commit 7/16: URL validation (resolveAndValidateUrl, assertSafeUrl,
 //   ResolvedSafeUrl, plus private isPrivateAddress) extracted to
 //   assets/security/url-validation.ts.
+// v1.6.0 commit 8/16: fetchWithTimeout + private createPinnedAgent extracted
+//   to assets/security/fetch.ts. (HIGH-RISK: undici Agent stays lazy — no
+//   module-level allocation in either old or new home.) The undici import
+//   moved with it.
 // Re-exported here so existing consumers (fonts.ts, post-process.ts, the
 // public API surface, and direct test imports from `dist/assets.js`
 // — security-ssrf, security-ipv4-bypass, assets-dns-dedup) keep working
 // unchanged.
 export { redactPath, assertPathAllowed, normalizeIpv4Hostname }
-export { resolveAndValidateUrl, assertSafeUrl }
+export { resolveAndValidateUrl, assertSafeUrl, fetchWithTimeout }
 export type { ResolvedSafeUrl }
 
 // ─── Security helpers ─────────────────────────────────────────────────────────
-
-/**
- * Build an undici Agent whose every TCP connection is pinned to the supplied
- * pre-validated IP. Closes the DNS-rebinding TOCTOU window: even if DNS is
- * re-resolved by the runtime mid-flight, the socket targets the IP we already
- * confirmed is public.
- *
- * Caller MUST `close()` the agent after the fetch completes.
- */
-function createPinnedAgent(ip: string, family: 4 | 6): Agent {
-  return new Agent({
-    connect: {
-      // Undici accepts a Node `dns.lookup`-compatible function here.
-      // We unconditionally return the pre-validated IP so a malicious DNS
-      // server cannot rebind to a private address between validation and
-      // connect.
-      lookup: (
-        _hostname: string,
-        _options: unknown,
-        cb: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
-      ): void => {
-        cb(null, ip, family)
-      },
-    },
-  })
-}
-
-/**
- * Fetch with a hard 10-second timeout AND a manual redirect chain that
- * re-validates each hop against `resolveAndValidateUrl`. Without manual
- * redirect handling, a public URL could 302 to `http://127.0.0.1:8080/internal`
- * and bypass the upfront check — the connection would still be made to
- * the private target.
- *
- * Each hop creates a fresh undici Agent that pins the socket to the IP
- * that just passed validation. This defeats DNS-rebinding TOCTOU attacks
- * where an attacker controls a TTL=0 DNS record and swaps the answer
- * between our `dns.lookup()` and the actual TCP connect.
- */
-export async function fetchWithTimeout(
-  url: string,
-  errorCode: 'IMAGE_LOAD_FAILED' | 'SVG_LOAD_FAILED',
-  label: string
-): Promise<Response> {
-  const MAX_REDIRECTS = 3
-  let currentUrl = url
-  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    const { url: parsed, ip, family } = await resolveAndValidateUrl(currentUrl, errorCode, label)
-
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 10_000)
-
-    // Only create a pinned dispatcher when we have a resolved IP. For
-    // IP-literal hosts or DNS-unavailable cases we let undici handle
-    // resolution itself (a DNS failure there is already safe).
-    const pinnedAgent = ip && family ? createPinnedAgent(ip, family) : null
-
-    let res: Response
-    try {
-      const fetchOpts: Parameters<typeof undiciFetch>[1] = {
-        signal: controller.signal,
-        redirect: 'manual',
-      }
-      if (pinnedAgent) {
-        // `dispatcher` is an undici-specific extension; cast keeps fetch
-        // typings happy without leaking undici types into the public API.
-        ;(fetchOpts as unknown as { dispatcher: Agent }).dispatcher = pinnedAgent
-      }
-      res = (await undiciFetch(parsed.toString(), fetchOpts)) as unknown as Response
-    } finally {
-      clearTimeout(timer)
-      if (pinnedAgent) {
-        // Don't block the caller on agent shutdown; swallow close errors.
-        void pinnedAgent.close().catch(() => undefined)
-      }
-    }
-
-    // Undici fetch does not produce `opaqueredirect`, but keep parity with
-    // the browser-fetch contract: if we somehow get one, refuse.
-    if (res.type === 'opaqueredirect') {
-      throw new PretextPdfError(errorCode, `${label}: cannot follow opaque redirect. Pre-resolve the URL.`)
-    }
-    if (res.status >= 300 && res.status < 400) {
-      const loc = res.headers.get('Location')
-      if (!loc) throw new PretextPdfError(errorCode, `${label}: redirect (${res.status}) with no Location header`)
-      currentUrl = new URL(loc, parsed).toString()
-      continue
-    }
-    return res
-  }
-  throw new PretextPdfError(errorCode, `${label}: too many redirects (max ${MAX_REDIRECTS})`)
-}
 
 /**
  * Strip dangerous content from SVG before rasterization:
