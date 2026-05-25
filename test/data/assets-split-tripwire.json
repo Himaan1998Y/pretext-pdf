@@ -1,0 +1,212 @@
+{
+  "F1-file-passwd-no-allowedFileDirs": {
+    "kind": "error",
+    "result": {
+      "errorCode": "VALIDATION_ERROR",
+      "message": "content[0] (image): 'src': URL scheme not allowed — only http, https, mailto, ftp, and anchor (#) links are permitted. Got: \"file:///etc/passwd\""
+    }
+  },
+  "F2-path-outside-allowedFileDirs": {
+    "kind": "error",
+    "result": {
+      "errorCode": "PATH_TRAVERSAL",
+      "message": "Image \"img-0\" src is outside allowedFileDirs. Configure doc.allowedFileDirs to include the file's directory."
+    }
+  },
+  "F3-loopback-127": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": connections to private or internal addresses are not allowed"
+    }
+  },
+  "F4-aws-imds": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": connections to private or internal addresses are not allowed"
+    }
+  },
+  "F5-ipv6-loopback": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": connections to private or internal addresses are not allowed"
+    }
+  },
+  "F6-ipv4-mapped-dotted": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": connections to private or internal addresses are not allowed"
+    }
+  },
+  "F7-ipv4-mapped-hex": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": connections to private or internal addresses are not allowed"
+    }
+  },
+  "F8-rfc1918-10": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": connections to private or internal addresses are not allowed"
+    }
+  },
+  "F9-rfc1918-172": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": connections to private or internal addresses are not allowed"
+    }
+  },
+  "F10-rfc1918-192": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": connections to private or internal addresses are not allowed"
+    }
+  },
+  "F11-cgnat": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": connections to private or internal addresses are not allowed"
+    }
+  },
+  "F12-ipv6-ula": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": connections to private or internal addresses are not allowed"
+    }
+  },
+  "F13-ipv6-link-local": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": connections to private or internal addresses are not allowed"
+    }
+  },
+  "F14-plaintext-http": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": HTTP URLs are not allowed — use HTTPS"
+    }
+  },
+  "F15-data-url": {
+    "kind": "error",
+    "result": {
+      "errorCode": "VALIDATION_ERROR",
+      "message": "content[0] (image): 'src': URL scheme not allowed — only http, https, mailto, ftp, and anchor (#) links are permitted. Got: \"data:image/png;base64,iVBORw0KGgo=\""
+    }
+  },
+  "F16-javascript": {
+    "kind": "error",
+    "result": {
+      "errorCode": "VALIDATION_ERROR",
+      "message": "content[0] (image): 'src': URL scheme not allowed — only http, https, mailto, ftp, and anchor (#) links are permitted. Got: \"javascript:alert(1)\""
+    }
+  },
+  "F17-ftp": {
+    "kind": "error",
+    "result": {
+      "errorCode": "PATH_TRAVERSAL",
+      "message": "Image \"img-0\" src uses a local file path but doc.allowedFileDirs is not set. Configure allowedFileDirs to explicitly list the directories from which files may be read."
+    }
+  },
+  "F18-invalid-url": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": invalid URL"
+    }
+  },
+  "F19-redirect-to-loopback": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": HTTP URLs are not allowed — use HTTPS"
+    }
+  },
+  "F20-redirect-chain-too-many": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": HTTP URLs are not allowed — use HTTPS"
+    }
+  },
+  "F21-redirect-no-location": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": HTTP URLs are not allowed — use HTTPS"
+    }
+  },
+  "F22-svg-file-passwd": {
+    "kind": "error",
+    "result": {
+      "errorCode": "VALIDATION_ERROR",
+      "message": "content[0] (svg): 'src' must be an absolute file path or an https:// URL"
+    }
+  },
+  "F23-watermark-passwd": {
+    "kind": "error",
+    "result": {
+      "errorCode": "PATH_TRAVERSAL",
+      "message": "watermark image src uses a local file path but doc.allowedFileDirs is not set. Configure allowedFileDirs to explicitly list the directories from which files may be read."
+    }
+  },
+  "F24-svg-script-stripped": {
+    "kind": "sanitize",
+    "result": {
+      "scriptStripped": true
+    }
+  },
+  "MA1-decimal-ipv4": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": connections to private or internal addresses are not allowed"
+    }
+  },
+  "MA2-octal-ipv4": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": connections to private or internal addresses are not allowed"
+    }
+  },
+  "MA3-whitespace-padded": {
+    "kind": "error",
+    "result": {
+      "errorCode": "PATH_TRAVERSAL",
+      "message": "Image \"img-0\" src uses a local file path but doc.allowedFileDirs is not set. Configure allowedFileDirs to explicitly list the directories from which files may be read."
+    }
+  },
+  "MA4-svg-foreignObject": {
+    "kind": "sanitize",
+    "result": {
+      "foreignObjectStripped": false
+    }
+  },
+  "MA5-svg-javascript-href": {
+    "kind": "sanitize",
+    "result": {
+      "javascriptHrefStripped": false
+    }
+  },
+  "MA6-mixed-valid-and-ssrf": {
+    "kind": "mixed",
+    "result": {
+      "firstSucceeded": true,
+      "secondCaptured": {
+        "errorCode": "IMAGE_LOAD_FAILED",
+        "message": "Image \"img-1\": failed to fetch URL: Image \"img-1\": connections to private or internal addresses are not allowed"
+      }
+    }
+  }
+}
