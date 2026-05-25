@@ -601,7 +601,7 @@ export interface PluginRenderContext {
 
 // @public
 export class PretextPdfError extends Error {
-    constructor(code: ErrorCode, message: string);
+    constructor(code: ErrorCode, message: string, options?: ErrorOptions);
     // (undocumented)
     readonly code: ErrorCode;
 }

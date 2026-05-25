@@ -7,6 +7,65 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.6.0] — 2026-05-25
+
+Internal restructuring + SVG sanitizer hardening. **No public API changes.** The previously-monolithic `src/assets.ts` (961 lines pre-sprint) has been split into 10 focused files under `src/assets/`. A 14-line back-compat shim at `src/assets.ts` re-exports the barrel so every existing consumer (internal modules, public API, and direct test imports via `dist/assets.js`) keeps working unchanged.
+
+### Security
+
+- **SVG sanitizer hardening** — `sanitizeSvg` now strips three additional payload classes that survived the previous regex chain:
+  - **`<foreignObject>` blocks** — the only XML-in-SVG construct that can host arbitrary HTML/XML namespaces. Both self-closing and paired forms are removed wholesale; sibling SVG primitives (`<rect/>`, `<path/>`, etc.) are preserved.
+  - **`javascript:` / `vbscript:` / `data:` hrefs on `<a>` elements** — previously only `<image>`/`<use>` hrefs were filtered. Only the dangerous href attribute is dropped, so the `<a>` element's text children still render.
+  - **CSS `expression(...)` calls inside `<style>` blocks** — legacy IE XSS vector. Only the `expression(...)` call site is excised; the surrounding stylesheet remains parseable.
+
+  Coverage: new `test/svg-sanitizer.test.ts` (10 cases) plus expanded MA-4 / MA-5 fixtures in `test/data/assets-split-tripwire.json` (30 fixtures total).
+
+### Changed
+
+- **`src/assets.ts` split into 10 files** under `src/assets/` (see Internal). No public API change — the file at `src/assets.ts` is now a 14-line re-export shim that aggregates the new barrel `src/assets/index.ts`. Consumers importing from `dist/assets.js` continue to resolve every previously-public symbol (`loadImages`, `assertPathAllowed`, `sanitizeSvg`, `assertSafeUrl`, `resolveAndValidateUrl`, `normalizeIpv4Hostname`, `fetchWithTimeout`, `redactPath`, `VECTOR_RASTER_CONCURRENCY`, plus the `ResolvedSafeUrl` type) at the same module path.
+- **`PretextPdfError` constructor signature snapshot refreshed** — `etc/pretext-pdf.api.md` now reflects the `options?: ErrorOptions` parameter that was added in v1.2.1 but never re-snapshotted. No code change — the parameter has been live for several releases. The snapshot was stale; this release reconciles it.
+
+### Internal
+
+- **New `src/assets/` directory layout:**
+  ```
+  src/assets/
+  ├── index.ts                    # internal barrel
+  ├── util/
+  │   └── redact-path.ts          # commit 4
+  ├── security/
+  │   ├── path-allowlist.ts       # commit 5
+  │   ├── ipv4-normalize.ts       # commit 6
+  │   ├── url-validation.ts       # commit 7
+  │   └── fetch.ts                # commit 8 (undici Agent stays lazy)
+  ├── svg/
+  │   ├── sanitize.ts             # commit 9 (+ SVG_MAX_BYTES)
+  │   ├── dimensions.ts           # commit 10
+  │   ├── resolve-content.ts      # commit 10
+  │   └── rasterize.ts            # commit 11 (@napi-rs/canvas dynamic)
+  ├── generators/
+  │   ├── qr.ts                   # commit 12 (qrcode dynamic)
+  │   ├── barcode.ts              # commit 12 (bwip-js dynamic)
+  │   └── chart.ts                # commit 12 (vega/vega-lite dynamic)
+  └── loaders/
+      ├── images.ts               # commit 13
+      ├── vectors.ts              # commit 14
+      ├── watermark.ts            # commit 15
+      └── orchestrator.ts         # commit 15 (top-level loadImages)
+  ```
+  All optional peer-dependency dynamic imports (`@napi-rs/canvas`, `qrcode`, `bwip-js`, `vega`, `vega-lite`, `undici`) are preserved as lazy loads — cold-start cost is unchanged.
+- **7 verification gates (G1–G7) added** to catch regressions during the split:
+  - **G1** Snapshot tripwire (`test/assets-split-tripwire.test.ts`) — 30 fixtures covering sanitizer output, URL normalization, path allowlist, and error code surface
+  - **G2** DNS lookup dedup (`test/assets-dns-dedup.test.ts`)
+  - **G3** SSRF blocking (`test/security-ssrf.test.ts`, expanded)
+  - **G4** Parallel-render concurrency (`test/assets-concurrency.test.ts`) — 10× concurrent `render()` calls must produce bit-identical PDFs
+  - **G5** ErrorCode stability (`test/assets-errorcode-stability.test.ts`)
+  - **G6** api-extractor diff against `etc/pretext-pdf.api.md`
+  - **G7** Cold-start perf (`test/assets-perf-coldstart.test.ts`, baseline at `test/data/perf-coldstart-baseline.json`) — 100 sequential renders within 2.5× the v1.5.2 baseline
+- **G7 measurement on the final shim**: 12,224ms / 100 renders (vs 21,205ms baseline = -42%, i.e. the split happens to be *faster*, well under the upper bound).
+
+---
+
 ## [1.5.2] — 2026-05-25
 
 Security hotfix. **No public API changes.** **Upgrade recommended for any deployment that accepts user-controlled image / SVG URLs.**
