@@ -16,6 +16,7 @@ import { fetchWithTimeout } from './assets/security/fetch.js'
 import { sanitizeSvg } from './assets/svg/sanitize.js'
 import { resolveSvgDimensions } from './assets/svg/dimensions.js'
 import { resolveSvgContent } from './assets/svg/resolve-content.js'
+import { rasterizeSvgToPng } from './assets/svg/rasterize.js'
 
 // v1.6.0 commit 4/16: redactPath extracted to assets/util/redact-path.ts.
 // v1.6.0 commit 5/16: assertPathAllowed extracted to assets/security/path-allowlist.ts.
@@ -33,6 +34,8 @@ import { resolveSvgContent } from './assets/svg/resolve-content.js'
 // v1.6.0 commit 10/16: parseSvgViewBox + parseSvgAttributes + resolveSvgDimensions
 //   moved to assets/svg/dimensions.ts. resolveSvgContent moved to
 //   assets/svg/resolve-content.ts. All callers are inside this module.
+// v1.6.0 commit 11/16: rasterizeSvgToPng moved to assets/svg/rasterize.ts.
+//   The @napi-rs/canvas dynamic import moved with it; lazy-load is preserved.
 // Re-exported here so existing consumers (fonts.ts, post-process.ts, the
 // public API surface, and direct test imports from `dist/assets.js`
 // — security-ssrf, security-ipv4-bypass, assets-dns-dedup, svg-sanitizer)
@@ -142,42 +145,6 @@ async function generateChartSvg(el: ChartElement, contentWidth: number): Promise
     throw new PretextPdfError(
       'CHART_RENDER_FAILED',
       `Chart SVG rendering failed: ${err instanceof Error ? err.message : String(err)}`
-    )
-  }
-}
-
-// ─── SVG → PDF image ──────────────────────────────────────────────────────────
-
-/**
- * Rasterize an SVG string to a PNG buffer at 2x scale.
- * Pure compute — no pdf-lib interaction — so it is safe to run in parallel.
- */
-async function rasterizeSvgToPng(svg: string, widthPt: number, heightPt: number): Promise<Buffer> {
-  let canvasLib: any
-  try {
-    canvasLib = await import('@napi-rs/canvas' as string)
-  } catch {
-    throw new PretextPdfError(
-      'SVG_RENDER_FAILED',
-      'SVG rendering requires the optional dependency @napi-rs/canvas. Install it with: pnpm add @napi-rs/canvas'
-    )
-  }
-
-  const scale = 2
-  const widthPx = Math.round(widthPt * scale)
-  const heightPx = Math.round(heightPt * scale)
-
-  try {
-    const canvas = canvasLib.createCanvas(widthPx, heightPx)
-    const ctx = canvas.getContext('2d')
-    const img = new canvasLib.Image()
-    img.src = Buffer.from(svg)
-    ctx.drawImage(img, 0, 0, widthPx, heightPx)
-    return canvas.toBuffer('image/png')
-  } catch (err) {
-    throw new PretextPdfError(
-      'SVG_RENDER_FAILED',
-      `Failed to rasterize SVG: ${err instanceof Error ? err.message : String(err)}`
     )
   }
 }
