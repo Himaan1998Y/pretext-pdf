@@ -67,4 +67,35 @@ describe('v1.3.2 #8 — DNS resolution de-duplication for remote assets', () => 
     // The fix removes the standalone assertSafeUrl, dropping count to 1.
     assert.equal(count, 2, `Sanity check: old pattern (assertSafeUrl + fetchWithTimeout) should call lookup twice, got ${count}`)
   })
+
+  // ─── G2 (v1.6.0) — render-level DNS lookup count ────────────────────────────
+  // The dedup tests above operate at the fetchWithTimeout boundary. G2 wraps
+  // the lookup spy around a full render() call with a single remote image,
+  // confirming the entire pipeline (loadImages → loadImageBytes →
+  // fetchWithTimeout → resolveAndValidateUrl) performs exactly ONE DNS lookup
+  // per unique hostname. This is the high-level guarantee for the assets.ts
+  // split: if extraction reintroduces an upfront assertSafeUrl somewhere, the
+  // count flips to 2 and we catch it.
+  test('G2 — full render() with 1 remote image performs exactly 1 dns.lookup', async () => {
+    const { render } = await import('../dist/index.js') as any
+    const hostname = 'no-such-host-pretext-pdf-test-g2-render.invalid'
+    spy.counter.clear()
+    try {
+      await render({
+        content: [
+          { type: 'image', src: `https://${hostname}/x.png`, width: 50, height: 50 },
+        ],
+      })
+    } catch {
+      // Render may swallow image errors via warning — that's fine. We only
+      // care about the lookup count.
+    }
+    const count = spy.counter.get(hostname) ?? 0
+    assert.equal(
+      count, 1,
+      `G2 baseline: render() must call dns.lookup exactly once per remote hostname (got ${count}). ` +
+      `If this count drifted upward, an upfront assertSafeUrl was reintroduced somewhere — ` +
+      `find and remove it.`,
+    )
+  })
 })
