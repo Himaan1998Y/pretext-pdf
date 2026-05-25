@@ -6,6 +6,12 @@ import type { ImageMap } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 import type { PluginDefinition } from './plugin-types.js'
 import { findPlugin, runPluginLoadAsset } from './plugin-registry.js'
+import { redactPath } from './assets/util/redact-path.js'
+
+// v1.6.0 commit 4/16: redactPath extracted to assets/util/redact-path.ts.
+// Re-export so any external consumer that imports it from this module
+// (the previous home) keeps working.
+export { redactPath }
 
 // ─── Security helpers ─────────────────────────────────────────────────────────
 
@@ -436,11 +442,6 @@ export function sanitizeSvg(svg: string): string {
   // parseable.
   s = s.replace(/expression\s*\([^)]*\)/gi, '')
   return s
-}
-
-/** Return just the filename from a path — used in error messages to avoid leaking directory structure */
-function redactPath(src: string): string {
-  return src.replace(/\\/g, '/').split('/').pop() ?? '(file)'
 }
 
 // ─── SVG helpers ──────────────────────────────────────────────────────────────
