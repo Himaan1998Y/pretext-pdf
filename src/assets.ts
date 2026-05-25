@@ -13,7 +13,9 @@ import {
   type ResolvedSafeUrl,
 } from './assets/security/url-validation.js'
 import { fetchWithTimeout } from './assets/security/fetch.js'
-import { sanitizeSvg, SVG_MAX_BYTES } from './assets/svg/sanitize.js'
+import { sanitizeSvg } from './assets/svg/sanitize.js'
+import { resolveSvgDimensions } from './assets/svg/dimensions.js'
+import { resolveSvgContent } from './assets/svg/resolve-content.js'
 
 // v1.6.0 commit 4/16: redactPath extracted to assets/util/redact-path.ts.
 // v1.6.0 commit 5/16: assertPathAllowed extracted to assets/security/path-allowlist.ts.
@@ -28,6 +30,9 @@ import { sanitizeSvg, SVG_MAX_BYTES } from './assets/svg/sanitize.js'
 // v1.6.0 commit 9/16: sanitizeSvg + SVG_MAX_BYTES constant extracted to
 //   assets/svg/sanitize.ts. Re-exported here so svg-sanitizer.test.ts and
 //   the assets-split-tripwire keep working via dist/assets.js.
+// v1.6.0 commit 10/16: parseSvgViewBox + parseSvgAttributes + resolveSvgDimensions
+//   moved to assets/svg/dimensions.ts. resolveSvgContent moved to
+//   assets/svg/resolve-content.ts. All callers are inside this module.
 // Re-exported here so existing consumers (fonts.ts, post-process.ts, the
 // public API surface, and direct test imports from `dist/assets.js`
 // — security-ssrf, security-ipv4-bypass, assets-dns-dedup, svg-sanitizer)
@@ -36,81 +41,6 @@ export { redactPath, assertPathAllowed, normalizeIpv4Hostname }
 export { resolveAndValidateUrl, assertSafeUrl, fetchWithTimeout }
 export { sanitizeSvg }
 export type { ResolvedSafeUrl }
-
-// ─── SVG helpers ──────────────────────────────────────────────────────────────
-
-function parseSvgViewBox(svg: string): { width: number; height: number } | null {
-  if (svg.length > SVG_MAX_BYTES) return null
-  const match = svg.match(/viewBox=["']([^"']+)["']/)
-  if (!match) return null
-  const parts = match[1]!.split(/[\s,]+/).map(Number)
-  const w = parts[2], h = parts[3]
-  if (!w || !h || !isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return null
-  return { width: w, height: h }
-}
-
-function parseSvgAttributes(svg: string): { width: number; height: number } | null {
-  if (svg.length > SVG_MAX_BYTES) return null
-  const wMatch = svg.match(/<svg[^>]*\swidth=["'](\d+(?:\.\d+)?)["']/)
-  const hMatch = svg.match(/<svg[^>]*\sheight=["'](\d+(?:\.\d+)?)["']/)
-  if (!wMatch || !hMatch) return null
-  const w = Number(wMatch[1]), h = Number(hMatch[1])
-  if (!w || !h || w <= 0 || h <= 0) return null
-  return { width: w, height: h }
-}
-
-function resolveSvgDimensions(el: SvgElement, contentWidth: number): { widthPt: number; heightPt: number } {
-  const svgStr = el.svg ?? ''
-  const viewbox = parseSvgViewBox(svgStr) ?? parseSvgAttributes(svgStr)
-  const aspectRatio = viewbox ? viewbox.height / viewbox.width : null
-
-  if (el.width !== undefined && el.height !== undefined) {
-    return { widthPt: el.width, heightPt: el.height }
-  }
-  if (el.width !== undefined) {
-    return { widthPt: el.width, heightPt: aspectRatio !== null ? el.width * aspectRatio : el.width }
-  }
-  if (el.height !== undefined) {
-    return { widthPt: aspectRatio !== null ? el.height / aspectRatio : el.height, heightPt: el.height }
-  }
-  const widthPt = contentWidth
-  const heightPt = aspectRatio !== null ? widthPt * aspectRatio : 200
-  return { widthPt, heightPt }
-}
-
-/**
- * Resolve SVG content string from either an inline `svg` field or a `src` file/URL.
- * Throws PretextPdfError if neither is provided or the source cannot be loaded.
- */
-async function resolveSvgContent(el: SvgElement, allowedFileDirs?: string[]): Promise<string> {
-  if (el.svg) return sanitizeSvg(el.svg)
-
-  if (!el.src) {
-    throw new PretextPdfError('SVG_LOAD_FAILED', "SvgElement requires either 'svg' (inline string) or 'src' (file path or https:// URL)")
-  }
-
-  if (el.src.startsWith('https://') || el.src.startsWith('http://')) {
-    // SSRF validation happens inside fetchWithTimeout — no need to pre-validate
-    let resp: Response
-    try {
-      resp = await fetchWithTimeout(el.src, 'SVG_LOAD_FAILED', 'SVG')
-    } catch (err) {
-      throw new PretextPdfError('SVG_LOAD_FAILED', `SVG URL fetch failed: ${err instanceof Error ? err.message : String(err)}`)
-    }
-    if (!resp.ok) {
-      throw new PretextPdfError('SVG_LOAD_FAILED', `SVG URL returned HTTP ${resp.status}`)
-    }
-    return sanitizeSvg(await resp.text())
-  }
-
-  const [fs, pathMod] = await Promise.all([import('fs'), import('path')])
-  const filePath = pathMod.resolve(el.src)
-  assertPathAllowed(filePath, allowedFileDirs, 'SVG')
-  if (!fs.existsSync(filePath)) {
-    throw new PretextPdfError('SVG_LOAD_FAILED', `SVG file not found: "${redactPath(el.src)}"`)
-  }
-  return sanitizeSvg(fs.readFileSync(filePath, 'utf-8'))
-}
 
 // ─── QR Code generator ────────────────────────────────────────────────────────
 
