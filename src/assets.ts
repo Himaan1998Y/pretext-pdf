@@ -1,5 +1,5 @@
 import { PDFDocument } from '@cantoo/pdf-lib'
-import type { PdfDocument, ImageElement, SvgElement, QrCodeElement, BarcodeElement, ChartElement, Logger } from './types.js'
+import type { PdfDocument, ImageElement, SvgElement, Logger } from './types.js'
 import type { ImageMap } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 import type { PluginDefinition } from './plugin-types.js'
@@ -17,6 +17,9 @@ import { sanitizeSvg } from './assets/svg/sanitize.js'
 import { resolveSvgDimensions } from './assets/svg/dimensions.js'
 import { resolveSvgContent } from './assets/svg/resolve-content.js'
 import { rasterizeSvgToPng } from './assets/svg/rasterize.js'
+import { generateQrSvg } from './assets/generators/qr.js'
+import { generateBarcodeSvg } from './assets/generators/barcode.js'
+import { generateChartSvg } from './assets/generators/chart.js'
 
 // v1.6.0 commit 4/16: redactPath extracted to assets/util/redact-path.ts.
 // v1.6.0 commit 5/16: assertPathAllowed extracted to assets/security/path-allowlist.ts.
@@ -36,6 +39,9 @@ import { rasterizeSvgToPng } from './assets/svg/rasterize.js'
 //   assets/svg/resolve-content.ts. All callers are inside this module.
 // v1.6.0 commit 11/16: rasterizeSvgToPng moved to assets/svg/rasterize.ts.
 //   The @napi-rs/canvas dynamic import moved with it; lazy-load is preserved.
+// v1.6.0 commit 12/16: generateQrSvg, generateBarcodeSvg, generateChartSvg
+//   moved to assets/generators/{qr,barcode,chart}.ts. Optional peer-dep
+//   dynamic imports (qrcode, bwip-js, vega, vega-lite) moved with them.
 // Re-exported here so existing consumers (fonts.ts, post-process.ts, the
 // public API surface, and direct test imports from `dist/assets.js`
 // — security-ssrf, security-ipv4-bypass, assets-dns-dedup, svg-sanitizer)
@@ -44,110 +50,6 @@ export { redactPath, assertPathAllowed, normalizeIpv4Hostname }
 export { resolveAndValidateUrl, assertSafeUrl, fetchWithTimeout }
 export { sanitizeSvg }
 export type { ResolvedSafeUrl }
-
-// ─── QR Code generator ────────────────────────────────────────────────────────
-
-async function generateQrSvg(el: QrCodeElement): Promise<string> {
-  type QRCodeModule = { toString: (data: string, opts: Record<string, unknown>) => Promise<string> }
-  let qrLib: QRCodeModule
-  try {
-    qrLib = await import('qrcode' as string) as QRCodeModule
-  } catch {
-    throw new PretextPdfError(
-      'QR_DEP_MISSING',
-      'qr-code elements require the qrcode package. Install it: npm install qrcode'
-    )
-  }
-  try {
-    return await qrLib.toString(el.data, {
-      type: 'svg',
-      errorCorrectionLevel: el.errorCorrectionLevel ?? 'M',
-      margin: el.margin ?? 4,
-      color: {
-        dark: el.foreground ?? '#000000',
-        light: el.background ?? '#ffffff',
-      },
-    })
-  } catch (err) {
-    throw new PretextPdfError(
-      'QR_GENERATE_FAILED',
-      `QR code generation failed: ${err instanceof Error ? err.message : String(err)}`
-    )
-  }
-}
-
-// ─── Barcode generator ────────────────────────────────────────────────────────
-
-async function generateBarcodeSvg(el: BarcodeElement): Promise<string> {
-  type BwipModule = { toSVG: (opts: Record<string, unknown>) => string }
-  let bwip: BwipModule
-  try {
-    bwip = await import('bwip-js' as string) as BwipModule
-  } catch {
-    throw new PretextPdfError(
-      'BARCODE_DEP_MISSING',
-      'barcode elements require the bwip-js package. Install it: npm install bwip-js'
-    )
-  }
-  try {
-    return bwip.toSVG({
-      bcid: el.symbology,
-      text: el.data,
-      scale: 3,
-      includetext: el.includeText !== false,
-    })
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    const isSymbology = msg.toLowerCase().includes('unknown') || msg.toLowerCase().includes('bcid')
-    throw new PretextPdfError(
-      isSymbology ? 'BARCODE_SYMBOLOGY_INVALID' : 'BARCODE_GENERATE_FAILED',
-      `Barcode generation failed (symbology: '${el.symbology}'): ${msg}`
-    )
-  }
-}
-
-// ─── Chart generator (vega-lite, optional) ────────────────────────────────────
-
-async function generateChartSvg(el: ChartElement, contentWidth: number): Promise<string> {
-  type VegaLiteModule = { compile: (spec: Record<string, unknown>) => { spec: Record<string, unknown> } }
-  type VegaLoader = { load: (uri: string, opt?: unknown) => Promise<string> }
-  type VegaModule = { View: new (spec: unknown, opts: Record<string, unknown>) => { toSVG: () => Promise<string> }; parse: (spec: unknown) => unknown; loader: () => VegaLoader }
-  let vegaLite: VegaLiteModule
-  let vega: VegaModule
-  try {
-    vegaLite = await import('vega-lite' as string) as VegaLiteModule
-    vega     = await import('vega' as string) as VegaModule
-  } catch {
-    throw new PretextPdfError(
-      'CHART_DEP_MISSING',
-      'chart elements require vega and vega-lite packages. Install them: npm install vega vega-lite'
-    )
-  }
-  let vegaSpec: Record<string, unknown>
-  try {
-    const specWithSize = { ...el.spec, width: el.width ?? contentWidth, height: el.height ?? 300 }
-    vegaSpec = vegaLite.compile(specWithSize).spec
-  } catch (err) {
-    throw new PretextPdfError(
-      'CHART_SPEC_INVALID',
-      `vega-lite spec compilation failed: ${err instanceof Error ? err.message : String(err)}`
-    )
-  }
-  try {
-    // Block all remote data loading to prevent SSRF — vega's default loader
-    // follows any data.url in the spec, which could reach internal services
-    const blockedLoader = vega.loader()
-    blockedLoader.load = (_uri: string): Promise<string> =>
-      Promise.reject(new Error('Remote data loading is disabled in pretext-pdf'))
-    const view = new vega.View(vega.parse(vegaSpec), { renderer: 'none', loader: blockedLoader })
-    return await view.toSVG()
-  } catch (err) {
-    throw new PretextPdfError(
-      'CHART_RENDER_FAILED',
-      `Chart SVG rendering failed: ${err instanceof Error ? err.message : String(err)}`
-    )
-  }
-}
 
 /** Maximum number of vector-asset rasterization tasks allowed to run in parallel. */
 export const VECTOR_RASTER_CONCURRENCY = 4
