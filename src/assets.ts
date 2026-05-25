@@ -20,6 +20,7 @@ import { rasterizeSvgToPng } from './assets/svg/rasterize.js'
 import { generateQrSvg } from './assets/generators/qr.js'
 import { generateBarcodeSvg } from './assets/generators/barcode.js'
 import { generateChartSvg } from './assets/generators/chart.js'
+import { loadImageBytes, resolveImageFormat } from './assets/loaders/images.js'
 
 // v1.6.0 commit 4/16: redactPath extracted to assets/util/redact-path.ts.
 // v1.6.0 commit 5/16: assertPathAllowed extracted to assets/security/path-allowlist.ts.
@@ -42,6 +43,8 @@ import { generateChartSvg } from './assets/generators/chart.js'
 // v1.6.0 commit 12/16: generateQrSvg, generateBarcodeSvg, generateChartSvg
 //   moved to assets/generators/{qr,barcode,chart}.ts. Optional peer-dep
 //   dynamic imports (qrcode, bwip-js, vega, vega-lite) moved with them.
+// v1.6.0 commit 13/16: loadImageBytes + resolveImageFormat moved to
+//   assets/loaders/images.ts. loadImages() orchestrator stays here for now.
 // Re-exported here so existing consumers (fonts.ts, post-process.ts, the
 // public API surface, and direct test imports from `dist/assets.js`
 // — security-ssrf, security-ipv4-bypass, assets-dns-dedup, svg-sanitizer)
@@ -290,83 +293,3 @@ export async function loadImages(doc: PdfDocument, pdfDoc: PDFDocument, contentW
   return imageMap
 }
 
-/**
- * Resolve the image format from the element spec, magic bytes, or file extension.
- * Priority: explicit 'png'/'jpg' → magic bytes → file extension → error.
- */
-function resolveImageFormat(el: ImageElement, bytes: Uint8Array, key: string): 'png' | 'jpg' {
-  if (el.format === 'png') return 'png'
-  if (el.format === 'jpg') return 'jpg'
-
-  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'png'
-  if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'jpg'
-
-  if (typeof el.src === 'string') {
-    const ext = el.src.toLowerCase().split('.').pop()
-    if (ext === 'png') return 'png'
-    if (ext === 'jpg' || ext === 'jpeg') return 'jpg'
-  }
-
-  throw new PretextPdfError(
-    'IMAGE_FORMAT_MISMATCH',
-    `Image "${key}": format could not be auto-detected. Specify format: 'png' or 'jpg' explicitly.`
-  )
-}
-
-/** Load image bytes from a URL, file path, or Uint8Array */
-async function loadImageBytes(el: ImageElement, key: string, allowedDirs?: string[]): Promise<Uint8Array> {
-  if (el.src instanceof Uint8Array) {
-    return el.src
-  }
-
-  const src = el.src
-
-  if (!src || typeof src !== 'string') {
-    throw new PretextPdfError('IMAGE_LOAD_FAILED', `Image "${key}": 'src' must be a non-empty string path, URL, or Uint8Array`)
-  }
-
-  if (src.startsWith('https://') || src.startsWith('http://')) {
-    // SSRF validation happens inside fetchWithTimeout — no need to pre-validate
-    let resp: Response
-    try {
-      resp = await fetchWithTimeout(src, 'IMAGE_LOAD_FAILED', `Image "${key}"`)
-    } catch (err) {
-      throw new PretextPdfError(
-        'IMAGE_LOAD_FAILED',
-        `Image "${key}": failed to fetch URL: ${err instanceof Error ? err.message : String(err)}`
-      )
-    }
-    if (!resp.ok) {
-      throw new PretextPdfError('IMAGE_LOAD_FAILED', `Image "${key}": URL returned HTTP ${resp.status}`)
-    }
-    try {
-      return new Uint8Array(await resp.arrayBuffer())
-    } catch (err) {
-      throw new PretextPdfError(
-        'IMAGE_LOAD_FAILED',
-        `Image "${key}": failed to read response body: ${err instanceof Error ? err.message : String(err)}`
-      )
-    }
-  }
-
-  const fs = await import('fs')
-  const pathMod = await import('path')
-  const filePath = pathMod.resolve(src)
-  assertPathAllowed(filePath, allowedDirs, `Image "${key}"`)
-
-  if (!fs.existsSync(filePath)) {
-    throw new PretextPdfError(
-      'IMAGE_LOAD_FAILED',
-      `Image "${key}": file not found — "${redactPath(src)}". Check the path in the image element's 'src' field.`
-    )
-  }
-
-  try {
-    return new Uint8Array(fs.readFileSync(filePath))
-  } catch (err) {
-    throw new PretextPdfError(
-      'IMAGE_LOAD_FAILED',
-      `Image "${key}": failed to read file "${redactPath(src)}": ${err instanceof Error ? err.message : String(err)}`
-    )
-  }
-}
