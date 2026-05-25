@@ -55,7 +55,18 @@ export async function measureFloatGroup(
   const imageRenderWidth = imageBlock.imageData!.renderWidth
   const imageRenderHeight = imageBlock.imageData!.renderHeight
 
-  // Measure each content element in the text column
+  // Measure each content element in the text column.
+  //
+  // NOTE (v1.5.2): an earlier draft computed `const baseFontSize =
+  // doc.defaultFontSize ?? 12` plus a per-block `const fontSize =
+  // block.fontSize || baseFontSize` fallback. v1.5.1 M5a removed both as
+  // unused locals (the item below assigns `block.fontSize` directly, so the
+  // local was never read). That removal is correct: upstream measure helpers
+  // (measure-paragraph, measure-heading, …) always populate `block.fontSize`
+  // with a positive value, so a `block.fontSize || baseFontSize` fallback
+  // would never fire in practice. Do NOT reintroduce the fallback without
+  // first finding a measure helper that returns `fontSize === 0` for real
+  // content.
   const textItems: Array<{
     lines: PretextLine[]
     richLines?: RichLine[]
