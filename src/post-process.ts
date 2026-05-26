@@ -17,18 +17,30 @@ export async function applySignature(
     SignPdf: any
   }
   type PlaceholderModule = {
-    pdflibAddPlaceholder: (opts: { pdfDoc: PDFDocument; reason?: string; location?: string; contactInfo?: string; name?: string }) => void
+    pdflibAddPlaceholder: (opts: { pdfDoc: import('pdf-lib').PDFDocument; reason?: string; location?: string; contactInfo?: string; name?: string }) => void
   }
   type SignerP12Module = {
     P12Signer: new (p12Buffer: Buffer | Uint8Array, options?: { passphrase?: string; asn1StrictParsing?: boolean }) => any
   }
+  type PdfLibModule = {
+    PDFDocument: typeof import('pdf-lib').PDFDocument
+  }
   let signpdfMod: SignpdfModule
   let placeholderMod: PlaceholderModule
   let signerP12Mod: SignerP12Module
+  let pdfLibMod: PdfLibModule
+  // NOTE: upstream `pdf-lib` (not @cantoo/pdf-lib) is used here for the
+  // placeholder hop only. @signpdf/placeholder-pdf-lib builds its placeholder
+  // objects with upstream pdf-lib classes (see pdflibAddPlaceholder.js), so
+  // the doc fed into it must be loaded with the matching pdf-lib variant to
+  // produce a serializer-compatible /ByteRange dictionary. Encryption stays
+  // on @cantoo/pdf-lib in applyEncryption — the two paths are mutually
+  // exclusive via the SIGNATURE_CERT_AND_ENCRYPTION guard.
   const signpdfPackages = [
     { name: '@signpdf/signpdf', load: () => import('@signpdf/signpdf' as string) },
     { name: '@signpdf/placeholder-pdf-lib', load: () => import('@signpdf/placeholder-pdf-lib' as string) },
     { name: '@signpdf/signer-p12', load: () => import('@signpdf/signer-p12' as string) },
+    { name: 'pdf-lib', load: () => import('pdf-lib' as string) },
   ] as const
   const missing: string[] = []
   const loaded: Record<string, unknown> = {}
@@ -42,12 +54,13 @@ export async function applySignature(
   if (missing.length > 0) {
     throw new PretextPdfError(
       'SIGNATURE_DEP_MISSING',
-      `Cryptographic signing requires the @signpdf/signpdf, @signpdf/placeholder-pdf-lib, and @signpdf/signer-p12 packages. Missing: ${missing.join(', ')}. Install: npm install ${missing.join(' ')}. NOTE: signing currently non-functional due to @cantoo/pdf-lib + @signpdf/placeholder-pdf-lib fork incompatibility — see CHANGELOG v1.3.6.`
+      `Cryptographic signing requires the @signpdf/signpdf, @signpdf/placeholder-pdf-lib, @signpdf/signer-p12, and pdf-lib packages. Missing: ${missing.join(', ')}. Install: npm install ${missing.join(' ')}.`
     )
   }
   signpdfMod = loaded['@signpdf/signpdf'] as SignpdfModule
   placeholderMod = loaded['@signpdf/placeholder-pdf-lib'] as PlaceholderModule
   signerP12Mod = loaded['@signpdf/signer-p12'] as SignerP12Module
+  pdfLibMod = loaded['pdf-lib'] as PdfLibModule
 
   const { SignPdf } = signpdfMod
   const { pdflibAddPlaceholder } = placeholderMod
@@ -72,7 +85,11 @@ export async function applySignature(
     throw new PretextPdfError('SIGNATURE_P12_LOAD_FAILED', 'Failed to load P12 certificate')
   }
 
-  const pdfDoc = await PDFDocument.load(pdfBytes)
+  // Load with upstream pdf-lib (not @cantoo/pdf-lib) so the doc instance
+  // shares the exact same PDFArray/PDFNumber/PDFName classes that
+  // placeholder-pdf-lib uses internally — otherwise the serializer emits a
+  // /ByteRange dict the signpdf parser cannot find.
+  const pdfDoc = await pdfLibMod.PDFDocument.load(pdfBytes)
   pdflibAddPlaceholder({
     pdfDoc,
     reason:      sig.reason      ?? 'Signed',
