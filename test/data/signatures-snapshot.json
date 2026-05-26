@@ -1,0 +1,10 @@
+{
+  "hasPdfMagic": true,
+  "hasByteRange": true,
+  "byteRangeArity": 4,
+  "hasAcroForm": true,
+  "fieldsArrayPresent": true,
+  "sigFlags": 3,
+  "hasSigType": true,
+  "hasContentsHex": true
+}
