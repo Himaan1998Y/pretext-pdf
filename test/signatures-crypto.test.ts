@@ -166,12 +166,7 @@ test('Phase 9A — Cryptographic Signatures', async (t) => {
     assert.ok(pdf instanceof Uint8Array, 'Invisible sig works without p12')
   })
 
-  // KNOWN-BROKEN: pretext-pdf signing path is non-functional end-to-end.
-  // @cantoo/pdf-lib serializer is fork-incompatible with @signpdf/placeholder-pdf-lib —
-  // emits malformed /ByteRange dict. Discovered 2026-05-23. Architectural follow-up needed.
-  // Three fix paths: placeholder-plain swap (breaks AcroForm), port to cantoo primitives,
-  // or merge-bytes approach. Test is correct; skip until signing is repaired.
-  await t.test('P12 signature verifies cryptographically (real CMS verify)', { skip: 'signing path non-functional — see comment above' }, async () => {
+  await t.test('P12 signature verifies cryptographically (real CMS verify)', async () => {
     // Build a self-signed P12 in-memory and sign a real document with it.
     const { p12Bytes, passphrase } = buildSelfSignedP12('crypto-verify-pass')
 
@@ -279,6 +274,16 @@ test('Phase 9A — Cryptographic Signatures', async (t) => {
     badVerifier.update(tampered)
     const tamperedVerified = badVerifier.verify(signerPubKey, signatureBytes)
     assert.equal(tamperedVerified, false, 'Tampered data must NOT verify')
+
+    // AcroForm regression assertion — any valid signed PDF must carry an
+    // AcroForm dict with at least one signature field, SigFlags=3 (SignaturesExist
+    // | AppendOnly), and a Sig object. If commit 1's placeholder swap loses
+    // any of these, this assertion is the canary.
+    const pdfText = pdf.toString('latin1')
+    assert.match(pdfText, /\/AcroForm\b/, 'Signed PDF must contain an /AcroForm dict')
+    assert.match(pdfText, /\/SigFlags\s+3\b/, 'AcroForm must declare /SigFlags 3')
+    assert.match(pdfText, /\/Type\s*\/Sig\b/, 'Signed PDF must contain a /Type /Sig object')
+    assert.match(pdfText, /\/Fields\s*\[/, 'AcroForm must contain a /Fields array')
   })
 
   await t.test('multiple signature fields in document', async () => {
