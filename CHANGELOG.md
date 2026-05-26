@@ -7,6 +7,36 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.7.0] — 2026-05-25
+
+Signing path repaired. **No public API changes.** The cryptographic signing pipeline has been architecturally broken end-to-end since v1.3.6 — calling `render({ signature: { p12, passphrase } })` would fail with `SIGNATURE_FAILED: PDF signing failed: No ByteRangeStrings found within PDF buffer`. v1.7.0 fixes it with a surgical change inside `applySignature`.
+
+### Fixed (critical)
+
+- **Signing path was architecturally broken since v1.3.6**. Root cause: `applySignature` loaded the placeholder doc via `@cantoo/pdf-lib`'s `PDFDocument.load`, then handed it to `@signpdf/placeholder-pdf-lib.pdflibAddPlaceholder`, which internally builds `/ByteRange` using **upstream** `pdf-lib`'s `PDFArray`/`PDFNumber`/`PDFName` classes (it imports them directly from `"pdf-lib"`). Cantoo's serializer doesn't recognize upstream's class instances and emitted a malformed `/ByteRange` dict; `@signpdf/utils.findByteRange` then aborted parsing with `No ByteRangeStrings found within PDF buffer`. Fix: load the doc via **upstream `pdf-lib`** for the placeholder hop only. Encryption stays on `@cantoo/pdf-lib` in `applyEncryption` — the two paths are mutually exclusive via the existing `SIGNATURE_CERT_AND_ENCRYPTION` guard, so we never need both pdf-libs active simultaneously. The previously KNOWN-BROKEN `test/signatures-crypto.test.ts → P12 signature verifies cryptographically (real CMS verify)` is now unskipped and green.
+
+### Added
+
+- **AcroForm regression assertion** inside `test/signatures-crypto.test.ts`. Any valid signed PDF must carry `/AcroForm`, `/Fields [...]`, `/SigFlags 3`, and a `/Type /Sig` object — these four properties are asserted on the signed bytes so a future regression that loses AcroForm structure surfaces immediately.
+- **Signature path snapshot tripwire** (`test/signatures-snapshot.test.ts` + `test/data/signatures-snapshot.json`). Captures the categorical structural shape of a signed PDF (presence of `/ByteRange`, `/AcroForm`, `/SigFlags` value, etc.) rather than byte offsets (which are document- and randomness-dependent). Wired into `test:phases`. Regenerate with `UPDATE_SNAPSHOT=1`.
+
+### Changed
+
+- **`pdf-lib` declared as an explicit optional peer dependency** (`^1.17.1`). It was previously only present transitively via `@signpdf/placeholder-pdf-lib`'s `dependencies`. Now it's a documented peer with `peerDependenciesMeta.pdf-lib.optional: true`, mirroring the existing `@signpdf/*` pattern. Users with `@signpdf/*` already installed need no action — npm satisfies the new peer from the existing transitive install.
+- **`SIGNATURE_DEP_MISSING` error message** now lists `pdf-lib` alongside the three `@signpdf/*` packages and drops the "currently non-functional due to fork incompatibility" disclaimer that was added in v1.3.6.
+
+### Migration
+
+None. Same `signature: { p12, passphrase, reason, contactInfo, signerName, location, page, invisible }` config. Same error codes (`SIGNATURE_DEP_MISSING`, `SIGNATURE_P12_LOAD_FAILED`, `SIGNATURE_FAILED`, `SIGNATURE_CERT_AND_ENCRYPTION`). One error message string changed: `SIGNATURE_DEP_MISSING` now mentions `pdf-lib` and no longer carries the "non-functional" disclaimer.
+
+### Verification
+
+- All 456 tests pass (was 454 pass + 1 skipped pre-fix; now 455 pass after unskip + 1 new snapshot test = 456 total).
+- Encryption-after-signing path still rejected with `SIGNATURE_CERT_AND_ENCRYPTION` (regression-tested).
+- All 7 v1.6.0 verification gates (G1–G7) still pass.
+
+---
+
 ## [1.6.0] — 2026-05-25
 
 Internal restructuring + SVG sanitizer hardening. **No public API changes.** The previously-monolithic `src/assets.ts` (961 lines pre-sprint) has been split into 10 focused files under `src/assets/`. A 14-line back-compat shim at `src/assets.ts` re-exports the barrel so every existing consumer (internal modules, public API, and direct test imports via `dist/assets.js`) keeps working unchanged.
