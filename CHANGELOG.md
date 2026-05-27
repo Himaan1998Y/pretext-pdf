@@ -7,6 +7,52 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.7.2] — 2026-05-28
+
+Internal hardening. No public API changes.
+
+### Fixed (silent failures → observable warnings)
+
+- **`render.ts` — `getForm()` bare-catch now logs a warning** — previously the error was swallowed silently with a comment. Now routes through the existing `warn()` bridge so structured-logger callers can observe it.
+
+- **`render-blocks/footnote.ts` — silent footnote drop on font miss now logs** — `if (!pdfFont) continue` now emits a `[pretext-pdf] footnote #N: font "key" not in fontMap — footnote skipped` warning to stderr before skipping.
+
+- **`measure-blocks/image.ts` — non-null assertion on `floatText` replaced with guard** — `element.floatText!` → `element.floatText !== undefined` guard. If neither `floatSpans` nor `floatText` is present, `textLines` stays empty and the float renders image-only (valid case) instead of crashing with `Cannot read properties of undefined`.
+
+### Fixed (code correctness)
+
+- **`compat.ts` — proto-pollution defense restored** — `copySafeStyleProperties` used `key in source` (traverses prototype chain) instead of `Object.hasOwn`. Replaced with `Object.hasOwn` and narrowed the `source` parameter from `any` to `unknown`, removing the unsafe `as any` cast at the assignment site.
+
+### Improved (exhaustiveness + type safety)
+
+- **`render-extras.ts` switch(el.fieldType)** — added `default` arm with runtime warning and TypeScript `never` guard. New `fieldType` values added without updating this switch will produce a compile error.
+
+- **`render-utils.ts` switch(align)** — added `default` arm with `satisfies never` guard and `startX` safe fallback. The `'left' | 'center' | 'right'` union is already exhaustive; the guard prevents silent breakage if the union ever widens.
+
+- **`fonts.ts` switch(el.type)** — added explicit `default: break` arm with a comment listing intentionally-unhandled types. Previously the fall-through silence could hide newly-added element types that do carry text (and would need glyph collection).
+
+### Fixed (stale comments)
+
+- **`types-public/render-options.ts`** — corrected false claim that bidi-js fallback warnings go to `console.warn` directly; they've been routed through `setBidiWarnFn` / the logger bridge since v1.3.x.
+
+- **`render-utils.ts` and `validate/helpers.ts`** — annotated the duplicate `SAFE_URL_SCHEME` regex with a `// NOTE: duplicated` comment pointing to the other location. Consolidation to a shared `url-utils.ts` leaf is deferred to v1.8.
+
+- **`assets/loaders/images.ts`** — corrected "still in assets.ts for this commit" → actual location `assets/loaders/orchestrator.ts`.
+
+- **`measure-text.ts`** — corrected "measure-blocks.ts call sites" → "call sites in measure-blocks/" (the file was split into a directory in v1.6.0).
+
+- **`fonts.ts`** — corrected inline comment `(assets.ts)` → `(assets/security/path-allowlist.ts)`.
+
+- **`measure.ts`** — corrected inline comment `(assets.ts)` → `(assets/loaders/orchestrator.ts)`.
+
+### Tests rewritten (theatrical → meaningful)
+
+- **`test/signatures-crypto.test.ts`** — `'SIGNATURE_DEP_MISSING when @signpdf/signpdf not installed'` renamed and rewritten as `'invisible-only signature: renders without p12, no crypto deps needed'`. The old test body had nothing to do with `SIGNATURE_DEP_MISSING`; the new body verifies that invisible signing without a `p12` path produces a valid PDF that does NOT contain a `/ByteRange` dict (confirming no PKCS#7 signing ran).
+
+- **`test/validate-concurrent.test.ts`** — The `'8 parallel validates'` test was vacuous: since `validateDocument` is synchronous, `parallel[i]` trivially equals `sequential[i]`. Replaced with a content-specific isolation test: 5 intentionally-broken docs are validated, and each result's error messages are asserted to mention a keyword specific to THAT doc's element type (e.g. paragraph errors mention "text", table errors mention "columns"). This catches module-level state leakage without relying on async interleaving.
+
+---
+
 ## [1.7.1] — 2026-05-27
 
 Security hardening for SVG sanitizer + schema accuracy fix for signing fields.

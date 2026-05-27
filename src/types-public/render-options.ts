@@ -29,10 +29,9 @@ export type RenderOptions = {
    * logger (pino, winston, etc.) in production so warnings remain searchable
    * and alertable.
    *
-   * Bidi-js fallback warnings from RTL reordering still go to `console.warn`
-   * directly. They are extremely rare (only fire when bidi-js itself errors)
-   * and routing them requires changes to deferred internal modules. This will
-   * be addressed in a future minor release.
+   * Bidi-js fallback warnings from RTL reordering are routed through this
+   * logger (since v1.3.x). They fire only when bidi-js itself errors on
+   * an input sequence and the internal `setBidiWarnFn` shim is active.
    *
    * See {@link Logger} for the interface contract.
    */

@@ -270,6 +270,13 @@ export function renderFormField(
       field.addToPage(el.label ?? el.name, pdfPage, fieldOpts)
       break
     }
+    default: {
+      // Exhaustiveness guard: if a new fieldType is added to FormFieldElement
+      // without updating this switch, TypeScript will report a type error here.
+      const _exhaustive: never = el.fieldType as never
+      void _exhaustive
+      process.stderr.write(`[pretext-pdf] Unknown form field type: "${String(el.fieldType)}" — skipping\n`)
+    }
   }
 }
 

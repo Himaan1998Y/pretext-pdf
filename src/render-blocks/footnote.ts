@@ -49,7 +49,10 @@ export function renderFootnoteZone(
     const fontFamily = def.fontFamily ?? doc.defaultFont ?? 'Inter'
     const fontKey = buildFontKey(fontFamily, 400, 'normal')
     const pdfFont = fontMap.get(fontKey)
-    if (!pdfFont) continue
+    if (!pdfFont) {
+      process.stderr.write(`[pretext-pdf] footnote #${number}: font "${fontKey}" not in fontMap — footnote skipped\n`)
+      continue
+    }
 
     currentPdfY -= lineHeight
 

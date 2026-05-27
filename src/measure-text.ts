@@ -6,7 +6,7 @@
 import { PretextPdfError } from './errors.js'
 
 // Module-level bidi warn bridge — lets render() thread a structured logger without
-// changing detectAndReorderRTL's call signature at all 6 measure-blocks.ts call sites.
+// changing detectAndReorderRTL's call signature at all 6 call sites in measure-blocks/.
 let _warnFn: (msg: string) => void = (msg) => console.warn(msg)
 
 export function setBidiWarnFn(fn: (msg: string) => void): void {

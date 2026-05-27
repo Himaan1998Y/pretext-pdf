@@ -6,6 +6,9 @@
 import { PDFDocument, PDFFont, PDFName, PDFNull, PDFRef, PDFString, rgb } from '@cantoo/pdf-lib'
 import { PretextPdfError } from './errors.js'
 
+// NOTE: this pattern is duplicated in src/validate/helpers.ts:SAFE_URL_SCHEME.
+// Importing from validate/ in a render module creates a wrong-direction
+// dependency. Consolidate to a shared src/url-utils.ts leaf module in v1.8.
 const SAFE_URL_SCHEME = /^(https?|mailto|ftp|#)/i
 
 /**
@@ -290,6 +293,10 @@ export function resolveX(
       return startX + (availableWidth - lineWidth) / 2
     case 'right':
       return startX + availableWidth - lineWidth
+    default: {
+      void (align satisfies never)
+      return startX // safe fallback: left-align unknown value
+    }
   }
 }
 

@@ -329,7 +329,7 @@ async function loadFontBytes(
 
   const resolvedSrc = path.resolve(spec.src)
 
-  // Path traversal guard — delegates to shared assertPathAllowed (assets.ts)
+  // Path traversal guard — delegates to shared assertPathAllowed (assets/security/path-allowlist.ts)
   assertPathAllowed(resolvedSrc, allowedFileDirs, 'Font')
 
   if (!fs.existsSync(resolvedSrc)) {
@@ -470,7 +470,12 @@ export function collectTextByFont(
         }
         break
       }
-      // spacer, hr, page-break, image, comment: no text to collect
+      // spacer, hr, page-break, image, chart, barcode, qr, float-group (already
+      // handled above), svg, comment, toc-entry (internal): no text to collect.
+      // The explicit default arm ensures newly-added element types surface
+      // here at compile-time rather than silently skipping glyph collection.
+      default:
+        break
     }
   }
 

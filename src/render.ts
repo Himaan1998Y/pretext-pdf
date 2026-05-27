@@ -146,7 +146,10 @@ export async function renderDocument(
     }
   } catch (e) {
     if (e instanceof PretextPdfError) throw e
-    // getForm() failed — not a critical error if no fields exist
+    // pdfDoc.getForm() can throw if the PDF has no form dictionary — that is
+    // expected for documents without form-field elements. Log at debug level
+    // so the non-fatal path is observable during troubleshooting.
+    warn(`[pretext-pdf] getForm() failed (non-fatal, no form fields expected): ${e instanceof Error ? e.message : String(e)}`)
   }
 
   return pdfDoc.save({ useObjectStreams: false })

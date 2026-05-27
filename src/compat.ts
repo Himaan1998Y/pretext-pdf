@@ -544,12 +544,17 @@ function mergeStyles(
   return merged
 }
 
-/** Copy only known-safe style properties, preventing prototype pollution */
-function copySafeStyleProperties(target: PdfmakeStyle, source: any): void {
+/** Copy only known-safe style properties, preventing prototype pollution.
+ *  Uses Object.hasOwn to skip inherited properties (including __proto__-polluted
+ *  values), and casts through Record<string,unknown> to avoid `as any` at the
+ *  assignment site — TypeScript enforces that keys must exist on PdfmakeStyle. */
+function copySafeStyleProperties(target: PdfmakeStyle, source: unknown): void {
+  if (typeof source !== 'object' || source === null) return
+  const src = source as Record<string, unknown>
   const safeKeys: (keyof PdfmakeStyle)[] = ['fontSize', 'bold', 'italics', 'color', 'alignment', 'font']
   for (const key of safeKeys) {
-    if (key in source && source[key] !== undefined) {
-      (target as any)[key] = source[key]
+    if (Object.hasOwn(src, key) && src[key] !== undefined) {
+      (target as Record<string, unknown>)[key] = src[key]
     }
   }
 }

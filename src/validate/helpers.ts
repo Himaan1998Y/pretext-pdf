@@ -79,6 +79,8 @@ export const RTL_REGEX = /[֐-ࣿיִ-ﭏﭐ-﷿ﹰ-﻿\u{10800}-\u{10CFF}\u{10D0
 export const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/
 
 /** Allowed URL schemes for hyperlinks — blocks javascript:, data:, vbscript: */
+// NOTE: this pattern is duplicated in src/render-utils.ts:SAFE_URL_SCHEME.
+// Consolidate to a shared src/url-utils.ts leaf module in v1.8.
 export const SAFE_URL_SCHEME = /^(https?|mailto|ftp|#)/i
 
 /** BCP47 language tag pattern for hyphenation.language — prevents dynamic-import path injection */

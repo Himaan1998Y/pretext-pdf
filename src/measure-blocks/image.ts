@@ -134,9 +134,9 @@ export async function measureFloatImageBlock(
 
   if (element.floatSpans) {
     richFloatLines = await measureRichText(element.floatSpans, fontSize, lineHeight, textColWidth, 'left', doc)
-  } else {
+  } else if (element.floatText !== undefined) {
     textLines = await measureText(
-      element.floatText!,
+      element.floatText,
       fontSize,
       fontFamily,
       400,
@@ -146,6 +146,8 @@ export async function measureFloatImageBlock(
       wordWidthCache,
     )
   }
+  // If neither floatSpans nor floatText is present, textLines stays empty
+  // and the image renders with no side caption — this is valid (image-only float).
 
   // Column X positions
   const imageColX = element.float === 'left' ? 0 : textColWidth + floatGap

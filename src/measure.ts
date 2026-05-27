@@ -152,7 +152,7 @@ export async function measureAllBlocks(
     const el = doc.content[i]!
 
     if (el.type === 'image') {
-      // Images need their specific imageMap key (keyed by content index in assets.ts)
+      // Images need their specific imageMap key (keyed by content index in assets/loaders/orchestrator.ts)
       const imageKey = `img-${i}`
       // Skip images that failed to load (not in imageMap) — they were already logged as warnings
       if (!imageMap.has(imageKey)) {

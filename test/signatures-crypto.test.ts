@@ -151,19 +151,19 @@ test('Phase 9A — Cryptographic Signatures', async (t) => {
     )
   })
 
-  await t.test('SIGNATURE_DEP_MISSING when @signpdf/signpdf not installed', async () => {
-    // This test verifies the error code is properly defined.
-    // Actual test of this path would require mocking the dynamic import.
-    // For now, verify the error code exists by triggering it with corrupt cert.
-
-    // If @signpdf/signpdf IS installed (which it now is), corrupt P12 will fail with SIGNATURE_FAILED.
-    // If it were not installed, the error would be SIGNATURE_DEP_MISSING.
-    // We confirm the code path exists by checking that corruption is caught:
+  await t.test('invisible-only signature: renders without p12, no crypto deps needed', async () => {
+    // invisible: true without p12 draws no visual box and triggers no cryptographic
+    // signing — the PDF is returned as-is. This path exercises the early-exit guard
+    // in applySignature (sig.p12 is undefined → skip signing entirely).
     const pdf = await render({
-      content: [{ type: 'paragraph', text: 'Test' }],
-      signature: { invisible: true }
+      content: [{ type: 'paragraph', text: 'Invisible-only signature document.' }],
+      signature: { invisible: true },
     })
-    assert.ok(pdf instanceof Uint8Array, 'Invisible sig works without p12')
+    assert.ok(pdf instanceof Uint8Array, 'render must return Uint8Array')
+    assert.ok(pdf.length > 100, 'PDF must have non-trivial size')
+    // Invisible-only: no ByteRange dict (no PKCS#7 signing happened)
+    const text = Buffer.from(pdf).toString('latin1')
+    assert.ok(!/\/ByteRange/.test(text), 'invisible-only PDF must NOT contain a /ByteRange dict')
   })
 
   await t.test('P12 signature verifies cryptographically (real CMS verify)', async () => {

@@ -3,7 +3,7 @@
  *
  * Two pieces:
  * - loadImageBytes(): fetch/read raw bytes from URL, file path, or Uint8Array.
- *   Used by the loadImages() orchestrator (still in assets.ts for this commit).
+ *   Used by the loadImages() orchestrator (src/assets/loaders/orchestrator.ts).
  * - resolveImageFormat(): pick 'png' vs 'jpg' from the element spec, magic
  *   bytes, or file extension. Pure compute.
  *
