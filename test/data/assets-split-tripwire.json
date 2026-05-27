@@ -208,5 +208,33 @@
         "message": "Image \"img-1\": failed to fetch URL: Image \"img-1\": connections to private or internal addresses are not allowed"
       }
     }
+  },
+  "NAT64-1-rfc6052-loopback": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": connections to private or internal addresses are not allowed"
+    }
+  },
+  "NAT64-2-rfc6052-rfc1918": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": connections to private or internal addresses are not allowed"
+    }
+  },
+  "NAT64-3-rfc8215-local-use": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": connections to private or internal addresses are not allowed"
+    }
+  },
+  "NAT64-4-multi-address-any-private": {
+    "kind": "error",
+    "result": {
+      "errorCode": "IMAGE_LOAD_FAILED",
+      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": hostname resolves to a private address"
+    }
   }
 }

@@ -64,7 +64,21 @@ function _isPrivateAddressInner(h: string, raw: string): boolean {
     /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(h) || // CGNAT RFC 6598
     (isV6 && (raw.startsWith('fc') || raw.startsWith('fd'))) || // IPv6 ULA fc00::/7
     (isV6 && /^fe[89ab]/i.test(raw)) || // IPv6 link-local fe80::/10
-    (isV6 && /^ff/i.test(raw)) // IPv6 multicast ff00::/8
+    (isV6 && /^ff/i.test(raw)) || // IPv6 multicast ff00::/8
+    // NAT64 well-known prefix RFC 6052 — 64:ff9b::/96. On IPv6-only +
+    // NAT64 environments (AWS App Runner, GCP Cloud Run, Oracle Cloud IPv6
+    // VNICs), 127.0.0.1 synthesizes to 64:ff9b::7f00:1 and resolves
+    // unmolested back to the loopback address. Block the full /96 prefix
+    // — the embedded IPv4 in the low 32 bits can be ANY address (loopback,
+    // RFC1918, link-local, IMDS) and we must refuse all of it from this
+    // synthetic range. Matches both compressed (`64:ff9b::...`) and
+    // expanded (`0064:ff9b:0:0:0:0:...`) IPv6 forms.
+    (isV6 && /^(?:0{0,3}64):(?:0{0,3}ff9b):/i.test(raw)) ||
+    // NAT64 local-use prefix RFC 8215 — 64:ff9b:1::/48. Same threat class
+    // (synthesizes IPv4 destinations from any address space), with a
+    // longer prefix that a network operator can configure for site-local
+    // NAT64. The first three 16-bit groups uniquely identify the /48.
+    (isV6 && /^(?:0{0,3}64):(?:0{0,3}ff9b):(?:0{0,3}1):/i.test(raw))
   )
 }
 
@@ -164,12 +178,27 @@ export async function resolveAndValidateUrl(
     return { url: parsed, ip: null, family: null }
   }
   try {
-    const { address, family } = await dnsPromises.lookup(parsed.hostname)
-    const resolvedH = address.toLowerCase()
-    if (isPrivateAddress(resolvedH, resolvedH)) {
-      throw new PretextPdfError(errorCode, `${label}: hostname resolves to a private address`)
+    // Resolve ALL addresses (A + AAAA) so we can apply "any-private-is-private"
+    // semantics: if even one resolved address is private/internal, reject the
+    // entire hostname. A dual-stack attacker who controls DNS could otherwise
+    // return one public address (passes the check) and one private address
+    // (the actual fetch lands here). On NAT64-fronted IPv6-only networks the
+    // synthesized addresses are returned alongside any native IPv4 — we must
+    // refuse the whole set if any member is private.
+    const addresses = await dnsPromises.lookup(parsed.hostname, { all: true })
+    if (addresses.length === 0) {
+      return { url: parsed, ip: null, family: null }
     }
-    return { url: parsed, ip: address, family: family === 6 ? 6 : 4 }
+    for (const { address } of addresses) {
+      const resolvedH = address.toLowerCase()
+      if (isPrivateAddress(resolvedH, resolvedH)) {
+        throw new PretextPdfError(errorCode, `${label}: hostname resolves to a private address`)
+      }
+    }
+    // Pin to the first resolved address. Undici will use this exact IP for
+    // the TCP connect, closing the TOCTOU window between check and connect.
+    const first = addresses[0]!
+    return { url: parsed, ip: first.address, family: first.family === 6 ? 6 : 4 }
   } catch (err) {
     if (err instanceof PretextPdfError) throw err
     // DNS unavailable: fetch() will also fail, so rebinding is not possible.

@@ -392,13 +392,45 @@ async function captureAllFixtures(): Promise<Record<string, FixtureResult>> {
     }
   }
 
+  // NAT64-1: RFC 6052 well-known prefix synthesizing 127.0.0.1 — must be
+  // blocked at IP-literal time (no DNS) because 64:ff9b::7f00:1 is just
+  // 127.0.0.1 in IPv6 dress.
+  out['NAT64-1-rfc6052-loopback'] = {
+    kind: 'error',
+    result: await captureImageLoadError('https://[64:ff9b::7f00:1]/x.png'),
+  }
+  // NAT64-2: RFC 6052 well-known prefix synthesizing 10.0.0.1 (RFC1918) —
+  // any embedded IPv4 in 64:ff9b::/96 must be refused.
+  out['NAT64-2-rfc6052-rfc1918'] = {
+    kind: 'error',
+    result: await captureImageLoadError('https://[64:ff9b::a00:1]/x.png'),
+  }
+  // NAT64-3: RFC 8215 local-use prefix — 64:ff9b:1::/48. Different /48 but
+  // identical threat class.
+  out['NAT64-3-rfc8215-local-use'] = {
+    kind: 'error',
+    result: await captureImageLoadError('https://[64:ff9b:1::1]/x.png'),
+  }
+  // NAT64-4: any-private-is-private semantics for DNS lookup. Stub the DNS
+  // module to return BOTH a public AAAA and a private A so we can prove
+  // the dual-stack split-horizon attack is closed. Mocking node:dns is
+  // intrusive; instead use a hostname literal trick — `*.localhost` resolves
+  // to 127.0.0.1 on most platforms (RFC 6761) so the resolver delivers a
+  // single private address that the all-addresses iteration then rejects.
+  // This is the closest single-process probe we can do without spawning a
+  // local resolver.
+  out['NAT64-4-multi-address-any-private'] = {
+    kind: 'error',
+    result: await captureImageLoadError('https://anything.localhost/x.png'),
+  }
+
   return out
 }
 
-test('assets.ts split tripwire — 30 fixtures, bit-exact behavior preservation (v1.6.0 commits 1/16 → 16/16)', async () => {
+test('assets.ts split tripwire — 34 fixtures, bit-exact behavior preservation (v1.6.0 commits 1/16 → 16/16 + v1.7.1 NAT64)', async () => {
   const captured = await captureAllFixtures()
   const fixtureCount = Object.keys(captured).length
-  assert.equal(fixtureCount, 30, `Expected 30 fixtures, got ${fixtureCount}`)
+  assert.equal(fixtureCount, 34, `Expected 34 fixtures, got ${fixtureCount}`)
 
   if (!existsSync(BASELINE) || process.env['UPDATE_SNAPSHOT'] === '1') {
     writeFileSync(BASELINE, JSON.stringify(captured, null, 2) + '\n', 'utf8')

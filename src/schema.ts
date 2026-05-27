@@ -810,8 +810,11 @@ export const pdfDocumentSchema = {
 
     signature: {
       type: 'object',
-      description: 'Visual signature placeholder drawn on a specified page.',
+      description: 'Signature applied to the rendered PDF. Providing p12 enables PKCS#7 cryptographic signing (requires @signpdf/* peer deps); without p12 a visual-only placeholder box is drawn.',
       properties: {
+        p12: { type: 'string', description: 'Absolute path to a .p12/.pfx certificate file, or base64-encoded cert bytes. Triggers PKCS#7/CMS digital signing. Requires @signpdf/signpdf, @signpdf/placeholder-pdf-lib, @signpdf/signer-p12, and pdf-lib peer deps.' },
+        passphrase: { type: 'string', description: 'Passphrase to decrypt the P12 certificate. Omit if the certificate has no passphrase.' },
+        contactInfo: { type: 'string', description: 'Contact info (e.g. email address) embedded in the PDF signature dictionary. Default: empty string.' },
         signerName: { type: 'string' },
         reason: { type: 'string' },
         location: { type: 'string' },
@@ -822,7 +825,7 @@ export const pdfDocumentSchema = {
         page: { type: 'number', description: 'Page index (0-based). Default: last page.' },
         borderColor: colorSchema,
         fontSize: { type: 'number' },
-        invisible: { type: 'boolean' },
+        invisible: { type: 'boolean', description: 'If true, skip the visual signature box — crypto-only invisible signing. Default: false.' },
       },
     },
 

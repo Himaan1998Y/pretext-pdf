@@ -8,9 +8,14 @@
  * - <foreignObject> (HTML escape hatch into the SVG content model)
  * - <a> elements whose xlink:href / href use javascript:, vbscript:, or data:
  * - CSS expression(...) inside <style> blocks (legacy IE XSS vector)
+ * - CSS @import rules inside <style> blocks (outbound network leak)
+ * - CSS url(javascript:|vbscript:|data:) values inside <style> (JS execution)
+ * - CSS url(http(s)://...) values inside <style> (defense-in-depth: SVGs
+ *   in PDFs have no business hot-linking external stylesheets/assets)
  *
- * v1.6.0 Phase 0a (commit 3/16) added the last three to harden against
- * payloads that survived the previous regex chain.
+ * v1.6.0 Phase 0a (commit 3/16) added <foreignObject>, dangerous <a> hrefs,
+ * and CSS expression(). v1.7.1 added @import and url() neutralization in
+ * <style> blocks.
  *
  * IMPORTANT: this symbol is also re-exported from `src/assets.ts` so the
  * `dist/assets.js` consumers (test/svg-sanitizer.test.ts, the snapshot
@@ -48,5 +53,14 @@ export function sanitizeSvg(svg: string): string {
   // expression call with an empty string so the surrounding stylesheet stays
   // parseable.
   s = s.replace(/expression\s*\([^)]*\)/gi, '')
+  // v1.7.1: strip @import rules — SVGs embedded in PDFs have no business
+  // importing external stylesheets; also an outbound network-leak vector.
+  s = s.replace(/@import\s+[^;{}]*/gi, '')
+  // v1.7.1: strip url(javascript:|vbscript:|data:) values — JS-execution and
+  // data-leak vectors that can appear inside <style> blocks.
+  s = s.replace(/url\s*\(\s*["']?(?:javascript|vbscript|data):[^)"']*["']?\s*\)/gi, '')
+  // v1.7.1: strip url(http(s)://...) values — defense-in-depth; SVGs in PDFs
+  // should not hot-link external stylesheet resources at render time.
+  s = s.replace(/url\s*\(\s*["']?https?:\/\/[^)"']*["']?\s*\)/gi, '')
   return s
 }
