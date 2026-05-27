@@ -52,8 +52,8 @@ export type {
   FloatGroupElement,
   RenderOptions,
 } from './types.js'
-export { PretextPdfError } from './errors.js'
-export type { ErrorCode } from './errors.js'
+export { PretextPdfError, LEGACY_ERROR_CODE_MAP } from './errors.js'
+export type { ErrorCode, ErrorCategory } from './errors.js'
 export type { NamedPageSize } from './page-sizes.js'
 export { createPdf } from './builder.js'
 export type { PdfBuilder, PdfBuilderOptions } from './builder.js'
@@ -82,7 +82,7 @@ let _fnSetCounter = 0
  * // \{ type: 'rich-paragraph', spans: [\{ text: 'Text', footnoteRef: fns[0].id \}] \}
  * // ...fns.map(f => f.def)
  * ```
- * @beta
+ * @public
  */
 export function createFootnoteSet(
   items: Array<{ text: string; fontSize?: number; fontFamily?: string; spaceAfter?: number }>
@@ -173,6 +173,10 @@ export async function assemble(parts: import('./types.js').AssemblyPart[]): Prom
   }
   return target.save()
 }
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+export { MAX_PDF_BYTES } from './render.js'
 
 // ─── Schema reflection ────────────────────────────────────────────────────────
 

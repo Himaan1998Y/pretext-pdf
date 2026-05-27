@@ -2,6 +2,9 @@ import { PDFDocument } from '@cantoo/pdf-lib'
 import type {
   PdfDocument, Logger
 } from './types.js'
+
+/** Maximum allowed PDF output size in bytes (100 MB). */
+export const MAX_PDF_BYTES = 100 * 1024 * 1024
 import type {
   PaginatedDocument, PagedBlock,
   FontMap, ImageMap, PageGeometry
@@ -152,7 +155,15 @@ export async function renderDocument(
     warn(`[pretext-pdf] getForm() failed (non-fatal, no form fields expected): ${e instanceof Error ? e.message : String(e)}`)
   }
 
-  return pdfDoc.save({ useObjectStreams: false })
+  const bytes = await pdfDoc.save({ useObjectStreams: false })
+  if (bytes.length > MAX_PDF_BYTES) {
+    throw new PretextPdfError(
+      'RENDER_FAILED',
+      `PDF output size (${(bytes.length / 1024 / 1024).toFixed(1)} MB) exceeds the 100 MB limit. ` +
+      'Reduce image resolution, count, or document length.'
+    )
+  }
+  return bytes
 }
 
 // ─── Block routing ────────────────────────────────────────────────────────────

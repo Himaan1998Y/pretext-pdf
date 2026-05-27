@@ -9,11 +9,17 @@
  * import { render } from 'pretext-pdf'
  * import type { PluginDefinition } from 'pretext-pdf/plugin-types'
  *
- * const boxPlugin: PluginDefinition = {
+ * interface BoxData { label: string; fillColor: [number, number, number] }
+ *
+ * const boxPlugin: PluginDefinition<BoxData> = {
  *   type: 'highlight-box',
- *   measure: async (el, { contentWidth }) => ({ height: 50, spaceBefore: 8, spaceAfter: 8 }),
- *   render: ({ pdfPage, x, y, width, height }) => {
- *     pdfPage.drawRectangle({ x, y: y - height, width, height, color: rgb(1, 0.9, 0.8) })
+ *   measure: async (el, { contentWidth }) => ({
+ *     height: 50, spaceBefore: 8, spaceAfter: 8,
+ *     pluginData: { label: String(el.label ?? ''), fillColor: [1, 0.9, 0.8] },
+ *   }),
+ *   render: ({ pdfPage, x, y, width, height, pluginData }) => {
+ *     const [r, g, b] = pluginData!.fillColor
+ *     pdfPage.drawRectangle({ x, y: y - height, width, height, color: rgb(r, g, b) })
  *   },
  * }
  *
@@ -21,7 +27,7 @@
  * ```
  *
  * @module
- * @beta
+ * @public
  */
 
 import type { PdfDocument, Margins } from './types-public/index.js'
@@ -30,7 +36,7 @@ import type { PdfDocument, Margins } from './types-public/index.js'
 
 /**
  * Context passed to a plugin's `measure` hook.
- * @beta
+ * @public
  */
 export interface PluginMeasureContext {
   /** Available content width in pt (page width minus left/right margins) */
@@ -43,9 +49,12 @@ export interface PluginMeasureContext {
 
 /**
  * Return value from a plugin's `measure` hook.
- * @beta
+ *
+ * @typeParam T - Type of the optional `pluginData` payload carried to `render`.
+ *   Defaults to `unknown` for backward compatibility with untyped plugins.
+ * @public
  */
-export interface PluginMeasureResult {
+export interface PluginMeasureResult<T = unknown> {
   /** Total block height in pt. Must be a finite non-negative number. */
   height: number
   /** Space before the block in pt. Defaults to 0. */
@@ -55,15 +64,20 @@ export interface PluginMeasureResult {
   /**
    * Arbitrary plugin-specific data that the pipeline carries untouched from
    * `measure` to `render`. Use this to avoid re-computing expensive values.
+   * Typed as `T` — specify the type parameter on `PluginDefinition<T>` to get
+   * type-safe access in the `render` hook.
    */
-  pluginData?: unknown
+  pluginData?: T
 }
 
 /**
  * Context passed to a plugin's `render` hook.
- * @beta
+ *
+ * @typeParam T - Type of `pluginData` as set by the `measure` hook.
+ *   Defaults to `unknown` for backward compatibility with untyped plugins.
+ * @public
  */
-export interface PluginRenderContext {
+export interface PluginRenderContext<T = unknown> {
   /** The raw element object from doc.content */
   element: Record<string, unknown>
   /** The pdf-lib page object to draw onto */
@@ -107,9 +121,9 @@ export interface PluginRenderContext {
   pdfImage?: import('@cantoo/pdf-lib').PDFImage
   /**
    * Data returned by the plugin's `measure` hook in `PluginMeasureResult.pluginData`.
-   * Undefined when measure did not set pluginData.
+   * Typed as `T` — will be `undefined` when measure did not set `pluginData`.
    */
-  pluginData?: unknown
+  pluginData?: T
 }
 
 // ─── PluginDefinition ─────────────────────────────────────────────────────────
@@ -123,9 +137,16 @@ export interface PluginRenderContext {
  * - `measure` → Stage 3 (required)
  * - `render` → Stage 5 (required)
  *
- * @beta
+ * @typeParam T - Type of the `pluginData` payload passed from `measure` to `render`.
+ *   Defaults to `unknown` so existing untyped plugins continue to compile without changes.
+ *   Specify a concrete type to get type-safe `pluginData` in your `render` hook:
+ *   ```ts
+ *   const myPlugin: PluginDefinition<{ label: string }> = { ... }
+ *   ```
+ *
+ * @public
  */
-export interface PluginDefinition {
+export interface PluginDefinition<T = unknown> {
   /**
    * Unique type string. Must match the `type` field of the custom element objects
    * in `doc.content`. Must not collide with any built-in type.
@@ -187,7 +208,7 @@ export interface PluginDefinition {
   measure: (
     element: Record<string, unknown>,
     context: PluginMeasureContext
-  ) => Promise<PluginMeasureResult>
+  ) => Promise<PluginMeasureResult<T>>
 
   /**
    * Render hook — Stage 5. **Required.**
@@ -200,5 +221,5 @@ export interface PluginDefinition {
    *
    * @param context - Page, geometry, embedded image, and plugin data
    */
-  render: (context: PluginRenderContext) => void
+  render: (context: PluginRenderContext<T>) => void
 }

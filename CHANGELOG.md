@@ -7,6 +7,53 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.9.0] — 2026-05-28
+
+Additive release: error categorisation, typed plugin generics, beta graduations, soft deprecations, and a 100 MB output size guard.
+
+### Added
+
+- **`PretextPdfError.category`** — New readonly field on every thrown error. Groups all 50+
+  error codes into 8 high-level categories (`'validation' | 'font' | 'image' | 'layout' |
+  'security' | 'dependency' | 'signature' | 'render'`). Lets callers branch on class of
+  failure without exhaustive switches. Also exported as the `ErrorCategory` type.
+
+- **`LEGACY_ERROR_CODE_MAP`** — `Record<string, ErrorCode>` exported from the main entry
+  point. Documents the canonical code for any renamed or aliased error strings. Currently
+  maps `FONT_ENCODE_FAIL → FONT_ENCODE_FAIL` (no renames have occurred yet); future renames
+  will be recorded here before the old string is removed.
+
+- **`PluginDefinition<T>` generic** — `PluginDefinition`, `PluginMeasureResult`, and
+  `PluginRenderContext` are now generic over a `T` type parameter (default `unknown`).
+  `pluginData` in `measure` and `render` is now typed as `T` instead of `unknown`. Fully
+  backward compatible — existing plugins without a type argument continue to compile.
+
+- **`MAX_PDF_BYTES` constant** — Exported from the main entry point. Value: `100 * 1024 * 1024`
+  (100 MB). `render()` now throws `RENDER_FAILED` if the serialized PDF exceeds this limit,
+  preventing runaway memory use from pathological documents.
+
+### Changed (promotions — no breaking changes)
+
+- **`PluginDefinition`, `PluginMeasureContext`, `PluginMeasureResult`, `PluginRenderContext`**
+  — Promoted from `@beta` to `@public`. The plugin API is stable.
+
+- **`RenderOptions.plugins`** — `@beta` tag removed. Stable.
+
+- **`createFootnoteSet()`** — `@beta` tag removed. Stable.
+
+### Deprecated
+
+- **`HorizontalRuleElement.spaceAbove`** and **`.spaceBelow`** — Use `spaceBefore` and
+  `spaceAfter` instead (consistent with paragraph/heading naming). Both aliases remain
+  functional in v1.x. Will be removed in v2.0.
+
+- **`ValidationResult.warningCount`** — Always `0` in v1.x (the validator emits errors
+  only). Will be removed in v2.0. Use
+  `result.errors.filter(e => e.severity === 'warning').length` directly when
+  warning-severity items are introduced.
+
+---
+
 ## [1.8.0] — 2026-05-28
 
 Additive release: type narrowing, shared leaf modules, 5 new test coverage points, and a Windows font-path validation bugfix.

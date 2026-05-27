@@ -12,7 +12,6 @@ export type RenderOptions = {
   /**
    * Plugin definitions for custom element types.
    * Each plugin handles one `type` string across all 4 pipeline stages.
-   * @beta
    */
   plugins?: import('../plugin-types.js').PluginDefinition[]
   /**

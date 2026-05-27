@@ -140,13 +140,19 @@ export interface HorizontalRuleElement {
   thickness?: number
   /** Line color (hex). Default: '#cccccc' */
   color?: string
-  /** Space above line in pt. Default: 12. Alias: spaceBefore */
+  /**
+   * Space above line in pt. Default: 12.
+   * @deprecated Use `spaceBefore` instead — consistent with paragraph/heading naming. Removed in v2.0.
+   */
   spaceAbove?: number
-  /** Space below line in pt. Default: 12. Alias: spaceAfter */
+  /**
+   * Space below line in pt. Default: 12.
+   * @deprecated Use `spaceAfter` instead — consistent with paragraph/heading naming. Removed in v2.0.
+   */
   spaceBelow?: number
-  /** Alias for spaceAbove — consistent with paragraph/heading naming */
+  /** Space above line in pt. Default: 12. */
   spaceBefore?: number
-  /** Alias for spaceAfter — consistent with paragraph/heading naming */
+  /** Space below line in pt. Default: 12. */
   spaceAfter?: number
 }
 

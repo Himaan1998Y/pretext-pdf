@@ -196,3 +196,38 @@ describe('RTL_REORDER_FAILED coverage — error code contract guard', () => {
     assert.ok(pdf.length > 100)
   })
 })
+
+// ─── 6: error.category + LEGACY_ERROR_CODE_MAP + MAX_PDF_BYTES — v1.9 contracts ──
+
+describe('v1.9 API contracts', () => {
+  test('PretextPdfError.category roundtrips for all sampled codes', async () => {
+    const { PretextPdfError } = await import('../dist/index.js') as any
+
+    const cases: Array<[string, string]> = [
+      ['VALIDATION_ERROR', 'validation'],
+      ['FONT_LOAD_FAILED', 'font'],
+      ['IMAGE_LOAD_FAILED', 'image'],
+      ['PAGE_TOO_SMALL', 'layout'],
+      ['PATH_TRAVERSAL', 'security'],
+      ['QR_DEP_MISSING', 'dependency'],
+      ['SIGNATURE_FAILED', 'signature'],
+      ['RENDER_FAILED', 'render'],
+    ]
+    for (const [code, expectedCategory] of cases) {
+      const err = new PretextPdfError(code, 'test')
+      assert.equal(err.category, expectedCategory,
+        `${code}: expected category '${expectedCategory}', got '${err.category}'`)
+    }
+  })
+
+  test('LEGACY_ERROR_CODE_MAP is exported and maps FONT_ENCODE_FAIL', async () => {
+    const { LEGACY_ERROR_CODE_MAP } = await import('../dist/index.js') as any
+    assert.ok(typeof LEGACY_ERROR_CODE_MAP === 'object' && LEGACY_ERROR_CODE_MAP !== null)
+    assert.equal(LEGACY_ERROR_CODE_MAP['FONT_ENCODE_FAIL'], 'FONT_ENCODE_FAIL')
+  })
+
+  test('MAX_PDF_BYTES is exported as 100 * 1024 * 1024', async () => {
+    const { MAX_PDF_BYTES } = await import('../dist/index.js') as any
+    assert.equal(MAX_PDF_BYTES, 100 * 1024 * 1024)
+  })
+})

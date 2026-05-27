@@ -35,7 +35,11 @@ export interface ValidationResult {
   errors: ValidationError[]
   /** Total number of validation issues. May exceed errors.length when errors are capped at 20. */
   errorCount: number
-  /** Warning-severity issue count. Reserved for future use — the validator currently emits only errors, so this is always 0. */
+  /**
+   * Warning-severity issue count. Always 0 in v1.x — the validator currently emits errors only.
+   * @deprecated Will be removed in v2.0. Use `errors.filter(e => e.severity === 'warning').length`
+   *   directly when warning-severity items are introduced.
+   */
   warningCount: number
 }
 
