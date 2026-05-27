@@ -18,7 +18,7 @@
 import type { ContentElement, PdfDocument } from '../types.js'
 import type { MeasuredBlock } from '../types-internal.js'
 import { PretextPdfError } from '../errors.js'
-import { buildFontKey } from '../measure.js'
+import { buildFontKey } from '../font-key.js'
 import { measureRichText } from '../rich-text.js'
 import { detectAndReorderRTL } from '../measure-text.js'
 import type { HyphenatorOpts } from '../measure-text.js'

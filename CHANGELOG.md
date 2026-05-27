@@ -7,6 +7,35 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [1.8.0] — 2026-05-28
+
+Additive release: type narrowing, shared leaf modules, 5 new test coverage points, and a Windows font-path validation bugfix.
+
+### Added
+
+- **`ColumnDef.width` narrowed** — `number | string` → `number | \`${number}*\` | '*' | 'auto'`. The `as unknown as number` cast in `compat.ts` that faked `'auto'` as a number is now removed; `'auto' as const` is the direct type. No behavior change — accepted inputs are identical.
+
+- **`DocumentMetadata.accessibility?` and `DocumentMetadata.semantic?` reserved** (`Record<string, unknown>`, `@alpha`) — Forward-reserved slots for PDF/UA accessibility metadata and document-structure annotations. No render-time effect in v1.x; schema allows them so tooling can start populating them. Will be wired in v2.0.
+
+- **`FormFieldElement.accessibilityLabel?` reserved** (`string`, `@alpha`) — Reserved slot for AcroForm `/TU` tooltip/alt-text annotation. Stored but not written to the PDF in v1.x. Will be wired in v2.0.
+
+- **`src/url-utils.ts` leaf module** — `SAFE_URL_SCHEME` regex consolidated into a single shared module. Previously duplicated in `render-utils.ts` and `validate/helpers.ts` (v1.7.2 added dedup comments). Both sites now import from `url-utils.ts`; `validate/helpers.ts` re-exports it for downstream consumers.
+
+- **`src/font-key.ts` leaf module** — `buildFontKey` extracted from `measure.ts` to break the `measure.ts → measure-blocks/index.ts → measure.ts` circular dependency. All 9 former `./measure.js` importers now import directly from `./font-key.js`. `measure.ts` re-exports `buildFontKey` for backward compatibility.
+
+- **`test/error-coverage.test.ts`** — Fills 5 coverage holes identified in the v1.7.2 audit:
+  1. `FONT_LOAD_FAILED` — relative font path rejection
+  2. `FONT_LOAD_FAILED` — nonexistent absolute font path
+  3. `SVG_LOAD_FAILED` — local mock server returning HTTP error (via `fetchWithTimeout` directly)
+  4. `CHART_LOAD_FAILED` silent path — chart failure warns, not throws (contract guard)
+  5. `RTL_REORDER_FAILED` — error code round-trips correctly; RTL Arabic renders without error
+
+### Fixed
+
+- **`validate/helpers.ts — validateFontSpec` Windows path false positive** — Windows absolute paths like `F:\path\font.ttf` were being parsed by `new URL()` as `f:` protocol URLs, causing valid font paths to throw `VALIDATION_ERROR: 'src' contains a URL`. Fixed by skipping the URL check for paths that `isAbsolutePath()` identifies as OS-native absolute paths (POSIX `/` prefix or Windows `[A-Z]:\` prefix).
+
+---
+
 ## [1.7.2] — 2026-05-28
 
 Internal hardening. No public API changes.

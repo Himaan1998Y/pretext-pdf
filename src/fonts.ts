@@ -7,7 +7,7 @@ import { createRequire } from 'module'
 import type { PdfDocument, FontSpec } from './types.js'
 import type { FontMap } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
-import { buildFontKey } from './measure.js'
+import { buildFontKey } from './font-key.js'
 import { assertPathAllowed } from './assets.js'
 
 // Browser detection. The bundled-font paths below depend on Node-only APIs

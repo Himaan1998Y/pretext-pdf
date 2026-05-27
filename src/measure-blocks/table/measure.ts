@@ -6,7 +6,7 @@ import type { TableElement, ColumnDef, TableCell, TableRow, PdfDocument } from '
 import type {
   MeasuredBlock, MeasuredTableData, MeasuredTableRow, MeasuredTableCell, PretextLine,
 } from '../../types-internal.js'
-import { buildFontKey } from '../../measure.js'
+import { buildFontKey } from '../../font-key.js'
 import { measureText, detectAndReorderRTL } from '../../measure-text.js'
 import type { HyphenatorOpts } from '../../measure-text.js'
 import { LINE_HEIGHT_BODY } from '../../render-utils.js'

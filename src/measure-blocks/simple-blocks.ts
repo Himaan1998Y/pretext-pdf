@@ -13,7 +13,7 @@ import type {
   FootnoteDefElement,
 } from '../types.js'
 import type { MeasuredBlock } from '../types-internal.js'
-import { buildFontKey } from '../measure.js'
+import { buildFontKey } from '../font-key.js'
 import { measureText } from '../measure-text.js'
 import { LINE_HEIGHT_BODY } from '../render-utils.js'
 

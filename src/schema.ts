@@ -516,6 +516,7 @@ const formFieldSchema = {
     keepTogether: { type: 'boolean', description: 'If true, never break this element across pages. Default: true' },
     spaceAfter: spaceSchema,
     spaceBefore: spaceSchema,
+    accessibilityLabel: { type: 'string', description: 'Accessible label for screen-reader announcements (v1.8+). Stored but has no render-time effect in v1.x.' },
   },
 } as const
 
@@ -763,6 +764,8 @@ export const pdfDocumentSchema = {
         creator: { type: 'string' },
         language: { type: 'string', description: "BCP47 language tag e.g. 'en-US', 'hi', 'ar'" },
         producer: { type: 'string' },
+        accessibility: { type: 'object', description: 'Reserved for PDF/UA and WCAG accessibility metadata (v1.8+). No render-time effect in v1.x.' },
+        semantic: { type: 'object', description: 'Reserved for semantic document structure metadata (v1.8+). No render-time effect in v1.x.' },
       },
     },
 

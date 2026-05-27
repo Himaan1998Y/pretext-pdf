@@ -5,7 +5,7 @@
 import type { ListElement, PdfDocument } from '../types.js'
 import type { MeasuredBlock, ListItemData } from '../types-internal.js'
 import { PretextPdfError } from '../errors.js'
-import { buildFontKey } from '../measure.js'
+import { buildFontKey } from '../font-key.js'
 import { measureText } from '../measure-text.js'
 import type { HyphenatorOpts } from '../measure-text.js'
 import { LINE_HEIGHT_BODY } from '../render-utils.js'

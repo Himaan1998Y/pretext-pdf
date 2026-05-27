@@ -482,8 +482,8 @@ function translateTable(t: NonNullable<PdfmakeObjectNode['table']>, ctx: Transla
   const columns: ColumnDef[] = widths.map((w): ColumnDef => {
     if (typeof w === 'number') return { width: w }
     if (w === '*') return { width: '1*' }
-    if (w === 'auto') return { width: 'auto' as unknown as number }  // pretext-pdf's 'auto' is still a string in the type
-    if (typeof w === 'string' && /^\d*\.?\d+\*$/.test(w)) return { width: w }
+    if (w === 'auto') return { width: 'auto' as const }
+    if (typeof w === 'string' && /^\d*\.?\d+\*$/.test(w)) return { width: w as `${number}*` }
     return { width: '1*' }
   })
 

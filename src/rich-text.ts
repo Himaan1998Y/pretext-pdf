@@ -1,6 +1,6 @@
 import type { InlineSpan, PdfDocument } from './types.js'
 import type { RichLine, RichFragment } from './types-internal.js'
-import { buildFontKey } from './measure.js'
+import { buildFontKey } from './font-key.js'
 import { LINE_HEIGHT_BODY } from './render-utils.js'
 
 /** Default link color (hex) applied to URL spans when no explicit color override is set. */

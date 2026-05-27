@@ -12,7 +12,7 @@ import type {
 import {
   LINE_HEIGHT_BODY,
 } from '../render-utils.js'
-import { buildFontKey } from '../measure.js'
+import { buildFontKey } from '../font-key.js'
 
 // ─── Footnote zone rendering ──────────────────────────────────────────────────
 

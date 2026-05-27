@@ -46,7 +46,7 @@ export interface TableElement {
 /** @public */
 export interface ColumnDef {
   /** Fixed pt (e.g. 80), proportional fraction (e.g. '2*' or '*'), or 'auto' (shrink-to-content). */
-  width: number | string
+  width: number | `${number}*` | '*' | 'auto'
   /** Column default text alignment. Default: 'left' */
   align?: 'left' | 'center' | 'right'
 }
@@ -274,4 +274,11 @@ export interface FormFieldElement {
   spaceBefore?: number
   /** If true, never break this element across pages. Default: true */
   keepTogether?: boolean
+  /**
+   * Accessible label for the field, used for screen-reader announcements (v1.8+).
+   * In v1.x this value is stored but has no render-time effect; AcroForm /TU
+   * (tooltip/alt-text) annotation will be written in a future release.
+   * @alpha
+   */
+  accessibilityLabel?: string
 }

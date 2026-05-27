@@ -15,21 +15,11 @@ import type { HyphenatorOpts } from './measure-text.js'
 import { LINE_HEIGHT_BODY } from './render-utils.js'
 import type { PluginDefinition } from './plugin-types.js'
 import { findPlugin, runPluginMeasure } from './plugin-registry.js'
+export { buildFontKey } from './font-key.js'
+import { buildFontKey } from './font-key.js'
 
 // Re-export for backward compatibility with tests
 export { measureBlock }
-
-/**
- * Build the canonical font key: family-weight-style
- * Used by both measure.ts and render.ts for font lookup
- */
-export function buildFontKey(
-  family: string,
-  weight: 400 | 700 = 400,
-  style: 'normal' | 'italic' = 'normal'
-): string {
-  return `${family}-${weight}-${style}`
-}
 
 /**
  * Measure a short header/footer string — returns total height in pt.

@@ -5,6 +5,8 @@
  */
 import type { FontSpec, RenderOptions } from '../types.js'
 import { PretextPdfError } from '../errors.js'
+import { SAFE_URL_SCHEME } from '../url-utils.js'
+export { SAFE_URL_SCHEME }
 
 // ── Cycle Detection & Depth Guards ─────────────────────────────────────────
 export const MAX_VALIDATION_DEPTH = 32
@@ -77,11 +79,6 @@ export const RTL_REGEX = /[֐-ࣿיִ-ﭏﭐ-﷿ﹰ-﻿\u{10800}-\u{10CFF}\u{10D0
 
 /** Valid 6-digit hex color */
 export const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/
-
-/** Allowed URL schemes for hyperlinks — blocks javascript:, data:, vbscript: */
-// NOTE: this pattern is duplicated in src/render-utils.ts:SAFE_URL_SCHEME.
-// Consolidate to a shared src/url-utils.ts leaf module in v1.8.
-export const SAFE_URL_SCHEME = /^(https?|mailto|ftp|#)/i
 
 /** BCP47 language tag pattern for hyphenation.language — prevents dynamic-import path injection */
 export const LANGUAGE_TAG_REGEX = /^[a-zA-Z]{2,8}(-[a-zA-Z0-9]{2,8})*$/
@@ -204,8 +201,10 @@ export function validateFontSpec(font: FontSpec): void {
   if (font.src === undefined || font.src === null) {
     throw new PretextPdfError('VALIDATION_ERROR', `FontSpec '${font.family}': 'src' is required (file path or Uint8Array)`)
   }
-  // If src is a string, ensure it's not a dangerous URL — only 'bundled' or file paths allowed
-  if (typeof font.src === 'string' && font.src !== 'bundled') {
+  // If src is a string, ensure it's not a dangerous URL — only 'bundled' or file paths allowed.
+  // Skip the URL check for absolute paths: on Windows, C:\... / F:\... parse as "c:" / "f:"
+  // protocol by new URL(), which would falsely flag valid Windows font paths as URLs.
+  if (typeof font.src === 'string' && font.src !== 'bundled' && !isAbsolutePath(font.src)) {
     try {
       const parsed = new URL(font.src)
       throw new PretextPdfError('VALIDATION_ERROR', `FontSpec '${font.family}': 'src' contains a URL (${parsed.protocol}) — use 'bundled', a file path, or Uint8Array instead`)
@@ -214,6 +213,11 @@ export function validateFontSpec(font: FontSpec): void {
       if (err instanceof PretextPdfError) throw err
     }
   }
+}
+
+/** Detect OS-absolute paths (POSIX /foo and Windows C:\foo or C:/foo) */
+function isAbsolutePath(s: string): boolean {
+  return s.startsWith('/') || /^[a-zA-Z]:[/\\]/.test(s)
 }
 
 // Re-exported for submodule convenience.
