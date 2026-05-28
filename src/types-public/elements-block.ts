@@ -140,16 +140,6 @@ export interface HorizontalRuleElement {
   thickness?: number
   /** Line color (hex). Default: '#cccccc' */
   color?: string
-  /**
-   * Space above line in pt. Default: 12.
-   * @deprecated Use `spaceBefore` instead — consistent with paragraph/heading naming. Removed in v2.0.
-   */
-  spaceAbove?: number
-  /**
-   * Space below line in pt. Default: 12.
-   * @deprecated Use `spaceAfter` instead — consistent with paragraph/heading naming. Removed in v2.0.
-   */
-  spaceBelow?: number
   /** Space above line in pt. Default: 12. */
   spaceBefore?: number
   /** Space below line in pt. Default: 12. */
@@ -237,33 +227,13 @@ export interface CommentElement {
 
 // ─── Form Field ───────────────────────────────────────────────────────────────
 
-/** @public */
-export interface FormFieldElement {
+/** Shared fields across all AcroForm field types. @public */
+export interface BaseFormField {
   type: 'form-field'
-  /** AcroForm field type. */
-  fieldType: 'text' | 'checkbox' | 'radio' | 'dropdown' | 'button'
   /** Unique field name within the document. Required. */
   name: string
   /** Label text rendered above the interactive field. Optional. */
   label?: string
-  // Text field options:
-  /** Placeholder text for text fields. */
-  placeholder?: string
-  /** Pre-filled default value for text fields. */
-  defaultValue?: string
-  /** Makes text field multi-line. Default: false */
-  multiline?: boolean
-  /** Maximum character length for text fields. */
-  maxLength?: number
-  // Checkbox:
-  /** Initial checked state for checkboxes. Default: false */
-  checked?: boolean
-  // Radio / Dropdown:
-  /** Option list for radio groups and dropdowns. */
-  options?: Array<{ value: string; label: string }>
-  /** Pre-selected value for radio groups and dropdowns. */
-  defaultSelected?: string
-  // Layout:
   /** Field width in pt. Default: full content width */
   width?: number
   /** Field height in pt. Default: auto per fieldType (text=24, multiline=60, radio=20×options, others=24) */
@@ -281,10 +251,63 @@ export interface FormFieldElement {
   /** If true, never break this element across pages. Default: true */
   keepTogether?: boolean
   /**
-   * Accessible label for the field, used for screen-reader announcements (v1.8+).
-   * In v1.x this value is stored but has no render-time effect; AcroForm /TU
-   * (tooltip/alt-text) annotation will be written in a future release.
-   * @alpha
+   * Accessible label for the field, used for screen-reader announcements and PDF assistive technology.
+   * Written to the AcroForm /TU (tooltip/alt-text) annotation dictionary entry.
+   * @public
    */
   accessibilityLabel?: string
 }
+
+/** Single-line or multi-line text input. @public */
+export interface TextFormField extends BaseFormField {
+  fieldType: 'text'
+  /** Placeholder text shown when the field is empty. */
+  placeholder?: string
+  /** Pre-filled default value. */
+  defaultValue?: string
+  /** Makes the field multi-line. Default: false */
+  multiline?: boolean
+  /** Maximum character length. */
+  maxLength?: number
+}
+
+/** Boolean checkbox. @public */
+export interface CheckboxFormField extends BaseFormField {
+  fieldType: 'checkbox'
+  /** Initial checked state. Default: false */
+  checked?: boolean
+}
+
+/** Mutually-exclusive radio button group. @public */
+export interface RadioFormField extends BaseFormField {
+  fieldType: 'radio'
+  /** Option list (required). */
+  options: Array<{ value: string; label: string }>
+  /** Pre-selected value. */
+  defaultSelected?: string
+}
+
+/** Single-selection dropdown list. @public */
+export interface DropdownFormField extends BaseFormField {
+  fieldType: 'dropdown'
+  /** Option list (required). */
+  options: Array<{ value: string; label: string }>
+  /** Pre-selected value. */
+  defaultSelected?: string
+}
+
+/** Push button (no value, triggers actions). @public */
+export interface ButtonFormField extends BaseFormField {
+  fieldType: 'button'
+}
+
+/**
+ * AcroForm interactive field. Discriminated union — narrow by `fieldType`.
+ * @public
+ */
+export type FormFieldElement =
+  | TextFormField
+  | CheckboxFormField
+  | RadioFormField
+  | DropdownFormField
+  | ButtonFormField

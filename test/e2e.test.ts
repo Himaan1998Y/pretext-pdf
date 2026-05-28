@@ -527,11 +527,11 @@ describe('e2e — horizontal rules', () => {
     const pdf = await render({
       content: [
         { type: 'paragraph', text: 'Section 1' },
-        { type: 'hr', thickness: 0.5, color: '#cccccc', spaceAbove: 8, spaceBelow: 8 },
+        { type: 'hr', thickness: 0.5, color: '#cccccc', spaceBefore: 8, spaceAfter: 8 },
         { type: 'paragraph', text: 'Section 2' },
-        { type: 'hr', thickness: 2, color: '#1a1a2e', spaceAbove: 16, spaceBelow: 16 },
+        { type: 'hr', thickness: 2, color: '#1a1a2e', spaceBefore: 16, spaceAfter: 16 },
         { type: 'paragraph', text: 'Section 3' },
-        { type: 'hr', thickness: 0.25, color: '#888888', spaceAbove: 4, spaceBelow: 4 },
+        { type: 'hr', thickness: 0.25, color: '#888888', spaceBefore: 4, spaceAfter: 4 },
         { type: 'paragraph', text: 'Section 4' },
       ],
     })
@@ -595,7 +595,7 @@ describe('e2e — Phase 2 combined', () => {
           spaceAfter: 16,
         },
 
-        { type: 'hr', color: '#cccccc', thickness: 0.5, spaceAbove: 4, spaceBelow: 12 },
+        { type: 'hr', color: '#cccccc', thickness: 0.5, spaceBefore: 4, spaceAfter: 12 },
 
         { type: 'paragraph', text: 'Subtotal:     ₹5,05,000', fontSize: 10, spaceAfter: 4 },
         { type: 'paragraph', text: 'GST @ 18%:    ₹90,900', fontSize: 10, color: '#555555', spaceAfter: 8 },
@@ -617,7 +617,7 @@ describe('e2e — Phase 2 combined', () => {
           spaceAfter: 16,
         },
 
-        { type: 'hr', color: '#e0e0e0', spaceAbove: 8, spaceBelow: 8 },
+        { type: 'hr', color: '#e0e0e0', spaceBefore: 8, spaceAfter: 8 },
 
         { type: 'paragraph', text: 'Payment is due within 30 days of invoice date. Late payments are subject to 1.5% monthly interest. All disputes must be raised within 7 days of invoice receipt.', fontSize: 9, color: '#888888' },
       ],

@@ -25,14 +25,22 @@
 /** Maximum SVG string length (5 MB) — prevents ReDoS on oversized inputs. */
 export const SVG_MAX_BYTES = 5 * 1024 * 1024
 
+/** Maximum number of XML elements (open tags) — heuristic DoS guard for deeply nested SVGs. */
+export const MAX_SVG_ELEMENTS = 5000
+
 export function sanitizeSvg(svg: string): string {
   // Skip regex passes on oversized strings — canvas will reject them anyway
   if (svg.length > SVG_MAX_BYTES) return svg
+  // Heuristic element count guard — very deeply nested SVGs can exhaust memory
+  // during rasterization. Count open tags as a cheap proxy for nesting depth.
+  const elementCount = (svg.match(/<[a-zA-Z]/g) ?? []).length
+  if (elementCount > MAX_SVG_ELEMENTS) return svg
   // Remove self-closing <script/> then paired <script>...</script> blocks
   let s = svg.replace(/<script\b[^>]*\/>/gi, '')
   s = s.replace(/<script[\s\S]*?<\/script>/gi, '')
   // Remove event handler attributes (onload, onclick, onerror, etc.)
-  s = s.replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
+  // [\s\n\r]* instead of \s* so newline-injected attributes (e.g. on\nload=...) are caught.
+  s = s.replace(/\bon\w+[\s\n\r]*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
   // Remove <image> and <use> hrefs pointing to unsafe schemes
   s = s.replace(
     /(<(?:image|use)\b[^>]*?)\s+(?:xlink:)?href\s*=\s*["'](?:file|data|javascript):[^"']*["']/gi,

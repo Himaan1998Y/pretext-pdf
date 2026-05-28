@@ -83,12 +83,12 @@ export function measureFormField(
 }
 
 export function measureHr(element: HorizontalRuleElement): MeasuredBlock {
-  const spaceAbove = element.spaceAbove ?? element.spaceBefore ?? 12
+  const spaceBefore = element.spaceBefore ?? 12
   const thickness = element.thickness ?? 0.5
-  const spaceBelow = element.spaceBelow ?? element.spaceAfter ?? 12
+  const spaceAfter = element.spaceAfter ?? 12
   return {
     element: element as ContentElement,
-    height: spaceAbove + thickness + spaceBelow,
+    height: spaceBefore + thickness + spaceAfter,
     lines: [],
     fontSize: 0,
     lineHeight: 0,

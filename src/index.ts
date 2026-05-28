@@ -2,7 +2,7 @@ import { PDFDocument } from '@cantoo/pdf-lib'
 import type { PdfDocument, FootnoteDefElement, RenderOptions } from './types.js'
 import { PretextPdfError } from './errors.js'
 import { runPipeline } from './pipeline.js'
-import { applyPostProcessing } from './post-process.js'
+import { applyPostProcessing } from './signing/index.js'
 import { assertVendorIntegrity } from './version-check.js'
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -47,6 +47,12 @@ export type {
   AnnotationSpec,
   AssemblyPart,
   FormFieldElement,
+  BaseFormField,
+  TextFormField,
+  CheckboxFormField,
+  RadioFormField,
+  DropdownFormField,
+  ButtonFormField,
   TocElement,
   FootnoteDefElement,
   FloatGroupElement,

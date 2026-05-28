@@ -213,22 +213,20 @@ export function validateDocument(
   options?: { strict?: boolean; logger?: Logger }
 ): ValidationResult {
   if (!isValidPdfDocumentLike(doc)) {
-    return { valid: false, errors: [{ path: 'document', message: 'Document must be a non-null object', severity: 'error' as const, code: 'VALIDATION_ERROR' as const }], errorCount: 1, warningCount: 0 }
+    return { valid: false, errors: [{ path: 'document', message: 'Document must be a non-null object', severity: 'error' as const, code: 'VALIDATION_ERROR' as const }], errorCount: 1 }
   }
   try {
     validate(doc, { strict: options?.strict ?? false, ...(options?.logger !== undefined ? { logger: options.logger } : {}) })
-    return { valid: true, errors: [], errorCount: 0, warningCount: 0 }
+    return { valid: true, errors: [], errorCount: 0 }
   } catch (err) {
     if (err instanceof PretextPdfError) {
       const errors = parseValidationErrorsStructured(err.message, err.code)
-      const warnings = errors.filter((e) => e.severity === 'warning')
-      const warningCount = warnings.length
       const headerMatch = err.message.match(/^Strict validation failed \((\d+) issue/)
       const errorCount = headerMatch?.[1] != null ? parseInt(headerMatch[1]!, 10) : errors.filter((e) => e.severity === 'error').length
-      return { valid: false, errors, errorCount, warningCount }
+      return { valid: false, errors, errorCount }
     }
     const msg = err instanceof Error ? err.message : String(err)
-    return { valid: false, errors: [{ path: 'document', message: `Unexpected validation error: ${msg}`, severity: 'error' as const, code: 'VALIDATION_ERROR' as const }], errorCount: 1, warningCount: 0 }
+    return { valid: false, errors: [{ path: 'document', message: `Unexpected validation error: ${msg}`, severity: 'error' as const, code: 'VALIDATION_ERROR' as const }], errorCount: 1 }
   }
 }
 

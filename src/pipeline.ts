@@ -51,6 +51,10 @@ export async function stageInit(doc: PdfDocument): Promise<{
     if (m.language) {
       pdfDoc.catalog.set(PDFName.of('Lang'), PDFString.of(m.language))
     }
+    // Custom reserved fields: write as JSON strings into the PDF Info dict
+    const infoDict = (pdfDoc as unknown as { getInfoDict(): import('@cantoo/pdf-lib').PDFDict }).getInfoDict()
+    if (m.accessibility) infoDict.set(PDFName.of('Accessibility'), PDFString.of(JSON.stringify(m.accessibility)))
+    if (m.semantic)      infoDict.set(PDFName.of('Semantic'), PDFString.of(JSON.stringify(m.semantic)))
   }
 
   const creationDate = doc.renderDate

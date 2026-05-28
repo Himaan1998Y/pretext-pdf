@@ -137,10 +137,8 @@ const hrSchema = {
     type: { type: 'string', const: 'hr' },
     thickness: { type: 'number' },
     color: colorSchema,
-    spaceAbove: { type: 'number', description: 'Space above line in pt. Default: 12. Primary field.' },
-    spaceBelow: { type: 'number', description: 'Space below line in pt. Default: 12. Primary field.' },
-    spaceBefore: { type: 'number', description: 'Alias for spaceAbove (primary).' },
-    spaceAfter: { type: 'number', description: 'Alias for spaceBelow (primary).' },
+    spaceBefore: { type: 'number', description: 'Space above line in pt. Default: 12.' },
+    spaceAfter: { type: 'number', description: 'Space below line in pt. Default: 12.' },
   },
 } as const
 

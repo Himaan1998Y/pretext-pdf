@@ -216,6 +216,7 @@ export function renderFormField(
       if (el.multiline) field.enableMultiline()
       if (el.maxLength) field.setMaxLength(el.maxLength)
       field.addToPage(pdfPage, fieldOpts)
+      if (el.accessibilityLabel) field.acroField.dict.set(PDFName.of('TU'), PDFString.of(el.accessibilityLabel))
       break
     }
     case 'checkbox': {
@@ -229,11 +230,12 @@ export function renderFormField(
         borderColor: rgb(borderRgb[0], borderRgb[1], borderRgb[2]),
         backgroundColor: rgb(bgRgb[0], bgRgb[1], bgRgb[2]),
       })
+      if (el.accessibilityLabel) field.acroField.dict.set(PDFName.of('TU'), PDFString.of(el.accessibilityLabel))
       break
     }
     case 'radio': {
       const group = form.createRadioGroup(el.name)
-      const opts = el.options ?? []
+      const opts = el.options
       const minButtonSize = 16
       const maxVisible = Math.max(1, Math.floor(fieldHeight / minButtonSize))
       const visibleOpts = opts.slice(0, maxVisible)
@@ -253,114 +255,31 @@ export function renderFormField(
       if (el.defaultSelected) {
         try { group.select(el.defaultSelected) } catch { /* option may not exist */ }
       }
+      if (el.accessibilityLabel) group.acroField.dict.set(PDFName.of('TU'), PDFString.of(el.accessibilityLabel))
       break
     }
     case 'dropdown': {
       const field = form.createDropdown(el.name)
-      const opts = (el.options ?? []).map(o => o.value)
+      const opts = el.options.map(o => o.value)
       if (opts.length > 0) field.addOptions(opts)
       if (el.defaultSelected) {
         try { field.select(el.defaultSelected) } catch { /* option may not exist */ }
       }
       field.addToPage(pdfPage, fieldOpts)
+      if (el.accessibilityLabel) field.acroField.dict.set(PDFName.of('TU'), PDFString.of(el.accessibilityLabel))
       break
     }
     case 'button': {
       const field = form.createButton(el.name)
       field.addToPage(el.label ?? el.name, pdfPage, fieldOpts)
+      if (el.accessibilityLabel) field.acroField.dict.set(PDFName.of('TU'), PDFString.of(el.accessibilityLabel))
       break
     }
     default: {
-      // Exhaustiveness guard: if a new fieldType is added to FormFieldElement
-      // without updating this switch, TypeScript will report a type error here.
-      const _exhaustive: never = el.fieldType as never
+      const _exhaustive: never = el as never
       void _exhaustive
-      process.stderr.write(`[pretext-pdf] Unknown form field type: "${String(el.fieldType)}" — skipping\n`)
+      process.stderr.write(`[pretext-pdf] Unknown form field type: "${String((el as { fieldType: unknown }).fieldType)}" — skipping\n`)
     }
   }
 }
 
-// ─── Signature Placeholder ──────────────────────────────────────────
-
-/** Draw a visual signature placeholder box on the specified page. */
-export function renderSignaturePlaceholder(
-  sig: import('./types.js').SignatureSpec,
-  pdfDoc: PDFDocument,
-  fontMap: import('./types-internal.js').FontMap,
-  geo: import('./types-internal.js').PageGeometry
-): void {
-  const pages = pdfDoc.getPages()
-  if (pages.length === 0) return
-
-  const pageIndex = sig.page !== undefined
-    ? Math.min(sig.page, pages.length - 1)
-    : pages.length - 1
-  const page = pages[pageIndex]!
-  if (!page) return
-
-  const boxWidth = sig.width ?? 200
-  const boxHeight = sig.height ?? 60
-  const x = sig.x ?? geo.margins.left
-  const yFromTop = sig.y ?? (geo.pageHeight - geo.margins.bottom - boxHeight)
-  const pdfY = geo.pageHeight - yFromTop - boxHeight
-  const fs = sig.fontSize ?? 8
-
-  const borderRgb = hexToRgb(sig.borderColor ?? '#000000')
-  const borderColor = rgb(borderRgb[0], borderRgb[1], borderRgb[2])
-  const grayColor = rgb(0.5, 0.5, 0.5)
-  const font = fontMap.get('Inter-400-normal') ?? [...fontMap.values()][0]
-
-  if (!font) return
-
-  // Draw outer border rectangle (white fill)
-  page.drawRectangle({
-    x,
-    y: pdfY,
-    width: boxWidth,
-    height: boxHeight,
-    borderColor,
-    borderWidth: 0.5,
-    color: rgb(1, 1, 1),
-  })
-
-  let lineY = pdfY + boxHeight - fs - 6
-
-  // Signer name line
-  if (sig.signerName) {
-    page.drawText(`Signed by: ${sig.signerName}`, {
-      x: x + 6, y: lineY, size: fs, font, color: rgb(0, 0, 0),
-    })
-    lineY -= fs + 4
-  }
-
-  // Signature underline
-  page.drawLine({
-    start: { x: x + 6, y: lineY },
-    end: { x: x + boxWidth - 12, y: lineY },
-    thickness: 0.3,
-    color: grayColor,
-  })
-  page.drawText('Signature', {
-    x: x + 6, y: lineY - fs, size: fs - 1, font, color: grayColor,
-  })
-  lineY -= fs + 8
-
-  // Date underline (half width)
-  page.drawLine({
-    start: { x: x + 6, y: lineY },
-    end: { x: x + boxWidth / 2, y: lineY },
-    thickness: 0.3,
-    color: grayColor,
-  })
-  page.drawText('Date', {
-    x: x + 6, y: lineY - fs, size: fs - 1, font, color: grayColor,
-  })
-
-  // Reason / location at bottom
-  if (sig.reason || sig.location) {
-    const bottomText = [sig.reason, sig.location].filter(Boolean).join(' — ')
-    page.drawText(bottomText, {
-      x: x + 6, y: pdfY + 3, size: fs - 1, font, color: rgb(0.4, 0.4, 0.4),
-    })
-  }
-}

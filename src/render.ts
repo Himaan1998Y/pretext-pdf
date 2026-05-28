@@ -32,8 +32,8 @@ import {
   buildOutlineTree,
   renderTocEntry,
   renderFormField,
-  renderSignaturePlaceholder,
 } from './render-extras.js'
+import { renderSignaturePlaceholder } from './signing/index.js'
 import { addStickyNoteAnnotation } from './render-utils.js'
 import { setBidiWarnFn } from './measure-text.js'
 

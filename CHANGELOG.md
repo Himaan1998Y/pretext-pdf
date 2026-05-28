@@ -7,6 +7,65 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.0.0] — 2026-05-28
+
+Major release. Three breaking changes, six improvements, and two security fixes.
+
+### Breaking Changes
+
+- **`FormFieldElement` is now a discriminated union** — Replace the single flat interface with
+  five per-variant types (`TextFormField | CheckboxFormField | RadioFormField | DropdownFormField |
+  ButtonFormField`) that narrow available properties by `fieldType`. The `BaseFormField` interface
+  holds all shared fields and is also exported. Callers that assign into `FormFieldElement` without
+  narrowing will need to specify the concrete variant. **Migration:** narrow on `fieldType` or
+  import the specific variant type.
+
+- **`HorizontalRuleElement.spaceAbove` / `spaceBelow` removed** — Use `spaceBefore` / `spaceAfter`
+  (stable since v0.9). The deprecated aliases were present in v1.x with `@deprecated` JSDoc.
+  **Migration:** replace `spaceAbove` → `spaceBefore`, `spaceBelow` → `spaceAfter`.
+
+- **`ValidationResult.warningCount` removed** — The field was always `0` in v1.x (validator emits
+  errors only). **Migration:** use `result.errors.filter(e => e.severity === 'warning').length` if
+  you need a count — returns `0` until warning-severity issues are introduced.
+
+### Added
+
+- **`./signing` export** — New subpath export `pretext-pdf/signing` exposes `applySignature`,
+  `applyEncryption`, `applyPostProcessing`, and `renderSignaturePlaceholder` as a standalone
+  signing module. Useful for post-render pipeline composition without importing the full library.
+
+- **`MAX_SVG_ELEMENTS` constant** — Exported from `dist/assets.js` alongside `SVG_MAX_BYTES`.
+  Heuristic element-count guard (5,000 open tags) that skips sanitization of pathologically deep
+  SVGs to prevent memory exhaustion during rasterization.
+
+- **Per-variant `accessibilityLabel` wired to AcroForm `/TU`** — `accessibilityLabel` on form
+  fields is now written to the PDF annotation `/TU` (tooltip/alt-text) dictionary entry.
+  Screen readers and assistive technology that consume AcroForm annotations will pick it up.
+
+- **`metadata.accessibility` / `metadata.semantic` written to Info dict** — Both reserved fields
+  are now serialized as JSON strings into the PDF Info dictionary (`Accessibility` and `Semantic`
+  keys). Previously they were accepted but ignored at render time.
+
+### Changed
+
+- **`ValidationError` and `ValidationResult` fields are `readonly`** — All fields on both
+  interfaces are now `readonly`. This is technically breaking for callers that mutate validation
+  results directly (which should be none in practice).
+
+- **`PluginMeasureResult.height` is `readonly`** — Prevents accidental mutation of the measured
+  height by render hooks.
+
+### Fixed (security)
+
+- **SVG `on*` handler regex now catches newline-injected attributes** — The previous pattern
+  `\bon\w+\s*=` missed attributes like `on\nload=`. Fixed to `\bon\w+[\s\n\r]*=`.
+
+- **`allowed-props` strict mode now covers `accessibilityLabel`, `accessibility`, `semantic`** —
+  These fields were missing from their respective key arrays; strict-mode validation would
+  incorrectly report them as unknown properties. Fixed.
+
+---
+
 ## [1.9.0] — 2026-05-28
 
 Additive release: error categorisation, typed plugin generics, beta graduations, soft deprecations, and a 100 MB output size guard.

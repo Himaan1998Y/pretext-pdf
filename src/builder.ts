@@ -6,7 +6,7 @@
  */
 
 import { runPipeline } from './pipeline.js'
-import { applyPostProcessing } from './post-process.js'
+import { applyPostProcessing } from './signing/index.js'
 import type {
   PdfDocument,
   ContentElement,

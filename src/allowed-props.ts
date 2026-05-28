@@ -27,7 +27,11 @@ import type {
   BlockquoteElement,
   CalloutElement,
   CommentElement,
-  FormFieldElement,
+  TextFormField,
+  CheckboxFormField,
+  RadioFormField,
+  DropdownFormField,
+  ButtonFormField,
   FootnoteDefElement,
   TocElement,
   FloatGroupElement,
@@ -50,7 +54,7 @@ const DOC_KEYS = [
   'flattenForms', 'onImageLoadError', 'onFormFieldError', 'renderDate', 'allowedFileDirs',
 ] as const
 
-const METADATA_KEYS = ['title', 'author', 'subject', 'keywords', 'creator', 'language', 'producer'] as const
+const METADATA_KEYS = ['title', 'author', 'subject', 'keywords', 'creator', 'language', 'producer', 'accessibility', 'semantic'] as const
 
 const PARAGRAPH_KEYS = [
   'type', 'text', 'dir', 'fontSize', 'lineHeight', 'fontFamily', 'fontWeight', 'color',
@@ -108,7 +112,7 @@ const LIST_KEYS = [
 
 const LIST_ITEM_KEYS = ['text', 'dir', 'fontWeight', 'items'] as const
 
-const HR_KEYS = ['type', 'thickness', 'color', 'spaceAbove', 'spaceBelow', 'spaceBefore', 'spaceAfter'] as const
+const HR_KEYS = ['type', 'thickness', 'color', 'spaceBefore', 'spaceAfter'] as const
 
 const PAGE_BREAK_KEYS = ['type'] as const
 
@@ -142,11 +146,17 @@ const CALLOUT_KEYS = [
 
 const COMMENT_KEYS = ['type', 'contents', 'author', 'color', 'open', 'spaceAfter'] as const
 
-const FORM_FIELD_KEYS = [
-  'type', 'fieldType', 'name', 'label', 'placeholder', 'defaultValue', 'multiline',
-  'maxLength', 'checked', 'options', 'defaultSelected', 'width', 'height', 'fontSize',
+const FORM_FIELD_BASE_KEYS = [
+  'type', 'fieldType', 'name', 'label', 'width', 'height', 'fontSize',
   'borderColor', 'backgroundColor', 'spaceAfter', 'spaceBefore', 'keepTogether',
+  'accessibilityLabel',
 ] as const
+
+const TEXT_FORM_FIELD_KEYS = [...FORM_FIELD_BASE_KEYS, 'placeholder', 'defaultValue', 'multiline', 'maxLength'] as const
+const CHECKBOX_FORM_FIELD_KEYS = [...FORM_FIELD_BASE_KEYS, 'checked'] as const
+const RADIO_FORM_FIELD_KEYS = [...FORM_FIELD_BASE_KEYS, 'options', 'defaultSelected'] as const
+const DROPDOWN_FORM_FIELD_KEYS = [...FORM_FIELD_BASE_KEYS, 'options', 'defaultSelected'] as const
+const BUTTON_FORM_FIELD_KEYS = [...FORM_FIELD_BASE_KEYS] as const
 
 const FOOTNOTE_DEF_KEYS = ['type', 'id', 'text', 'fontSize', 'fontFamily', 'spaceAfter'] as const
 
@@ -195,7 +205,11 @@ export type _AllowedPropsDriftGuard = [
   Exact<BlockquoteElement, typeof BLOCKQUOTE_KEYS>,
   Exact<CalloutElement, typeof CALLOUT_KEYS>,
   Exact<CommentElement, typeof COMMENT_KEYS>,
-  Exact<FormFieldElement, typeof FORM_FIELD_KEYS>,
+  Exact<TextFormField, typeof TEXT_FORM_FIELD_KEYS>,
+  Exact<CheckboxFormField, typeof CHECKBOX_FORM_FIELD_KEYS>,
+  Exact<RadioFormField, typeof RADIO_FORM_FIELD_KEYS>,
+  Exact<DropdownFormField, typeof DROPDOWN_FORM_FIELD_KEYS>,
+  Exact<ButtonFormField, typeof BUTTON_FORM_FIELD_KEYS>,
   Exact<FootnoteDefElement, typeof FOOTNOTE_DEF_KEYS>,
   Exact<TocElement, typeof TOC_KEYS>,
   Exact<TocEntryElement, typeof TOC_ENTRY_KEYS>,
@@ -225,11 +239,20 @@ export const ALLOWED_PROPS = {
   'toc': new Set(TOC_KEYS),
   'toc-entry': new Set(TOC_ENTRY_KEYS),
   'comment': new Set(COMMENT_KEYS),
-  'form-field': new Set(FORM_FIELD_KEYS),
   'callout': new Set(CALLOUT_KEYS),
   'footnote-def': new Set(FOOTNOTE_DEF_KEYS),
   'float-group': new Set(FLOAT_GROUP_KEYS),
+  'form-field': new Set(FORM_FIELD_BASE_KEYS),
 } as const
+
+/** Per-variant allowed-property sets for form-field strict validation. */
+export const FORM_FIELD_VARIANT_PROPS: Record<string, ReadonlySet<string>> = {
+  text: new Set(TEXT_FORM_FIELD_KEYS),
+  checkbox: new Set(CHECKBOX_FORM_FIELD_KEYS),
+  radio: new Set(RADIO_FORM_FIELD_KEYS),
+  dropdown: new Set(DROPDOWN_FORM_FIELD_KEYS),
+  button: new Set(BUTTON_FORM_FIELD_KEYS),
+}
 
 export const ALLOWED_PROPS_SUB = {
   'document': new Set(DOC_KEYS),

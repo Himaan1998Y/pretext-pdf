@@ -1,6 +1,6 @@
 {
   "name": "pretext-pdf",
-  "version": "1.9.0",
+  "version": "2.0.0",
   "description": "Generate PDFs from JSON — declarative, serverless, no Chromium. TypeScript-first with professional typography. Ideal for invoices, reports, and AI agents.",
   "keywords": [
     "pdf",
@@ -82,6 +82,10 @@
     "./schema": {
       "types": "./dist/schema.d.ts",
       "import": "./dist/schema.js"
+    },
+    "./signing": {
+      "types": "./dist/signing/index.d.ts",
+      "import": "./dist/signing/index.js"
     },
     "./package.json": "./package.json"
   },

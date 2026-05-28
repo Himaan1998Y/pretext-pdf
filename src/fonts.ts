@@ -445,9 +445,11 @@ export function collectTextByFont(
       case 'form-field': {
         const key = buildFontKey(defaultFont, 400, 'normal')
         if (el.label) addText(key, el.label)
-        if (el.placeholder) addText(key, el.placeholder)
-        if (typeof el.defaultValue === 'string') addText(key, el.defaultValue)
-        if (el.options) {
+        if (el.fieldType === 'text') {
+          if (el.placeholder) addText(key, el.placeholder)
+          if (typeof el.defaultValue === 'string') addText(key, el.defaultValue)
+        }
+        if (el.fieldType === 'radio' || el.fieldType === 'dropdown') {
           for (const opt of el.options) addText(key, opt.label)
         }
         break

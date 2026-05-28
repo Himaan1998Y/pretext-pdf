@@ -119,18 +119,16 @@ export interface DocumentMetadata {
   /** PDF producer field shown in document properties e.g. 'MyApp v2.1'. */
   producer?: string
   /**
-   * Reserved for PDF/UA and WCAG accessibility metadata (v1.8+).
-   * Accepted keys and semantics are intentionally unspecified until the
-   * accessibility rendering pipeline ships in v2.0. Consumers SHOULD
-   * store values here but MUST NOT rely on them having any render-time effect.
-   * @alpha
+   * Accessibility metadata for PDF/UA and WCAG tooling.
+   * Serialized as JSON into the PDF Info dictionary under the `Accessibility` key.
+   * @public
    */
   accessibility?: Record<string, unknown>
   /**
-   * Reserved for semantic document structure metadata (v1.8+).
-   * Intended for structured document-type annotations (e.g. document class,
-   * schema version, AI-generation provenance). No render-time effect in v1.x.
-   * @alpha
+   * Semantic document structure metadata (e.g. document class, schema version,
+   * AI-generation provenance). Serialized as JSON into the PDF Info dictionary
+   * under the `Semantic` key.
+   * @public
    */
   semantic?: Record<string, unknown>
 }

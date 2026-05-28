@@ -17,6 +17,6 @@ export {
   type ResolvedSafeUrl,
 } from './security/url-validation.js'
 export { fetchWithTimeout } from './security/fetch.js'
-export { sanitizeSvg } from './svg/sanitize.js'
+export { sanitizeSvg, SVG_MAX_BYTES, MAX_SVG_ELEMENTS } from './svg/sanitize.js'
 export { VECTOR_RASTER_CONCURRENCY } from './loaders/vectors.js'
 export { loadImages } from './loaders/orchestrator.js'

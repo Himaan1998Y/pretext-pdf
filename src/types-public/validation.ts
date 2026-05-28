@@ -11,17 +11,17 @@ import type { ErrorCode } from '../errors.js'
  */
 export interface ValidationError {
   /** JSONPath-style location — e.g. "doc.pageSize" or "doc.content[3].color" */
-  path: string
+  readonly path: string
   /** Human-readable description of the issue */
-  message: string
+  readonly message: string
   /** The unknown property name, when code is UNKNOWN_PROPERTY */
-  unknownProp?: string
+  readonly unknownProp?: string
   /** Levenshtein-nearest valid property name, when available */
-  suggestion?: string
+  readonly suggestion?: string
   /** Severity of the issue */
-  severity: 'error' | 'warning'
+  readonly severity: 'error' | 'warning'
   /** Machine-readable error code */
-  code: ErrorCode
+  readonly code: ErrorCode
 }
 
 /**
@@ -30,17 +30,11 @@ export interface ValidationError {
  */
 export interface ValidationResult {
   /** True when the document passed validation with zero errors */
-  valid: boolean
+  readonly valid: boolean
   /** All validation errors found (empty when valid is true) */
-  errors: ValidationError[]
+  readonly errors: readonly ValidationError[]
   /** Total number of validation issues. May exceed errors.length when errors are capped at 20. */
-  errorCount: number
-  /**
-   * Warning-severity issue count. Always 0 in v1.x — the validator currently emits errors only.
-   * @deprecated Will be removed in v2.0. Use `errors.filter(e => e.severity === 'warning').length`
-   *   directly when warning-severity items are introduced.
-   */
-  warningCount: number
+  readonly errorCount: number
 }
 
 // ─── Logger ───────────────────────────────────────────────────────────────────

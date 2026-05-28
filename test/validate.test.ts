@@ -655,9 +655,9 @@ describe('validate — hr (gap fill)', () => {
     )
   })
 
-  test('throws VALIDATION_ERROR for negative spaceAbove', async () => {
+  test('throws VALIDATION_ERROR for negative spaceBefore', async () => {
     await expectError(
-      () => render({ content: [{ type: 'hr', spaceAbove: -5 }] }),
+      () => render({ content: [{ type: 'hr', spaceBefore: -5 }] }),
       'VALIDATION_ERROR'
     )
   })

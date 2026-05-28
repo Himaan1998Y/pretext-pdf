@@ -7,7 +7,7 @@
  */
 import type { ContentElement } from '../../types.js'
 import { PretextPdfError } from '../../errors.js'
-import { ALLOWED_PROPS } from '../../allowed-props.js'
+import { ALLOWED_PROPS, FORM_FIELD_VARIANT_PROPS } from '../../allowed-props.js'
 import {
   assertUnknownProps,
   withCycleGuard,
@@ -17,7 +17,7 @@ import {
 export function validateFormField(
   el: Extract<ContentElement, { type: 'form-field' }>,
   prefix: string,
-  _ctx: ValidationContext,
+  ctx: ValidationContext,
 ): void {
   const fieldTypes = ['text', 'checkbox', 'radio', 'dropdown', 'button']
   if (!fieldTypes.includes(el.fieldType)) {
@@ -40,6 +40,14 @@ export function validateFormField(
   }
   if (el.backgroundColor !== undefined && !/^#[0-9A-Fa-f]{6}$/.test(el.backgroundColor)) {
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): backgroundColor must be a 6-digit hex color`)
+  }
+  // Per-variant unknown-props check (replaces the generic ALLOWED_PROPS['form-field'] dispatch
+  // which no longer exists — FormFieldElement is now a discriminated union).
+  if (ctx.strict) {
+    const variantAllowed = FORM_FIELD_VARIANT_PROPS[el.fieldType]
+    if (variantAllowed) {
+      assertUnknownProps(el, variantAllowed as Set<string>, prefix, ctx.errors)
+    }
   }
 }
 

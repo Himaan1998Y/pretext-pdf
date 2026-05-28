@@ -56,7 +56,7 @@ export interface PluginMeasureContext {
  */
 export interface PluginMeasureResult<T = unknown> {
   /** Total block height in pt. Must be a finite non-negative number. */
-  height: number
+  readonly height: number
   /** Space before the block in pt. Defaults to 0. */
   spaceBefore?: number
   /** Space after the block in pt. Defaults to 0. */

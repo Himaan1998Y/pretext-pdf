@@ -32,11 +32,11 @@ export function validateHr(
   if (el.color !== undefined && !HEX_COLOR_REGEX.test(el.color)) {
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (hr): 'color' must be a 6-digit hex string`)
   }
-  if (el.spaceAbove !== undefined && (typeof el.spaceAbove !== 'number' || el.spaceAbove < 0)) {
-    throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (hr): 'spaceAbove' must be a non-negative number`)
+  if (el.spaceBefore !== undefined && (typeof el.spaceBefore !== 'number' || el.spaceBefore < 0)) {
+    throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (hr): 'spaceBefore' must be a non-negative number`)
   }
-  if (el.spaceBelow !== undefined && (typeof el.spaceBelow !== 'number' || el.spaceBelow < 0)) {
-    throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (hr): 'spaceBelow' must be a non-negative number`)
+  if (el.spaceAfter !== undefined && (typeof el.spaceAfter !== 'number' || el.spaceAfter < 0)) {
+    throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (hr): 'spaceAfter' must be a non-negative number`)
   }
 }
 

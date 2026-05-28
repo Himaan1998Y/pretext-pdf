@@ -21,12 +21,11 @@ export function renderHR(
   const { measuredBlock, yFromTop } = pagedBlock
   const element = measuredBlock.element as import('../types.js').HorizontalRuleElement
 
-  const spaceAbove = element.spaceAbove ?? 12
+  const spaceBefore = element.spaceBefore ?? 12
   const thickness = element.thickness ?? 0.5
   const colorHex = element.color ?? '#cccccc'
 
-  // Line sits at the middle of the HR element (after spaceAbove, before spaceBelow)
-  const lineYFromTop = yFromTop + spaceAbove + geo.margins.top + geo.headerHeight
+  const lineYFromTop = yFromTop + spaceBefore + geo.margins.top + geo.headerHeight
   const pdfY = toPdfY(lineYFromTop, thickness / 2, geo.pageHeight)
 
   const [r, g, b] = hexToRgb(colorHex)
