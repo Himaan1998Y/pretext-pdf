@@ -7,6 +7,24 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.0.7] — 2026-05-28
+
+Sprint 4: Split `schema.ts` (907 LOC) into focused `src/schema/` modules.
+
+### Changed
+
+- **`src/schema.ts` split into `src/schema/` (6 focused files)** — The 907-line monolith is
+  replaced by a 19-line barrel re-export and six cohesive sub-files, each under 300 lines:
+  - `schema/shared.ts` (30L) — atomic sub-schemas: align, color, fontWeight, dir, space, inlineSpan
+  - `schema/elements-text.ts` (270L) — paragraph, heading, blockquote, code, callout, richParagraph, list, toc, footnoteDef
+  - `schema/elements-media.ts` (87L) — image, svg, qrCode, barcode, chart
+  - `schema/elements-block.ts` (164L) — spacer, hr, pageBreak, comment, formField, floatGroup
+  - `schema/elements-table.ts` (60L) — table
+  - `schema/document.ts` (293L) — top-level pdfDocumentSchema (assembles all element schemas)
+  The public API (`import { pdfDocumentSchema } from 'pretext-pdf/schema'`) is unchanged.
+
+---
+
 ## [2.0.6] — 2026-05-28
 
 Post-sprint audit fixes: /Lang encoding, BCP47 regex, test correctness.
