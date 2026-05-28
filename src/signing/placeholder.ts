@@ -46,9 +46,10 @@ export function renderSignaturePlaceholder(
 
   let lineY = pdfY + boxHeight - fs - 6
 
-  // Signer name line
+  // Signer name line — truncate to 100 chars to prevent glyph overflow outside box
   if (sig.signerName) {
-    page.drawText(`Signed by: ${sig.signerName}`, {
+    const displayName = sig.signerName.slice(0, 100)
+    page.drawText(`Signed by: ${displayName}`, {
       x: x + 6, y: lineY, size: fs, font, color: rgb(0, 0, 0),
     })
     lineY -= fs + 4

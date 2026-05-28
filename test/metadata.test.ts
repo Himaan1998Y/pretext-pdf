@@ -70,4 +70,43 @@ test('Phase 8F — Document Metadata Extensions', async (t) => {
       }
     )
   })
+
+  await t.test('T7: metadata title/author/subject use PDFHexString — no raw literal-string injection (injection guard)', async () => {
+    // Titles with unbalanced parentheses would break PDF literal strings `(...)`.
+    // PDFHexString.fromText encodes as UTF-16BE hex <FEFF...> — no raw parens in output.
+    const title = 'Report (Q1) notes'
+    const author = "O'Brien & Smith (Ltd)"
+    const doc: PdfDocument = {
+      metadata: { title, author, subject: 'Test (subject)' },
+      content: [{ type: 'paragraph', text: 'Content.' }],
+    }
+    const pdf = await render(doc)
+    const text = new TextDecoder('latin1').decode(pdf)
+    // Raw parenthesized form must NOT appear (that would be an unescaped literal string)
+    assert.ok(!text.includes(`(${title})`), 'title must not appear as raw PDF literal string')
+    assert.ok(!text.includes(`(${author})`), 'author must not appear as raw PDF literal string')
+    // UTF-16BE hex encoding with BOM must be present: FEFF = BOM, 0052 = "R"
+    assert.ok(text.includes('FEFF0052'), 'UTF-16BE BOM+R hex prefix not found in PDF bytes (title encoding check)')
+    // /Title key must appear in the Info dict
+    assert.ok(text.includes('/Title'), '/Title key not found in PDF bytes')
+  })
+
+  await t.test('T7: accessibility metadata written as UTF-16BE hex-encoded Info dict entry', async () => {
+    const doc: PdfDocument = {
+      metadata: {
+        title: 'Accessible Doc',
+        accessibility: { lang: 'en', role: 'document' },
+      },
+      content: [{ type: 'paragraph', text: 'Content.' }],
+    }
+    const pdf = await render(doc)
+    const text = new TextDecoder('latin1').decode(pdf)
+    // /Accessibility key must appear in the Info dict
+    assert.ok(text.includes('/Accessibility'), '/Accessibility key not found in PDF bytes')
+    // Value must be hex-encoded (starts with <FEFF for UTF-16BE BOM), not raw literal (...)
+    const accessJson = JSON.stringify({ lang: 'en', role: 'document' })
+    assert.ok(!text.includes(`(${accessJson})`), 'accessibility must not appear as raw PDF literal string')
+    // FEFF prefix confirms UTF-16BE encoding is used
+    assert.ok(text.includes('FEFF'), 'UTF-16BE BOM not found — metadata may not be hex-encoded')
+  })
 })

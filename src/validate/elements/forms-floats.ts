@@ -27,6 +27,14 @@ export function validateFormField(
   if (!el.name || typeof el.name !== 'string' || el.name.trim() === '') {
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): name is required and must be a non-empty string`)
   }
+  // AcroForm field names and option export values are written as PDF literal
+  // strings by pdf-lib. Restrict to characters that are safe inside a PDF
+  // literal string without escaping — this prevents /T and option-value
+  // injection via unbalanced parentheses, backslashes, or null bytes.
+  const ACROFORM_SAFE = /^[a-zA-Z0-9_.@\-]+$/
+  if (!ACROFORM_SAFE.test(el.name)) {
+    throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): name must contain only letters, digits, underscores, hyphens, dots, or @. Got: "${el.name}"`)
+  }
   if ((el.fieldType === 'radio' || el.fieldType === 'dropdown') && (!el.options || el.options.length === 0)) {
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): type "${el.fieldType}" requires a non-empty options array`)
   }
@@ -39,6 +47,9 @@ export function validateFormField(
       }
       if (typeof opt.value !== 'string' || opt.value.trim() === '') {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): options[${i}].value must be a non-empty string`)
+      }
+      if (!ACROFORM_SAFE.test(opt.value)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): options[${i}].value must contain only letters, digits, underscores, hyphens, dots, or @`)
       }
       if (typeof opt.label !== 'string' || opt.label.trim() === '') {
         throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): options[${i}].label must be a non-empty string`)

@@ -3,7 +3,7 @@
  * No element-type knowledge. Used by all render modules.
  */
 
-import { PDFDocument, PDFFont, PDFHexString, PDFName, PDFNull, PDFRef, rgb } from '@cantoo/pdf-lib'
+import { PDFArray, PDFDocument, PDFFont, PDFHexString, PDFName, PDFNull, PDFRef, rgb } from '@cantoo/pdf-lib'
 import { PretextPdfError } from './errors.js'
 import { SAFE_URL_SCHEME } from './url-utils.js'
 
@@ -87,9 +87,12 @@ export function addLinkAnnotation(
 
   const existingAnnots = pdfPage.node.get(PDFName.of('Annots'))
   if (existingAnnots) {
-    // PDFArray.push() is now typed via augmentation (pdf-lib-augment.d.ts)
-    const annots = pdfDoc.context.lookup(existingAnnots) as any
-    annots.push(linkAnnot)
+    const annots = pdfDoc.context.lookup(existingAnnots)
+    if (annots instanceof PDFArray) {
+      annots.push(linkAnnot)
+    } else {
+      pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([linkAnnot]))
+    }
   } else {
     pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([linkAnnot]))
   }
@@ -153,8 +156,8 @@ export function addStickyNoteAnnotation(
       Type: 'Annot',
       Subtype: 'Text',
       Rect: [x, pdfY - 16, x + 16, pdfY],
-      Contents: PDFHexString.of(contents),
-      T: author ? PDFHexString.of(author) : PDFNull,
+      Contents: PDFHexString.fromText(contents),
+      T: author ? PDFHexString.fromText(author) : PDFNull,
       Open: open === true,
       Name: 'Comment',
       C: [r, g, b],

@@ -42,29 +42,35 @@ export async function stageInit(doc: PdfDocument): Promise<{
 
   if (doc.metadata) {
     const m = doc.metadata
-    if (m.title)    pdfDoc.setTitle(m.title)
-    if (m.author)   pdfDoc.setAuthor(m.author)
-    if (m.subject)  pdfDoc.setSubject(m.subject)
-    if (m.keywords) pdfDoc.setKeywords(m.keywords)
-    pdfDoc.setCreator(m.creator ?? 'pretext-pdf')
-    if (m.producer) pdfDoc.setProducer(m.producer)
     if (m.language) {
-      // PDFHexString encodes as <hex> — immune to unbalanced-parenthesis PDF injection
+      // Lang lives in the catalog, not Info dict — always write it first.
+      // PDFHexString encodes as <hex> — immune to unbalanced-parenthesis injection.
       pdfDoc.catalog.set(PDFName.of('Lang'), PDFHexString.of(m.language))
     }
-    // Custom reserved fields: write as JSON strings into the PDF Info dict.
-    // PDFHexString is used throughout to prevent PDF literal-string injection via
-    // unescaped parentheses in user-controlled content (B3).
-    // getInfoDict() is an internal @cantoo/pdf-lib method not in the public type
-    // surface; the cast is intentional. Wrapped in try/catch so a library upgrade
-    // that removes or renames the method degrades gracefully instead of crashing (M7).
+    // Write all Info dict entries via PDFHexString to prevent PDF literal-string
+    // injection through unbalanced parentheses in user-controlled content (B3).
+    // getInfoDict() is an internal @cantoo/pdf-lib method — cast intentional (M7).
+    // If the method is removed in a future library version, fall back to the
+    // convenience setXxx() methods (which may use literal strings) rather than
+    // silently dropping standard metadata.
     try {
       const infoDict = (pdfDoc as unknown as { getInfoDict(): import('@cantoo/pdf-lib').PDFDict }).getInfoDict()
-      if (m.accessibility) infoDict.set(PDFName.of('Accessibility'), PDFHexString.of(JSON.stringify(m.accessibility)))
-      if (m.semantic)      infoDict.set(PDFName.of('Semantic'),       PDFHexString.of(JSON.stringify(m.semantic)))
+      if (m.title)    infoDict.set(PDFName.of('Title'),    PDFHexString.fromText(m.title))
+      if (m.author)   infoDict.set(PDFName.of('Author'),   PDFHexString.fromText(m.author))
+      if (m.subject)  infoDict.set(PDFName.of('Subject'),  PDFHexString.fromText(m.subject))
+      if (m.keywords) infoDict.set(PDFName.of('Keywords'), PDFHexString.fromText(m.keywords.join(' ')))
+      infoDict.set(PDFName.of('Creator'),   PDFHexString.fromText(m.creator ?? 'pretext-pdf'))
+      if (m.producer) infoDict.set(PDFName.of('Producer'), PDFHexString.fromText(m.producer))
+      if (m.accessibility) infoDict.set(PDFName.of('Accessibility'), PDFHexString.fromText(JSON.stringify(m.accessibility)))
+      if (m.semantic)      infoDict.set(PDFName.of('Semantic'),       PDFHexString.fromText(JSON.stringify(m.semantic)))
     } catch {
-      // Graceful degradation: accessibility/semantic metadata silently omitted if
-      // the internal getInfoDict() API is unavailable in a future library version.
+      // Fallback: convenience methods may use literal strings but are better than no metadata.
+      if (m.title)    pdfDoc.setTitle(m.title)
+      if (m.author)   pdfDoc.setAuthor(m.author)
+      if (m.subject)  pdfDoc.setSubject(m.subject)
+      if (m.keywords) pdfDoc.setKeywords(m.keywords)
+      pdfDoc.setCreator(m.creator ?? 'pretext-pdf')
+      if (m.producer) pdfDoc.setProducer(m.producer)
     }
   }
 

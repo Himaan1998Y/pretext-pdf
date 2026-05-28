@@ -629,7 +629,7 @@ export const pdfDocumentSchema = {
       type: 'array',
       description: 'Document content elements rendered top-to-bottom.',
       items: {
-        anyOf: [
+        oneOf: [
           paragraphSchema,
           headingSchema,
           spacerSchema,

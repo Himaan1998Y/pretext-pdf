@@ -7,6 +7,52 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.0.2] — 2026-05-28
+
+Second post-release audit patch: PDF injection hardening (metadata, AcroForm names), PDFHexString encoding correctness, signing field escaping, annotation array safety.
+
+### Fixed
+
+- **Metadata Info dict fields now use `PDFHexString.fromText()` (correct UTF-16BE encoding)** —
+  The v2.0.1 fix used `PDFHexString.of()` which stored raw bytes between `<>` delimiters (not
+  valid hex). `fromText` correctly produces `<FEFF...>` UTF-16BE hex, the same encoding used by
+  pdf-lib's built-in `setTitle()` etc. Injection protection is now both correct AND effective.
+
+- **Form field `name` and option `value` restricted to AcroForm-safe characters** — Field names
+  and radio/dropdown option export values are written as PDF literal strings by pdf-lib. Characters
+  like `)`, `\`, and null bytes that could corrupt the AcroForm `/T` dictionary are now rejected
+  at validation time with a clear error message. Allowed: `[a-zA-Z0-9_.@-]+` (`HIGH-2`).
+
+- **Signing placeholder fields escaped for PDF literal strings** — `sig.reason`, `sig.location`,
+  `sig.contactInfo`, and `sig.signerName` are passed to `@signpdf/placeholder-pdf-lib` which
+  writes them as PDF literal strings. Backslashes and parentheses are now escaped with `\` before
+  passing, so values like "New York (USA)" are preserved correctly without breaking the dict.
+
+- **Annotation array push guarded with `instanceof PDFArray`** — The previous `as any` cast on
+  `pdfDoc.context.lookup(existingAnnots)` allowed silent no-ops if the value wasn't a PDFArray.
+  All three annotation functions now check `instanceof PDFArray` and fall back to creating a new
+  array rather than silently dropping the annotation.
+
+- **Bookmark `Title` and AcroForm `/TU` use `PDFHexString.fromText()`** — Same `of()` → `fromText()`
+  correction applied to bookmark headings and all five AcroForm `/TU` (accessibility tooltip) writes.
+
+- **Sticky note `Contents` and author `T` use `PDFHexString.fromText()`** — Human-readable text in
+  sticky note annotations now uses proper UTF-16BE encoding.
+
+- **Signature placeholder `signerName` truncated to 100 chars** — Prevents glyph overflow outside
+  the visual signature box for very long signer names.
+
+- **Schema `content.items` changed from `anyOf` to `oneOf`** — JSON Schema validators and AI agent
+  code generators now get exclusive-match semantics, preventing multi-schema ambiguity.
+
+### Tests
+
+- Added T6: `/TU` accessibilityLabel byte-level injection guard in `test/forms.test.ts`.
+- Added T7: metadata title/author/accessibility UTF-16BE hex-encoding byte checks in `test/metadata.test.ts`.
+- Added field name and option value AcroForm-safety tests in `test/forms.test.ts`.
+
+---
+
 ## [2.0.1] — 2026-05-28
 
 Post-release patch: audit-driven hardening of every change introduced in v2.0.0.

@@ -85,6 +85,12 @@ export async function applySignature(
     throw new PretextPdfError('SIGNATURE_P12_LOAD_FAILED', 'Failed to load P12 certificate')
   }
 
+  // @signpdf/placeholder-pdf-lib writes these fields as PDF literal strings
+  // (parenthesis-delimited). Escape backslashes and parens so user-controlled
+  // values cannot break out of the literal string boundary (MEDIUM-1).
+  const escapePdfLit = (s: string): string =>
+    s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
+
   // Load with upstream pdf-lib (not @cantoo/pdf-lib) so the doc instance
   // shares the exact same PDFArray/PDFNumber/PDFName classes that
   // placeholder-pdf-lib uses internally — otherwise the serializer emits a
@@ -92,10 +98,10 @@ export async function applySignature(
   const pdfDoc = await pdfLibMod.PDFDocument.load(pdfBytes)
   pdflibAddPlaceholder({
     pdfDoc,
-    reason:      sig.reason      ?? 'Signed',
-    contactInfo: sig.contactInfo ?? '',
-    name:        sig.signerName  ?? '',
-    location:    sig.location    ?? '',
+    reason:      escapePdfLit(sig.reason      ?? 'Signed'),
+    contactInfo: escapePdfLit(sig.contactInfo ?? ''),
+    name:        escapePdfLit(sig.signerName  ?? ''),
+    location:    escapePdfLit(sig.location    ?? ''),
   })
 
   const pdfWithPlaceholder = await pdfDoc.save({ useObjectStreams: false })
