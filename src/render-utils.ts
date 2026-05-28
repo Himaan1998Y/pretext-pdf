@@ -194,9 +194,9 @@ export function drawTextDecoration(
   if (!decoration.underline && !decoration.strikethrough) return
 
   // Prefer font-designed metrics via fontkit embedder; fall back to height math.
-  // embedder is private in pdf-lib; accessing it via private field access
-  const embedder = (pdfFont as any).embedder
-  const fkFont   = embedder?.font    // fontkit Font object (undefined for standard fonts)
+  // embedder is a private field in pdf-lib — typed via PdfFontEmbedder in pdf-lib-augment.d.ts.
+  const embedder = (pdfFont as unknown as { embedder?: import('./vendor/pdf-lib-augment.js').PdfFontEmbedder }).embedder
+  const fkFont   = embedder?.font    // fontkit Font object (undefined for standard 14 fonts)
   const scale    = embedder?.scale ?? 1
   const ascentPt = pdfFont.heightAtSize(fontSize, { descender: false })
 

@@ -7,6 +7,20 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.0.4] — 2026-05-28
+
+Sprint 2 audit fixes: type-safety improvements in render-utils.ts and vendor declarations.
+
+### Changed
+
+- **`pdf-lib-augment.d.ts` expanded** — Declares `PdfFontEmbedder` interface covering the
+  private `embedder.font` (underlinePosition, underlineThickness, xHeight) and `embedder.scale`
+  fields accessed for text decoration metrics. The `(pdfFont as any).embedder` cast in
+  `render-utils.ts` is now `(pdfFont as unknown as { embedder?: PdfFontEmbedder }).embedder`,
+  eliminating untyped `any` propagation into font-metric arithmetic.
+
+---
+
 ## [2.0.3] — 2026-05-28
 
 Sprint 1 audit fixes: GoTo annotation guard, BCP47 metadata validation, dependency security.
