@@ -7,6 +7,30 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.0.10] — 2026-05-29
+
+Sprint 5B: Split `compat.ts` (613L) and `fonts.ts` (530L) into focused sub-directories.
+
+### Changed
+
+- **`src/compat.ts` split into `src/compat/` (3 files)**
+  - `compat/pdfmake-types.ts` (76L) — `PdfmakeDocument`, `PdfmakeObjectNode`, `PdfmakeStyle`, `CompatOptions`, `TranslateCtx`, `DEFAULT_HEADING_MAP`
+  - `compat/translate.ts` (155L) — `translateNode`, `translateNodeInner`, `translateTextNode`, `applyStyleToParagraph`, `collectSpans`, `pdfmakeNodeToListItem`
+  - `compat/normalize.ts` (115L) — `extractFlatText`, `translateTable`, `mergeStyles`, `normalizeStyleNames`, `pdfmakeAlignToPretext`, `normalizePageSize`, `normalizeMargins`, `normalizeHeaderFooter`
+  - `compat.ts` (85L) — `fromPdfmake` (the only public export) + type re-exports
+  Circular-dependency between translate↔normalize avoided by moving `extractFlatText` to `normalize.ts`.
+
+- **`src/fonts.ts` split into `src/fonts/` (4 files)**
+  - `fonts/bundled-paths.ts` (50L) — `IS_NODE`, `resolveInterFile`, all four `BUNDLED_INTER_*_PATHS` arrays
+  - `fonts/load-bytes.ts` (80L) — `loadFontBytes` (file / Uint8Array / bundled-Inter async loader)
+  - `fonts/collect-needed.ts` (75L) — `collectNeededFonts` (document font-variant scanner)
+  - `fonts/collect-text.ts` (120L) — `collectTextByFont` (glyph subsetting text collector)
+  - `fonts.ts` (70L) — `loadFonts` + `collectTextByFont` re-export (both public exports intact)
+
+  The public API is unchanged. All existing test and source imports continue to work.
+
+---
+
 ## [2.0.9] — 2026-05-29
 
 Sprint 5A: dead-export removal, ts-prune scan.
