@@ -296,7 +296,10 @@ describe('Phase 2 — Performance & Correctness', () => {
       }]
     })
     assert.ok(pdf instanceof Uint8Array)
-    assert.ok(pdf.byteLength > 3000)
+    // MIN_CODE_PDF_BYTES: a code block with monospace font subsetting produces at least
+    // a few KB. 3 000 bytes is well below any real output but above empty/corrupt PDFs.
+    const MIN_CODE_PDF_BYTES = 3_000
+    assert.ok(pdf.byteLength > MIN_CODE_PDF_BYTES)
   })
 
   test('code block without language renders as plain text (no highlighting)', async () => {
@@ -352,7 +355,8 @@ describe('Phase 2 — Performance & Correctness', () => {
       }]
     })
     assert.ok(pdf instanceof Uint8Array)
-    assert.ok(pdf.byteLength > 3000)
+    const MIN_CODE_PDF_BYTES = 3_000
+    assert.ok(pdf.byteLength > MIN_CODE_PDF_BYTES)
   })
 
   test('columns out of range (>6) throws VALIDATION_ERROR', async () => {

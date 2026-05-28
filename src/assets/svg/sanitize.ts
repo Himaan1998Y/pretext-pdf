@@ -53,9 +53,14 @@ export function sanitizeSvg(svg: string): string {
   // \w+ stopped at non-word chars, leaving split names unmatched. The \s* before
   // = stays to catch normal spacing between the name and the assignment operator.
   s = s.replace(/\bon[\w\r\n\t ]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
-  // Remove <image> and <use> hrefs pointing to unsafe schemes
+  // Strip any non-local href from <image> and <use>.
+  // Only fragment refs (#id) are safe in an embedded SVG — they point to elements
+  // within the same SVG document. Any external URL (https://, http://, //,
+  // file://, data:, javascript:, relative paths to disk files) would cause the
+  // SVG rasterizer to make an outbound network or filesystem request at render
+  // time — an SSRF-class vector. Deny everything that doesn't start with '#'.
   s = s.replace(
-    /(<(?:image|use)\b[^>]*?)\s+(?:xlink:)?href\s*=\s*["'](?:file|data|javascript):[^"']*["']/gi,
+    /(<(?:image|use)\b[^>]*?)\s+(?:xlink:)?href\s*=\s*["'](?!#)[^"']*["']/gi,
     '$1'
   )
   // v1.6.0: strip <foreignObject> entirely — it's an HTML escape hatch and

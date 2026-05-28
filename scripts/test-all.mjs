@@ -3,6 +3,12 @@
 //
 // benchmark stage: included but skipped on CI by default via PRETEXT_BENCHMARK_FLOOR_MS=skip.
 // Set PRETEXT_BENCHMARK_FLOOR_MS=skip in your CI env to avoid flaky wall-clock failures.
+//
+// test:visual (pixel-diff visual regression) is intentionally NOT included here.
+// Visual baselines are machine-specific (font rendering differs by OS/GPU) and must
+// be run manually: `npm run test:visual` to compare, `npm run test:visual:update` to
+// re-capture baselines. Including it in the default suite would cause false failures
+// on any machine that differs from the baseline-capture machine.
 import { spawnSync } from 'node:child_process'
 
 const stages = ['test:contract', 'test:unit', 'test:e2e', 'test:phases', 'test:benchmark']

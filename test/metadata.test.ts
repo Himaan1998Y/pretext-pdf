@@ -106,7 +106,13 @@ test('Phase 8F — Document Metadata Extensions', async (t) => {
     // Value must be hex-encoded (starts with <FEFF for UTF-16BE BOM), not raw literal (...)
     const accessJson = JSON.stringify({ lang: 'en', role: 'document' })
     assert.ok(!text.includes(`(${accessJson})`), 'accessibility must not appear as raw PDF literal string')
-    // FEFF prefix confirms UTF-16BE encoding is used
-    assert.ok(text.includes('FEFF'), 'UTF-16BE BOM not found — metadata may not be hex-encoded')
+    // Locate the /Accessibility key and check its value is hex-encoded (not a literal string).
+    // Pattern: /Accessibility followed by whitespace then a hex string <FEFF...>
+    // This is more specific than a global `text.includes('FEFF')` which would pass
+    // even if /Accessibility itself was raw-literal but another field was hex-encoded.
+    assert.ok(
+      /\/Accessibility\s+<FEFF/i.test(text),
+      '/Accessibility value must immediately be a hex string starting with FEFF (UTF-16BE BOM)'
+    )
   })
 })

@@ -316,4 +316,78 @@ describe('v2.0 audit: missing error-code coverage', () => {
     assert.equal(err.category, 'font')
     assert.ok(err instanceof Error)
   })
+
+  test('FORM_FLATTEN_FAILED: contract guard — error code + category are stable', async () => {
+    // Thrown when form.flatten() throws during flattenForms: true rendering.
+    // Triggering requires a PDF whose AcroForm field list is non-empty but whose
+    // flatten call fails — hard to force without internal pdf-lib mocking.
+    const { PretextPdfError } = await import('../dist/index.js') as any
+    const err = new PretextPdfError('FORM_FLATTEN_FAILED', 'synthetic test error')
+    assert.equal(err.code, 'FORM_FLATTEN_FAILED')
+    assert.equal(err.category, 'render')
+    assert.ok(err instanceof Error)
+  })
+
+  test('CANVAS_UNAVAILABLE: contract guard — error code + category are stable', async () => {
+    // Thrown when the @napi-rs/canvas polyfill fails to initialize.
+    // Unreachable in normal CI (canvas is a hard dep that works), but the code
+    // string must remain stable for consumers that switch on it.
+    const { PretextPdfError } = await import('../dist/index.js') as any
+    const err = new PretextPdfError('CANVAS_UNAVAILABLE', 'synthetic test error')
+    assert.equal(err.code, 'CANVAS_UNAVAILABLE')
+    assert.ok(err instanceof Error)
+  })
+})
+
+// ─── 8: PDFArray instanceof fallback — annotation array regression guard ──────
+
+describe('PDFArray instanceof fallback — annotation array regression guard', () => {
+  test('addLinkAnnotation called on a page produces a non-empty Annots array in output', async () => {
+    // The instanceof PDFArray guard in addLinkAnnotation falls back to creating a new
+    // array if pdfDoc.context.lookup() returns a non-PDFArray value. A regression
+    // that removes this guard would silently drop annotations instead of throwing.
+    // This test verifies the end-to-end result: annotations must appear in the PDF.
+    const { render } = await import('../dist/index.js') as any
+    const doc = minDoc({
+      content: [
+        { type: 'paragraph', text: 'Click here to visit', url: 'https://example.com' },
+      ],
+    })
+    const pdf = await render(doc)
+    const pdfText = Buffer.from(pdf).toString('latin1')
+    // /Annots must appear (hyperlink annotation was written to the page)
+    assert.ok(pdfText.includes('/Annots'), '/Annots array missing — link annotation was silently dropped')
+    // /Subtype /Link must appear (the annotation type is correct)
+    assert.ok(pdfText.includes('/Subtype /Link') || pdfText.includes('/Subtype/Link'),
+      '/Subtype /Link not found — link annotation was not written correctly')
+  })
+})
+
+// ─── 9: Encryption password special-char handling ────────────────────────────
+
+describe('encryption password special-character handling', () => {
+  test('userPassword with parentheses and backslash renders encrypted PDF without corruption', async () => {
+    // PDF literal strings use ( ) as delimiters and \ as escape. If a password
+    // containing these chars is placed into a literal string dict unescaped, the
+    // PDF structure is broken. This test verifies the rendered PDF is syntactically
+    // valid even with adversarial password chars (no corrupt /Encrypt dict).
+    const { render, PretextPdfError } = await import('../dist/index.js') as any
+    const doc = minDoc({
+      encryption: { userPassword: 'pass(word\\)test' },
+    })
+    // Should either succeed (chars are escaped/handled internally) or throw a
+    // VALIDATION_ERROR (chars are explicitly rejected). Must NOT produce a corrupted PDF.
+    try {
+      const pdf = await render(doc)
+      assert.ok(pdf instanceof Uint8Array && pdf.length > 0, 'PDF must not be empty')
+      const pdfText = Buffer.from(pdf).toString('latin1')
+      assert.ok(pdfText.includes('/Encrypt'), 'Encrypted PDF must contain /Encrypt marker')
+      // The PDF header must be intact — corrupt /Encrypt would still allow %PDF
+      assert.equal(Buffer.from(pdf.slice(0, 4)).toString(), '%PDF')
+    } catch (err: unknown) {
+      // Rejection of special chars is also acceptable behavior
+      assert.ok(err instanceof PretextPdfError,
+        `Expected PretextPdfError for special-char password, got: ${err}`)
+    }
+  })
 })

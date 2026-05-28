@@ -132,6 +132,36 @@ describe('SVG sanitizer — v1.7.1 CSS vector hardening', () => {
     const out = sanitizeSvg(input)
     assert.ok(/fill="url\(#g\)"/.test(out), 'local gradient references must be preserved')
   })
+
+  test('<use href="https://..."> external URL is stripped (SSRF guard)', () => {
+    // A <use href="https://attacker.example/sprite.svg#id"> would cause the SVG
+    // rasterizer to make an outbound network request at render time — an SSRF-class
+    // vector. Only local fragment refs (#id) are safe in embedded SVGs.
+    const input = '<svg><use href="https://attacker.example/sprites.svg#icon"/></svg>'
+    const out = sanitizeSvg(input)
+    assert.ok(!out.includes('https://attacker.example'), `<use href="https://..."> survived sanitization: ${out}`)
+  })
+
+  test('<use xlink:href="https://..."> external URL is stripped (xlink SSRF guard)', () => {
+    const input = '<svg><use xlink:href="https://attacker.example/sprites.svg#icon"/></svg>'
+    const out = sanitizeSvg(input)
+    assert.ok(!out.includes('https://attacker.example'), `<use xlink:href="https://..."> survived sanitization: ${out}`)
+  })
+
+  test('<image href="https://..."> external URL is stripped (SSRF guard)', () => {
+    // <image href="https://..."> triggers an outbound fetch during rasterization.
+    const input = '<svg><image href="https://attacker.example/pixel.png" width="1" height="1"/></svg>'
+    const out = sanitizeSvg(input)
+    assert.ok(!out.includes('https://attacker.example'), `<image href="https://..."> survived sanitization: ${out}`)
+  })
+
+  test('<use href="#local-id"> local fragment reference is preserved', () => {
+    // Local fragment refs are the legitimate use case — they reference elements
+    // within the same SVG document and must NOT be stripped.
+    const input = '<svg><defs><circle id="c" r="10"/></defs><use href="#c" x="50" y="50"/></svg>'
+    const out = sanitizeSvg(input)
+    assert.ok(out.includes('href="#c"'), `local fragment href="#c" was incorrectly stripped: ${out}`)
+  })
 })
 
 describe('SVG sanitizer — size and element-count guards (T4)', () => {
