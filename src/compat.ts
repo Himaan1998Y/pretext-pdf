@@ -14,7 +14,10 @@
  *   translate.ts     — translateNode, translateNodeInner, translateTextNode, collectSpans, pdfmakeNodeToListItem
  *   normalize.ts     — extractFlatText, translateTable, mergeStyles, normalizePageSize/Margins/HeaderFooter
  */
-import type { PdfDocument, ContentElement } from './types.js'
+import type { PdfDocument, ContentElement, DocumentMetadata } from './types.js'
+
+/** Strips readonly from every key — only used in compat.ts for internal construction. */
+type Mutable<T> = { -readonly [K in keyof T]: T[K] }
 import {
   type PdfmakeDocument,
   type CompatOptions,
@@ -47,7 +50,9 @@ export function fromPdfmake(doc: PdfmakeDocument, options: CompatOptions = {}): 
     for (const el of els) content.push(el)
   }
 
-  const result: PdfDocument = { content }
+  // Use Mutable<> to allow incremental property assignment during construction.
+  // The cast to PdfDocument at the return site enforces the full interface contract.
+  const result: Mutable<PdfDocument> = { content }
 
   if (doc.pageSize !== undefined) {
     if (typeof doc.pageSize === 'string') {
@@ -77,7 +82,7 @@ export function fromPdfmake(doc: PdfmakeDocument, options: CompatOptions = {}): 
   if (footer) result.footer = footer
 
   if (doc.info) {
-    const m: NonNullable<PdfDocument['metadata']> = {}
+    const m: Mutable<DocumentMetadata> = {}
     if (doc.info.title) m.title = doc.info.title
     if (doc.info.author) m.author = doc.info.author
     if (doc.info.subject) m.subject = doc.info.subject
@@ -89,5 +94,5 @@ export function fromPdfmake(doc: PdfmakeDocument, options: CompatOptions = {}): 
     result.allowedFileDirs = doc.allowedFileDirs
   }
 
-  return result
+  return result as PdfDocument
 }

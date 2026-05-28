@@ -7,6 +7,8 @@ import type {
   HeaderFooterSpec,
   Margins,
 } from '../types.js'
+
+type Mutable<T> = { -readonly [K in keyof T]: T[K] }
 import { type PdfmakeNode, type PdfmakeObjectNode, type PdfmakeStyle, type TranslateCtx } from './pdfmake-types.js'
 
 /** Collect flat text from a pdfmake child-node array, recursing into nested arrays. */
@@ -126,11 +128,11 @@ export function normalizeHeaderFooter(
   if (typeof hf === 'function') { onUnsupported(`${label} (function form not supported — pass a string instead)`); return null }
   if (typeof hf === 'string') return { text: hf }
   if (typeof hf === 'object' && typeof hf.text === 'string') {
-    const out: HeaderFooterSpec = { text: hf.text }
+    const out: Mutable<HeaderFooterSpec> = { text: hf.text }
     if (hf.alignment === 'left' || hf.alignment === 'center' || hf.alignment === 'right') out.align = hf.alignment
     if (typeof hf.fontSize === 'number') out.fontSize = hf.fontSize
     if (hf.color) out.color = hf.color
-    return out
+    return out as HeaderFooterSpec
   }
   return null
 }

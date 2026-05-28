@@ -7,6 +7,27 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.0.11] — 2026-05-29
+
+Phase 6a: `readonly` on all scalar public interface fields (non-breaking).
+
+### Changed
+
+- **All scalar fields on public interfaces marked `readonly`** — `PdfDocument`, `DocumentMetadata`,
+  `Margins`, `FontSpec`, `HeaderFooterSpec`, `WatermarkBase`/`WatermarkSpec`, `EncryptionSpec`,
+  `SignatureSpec`, `BookmarkConfig`, `HyphenationConfig`, `AnnotationSpec`.
+
+  Array fields (`content`, `fonts`, `keywords`, `sections`, `allowedFileDirs`) are intentionally
+  left mutable — marking those `readonly` is a breaking change deferred to v3.
+
+  This is non-breaking for all callers: TypeScript allows assigning to `readonly` fields in
+  object literal initializers, and the runtime behavior is identical.
+
+- **`compat.ts`**: Internal construction variables use `Mutable<T>` to allow incremental property
+  assignment, cast to the full interface at return. Externally the API is unchanged.
+
+---
+
 ## [2.0.10] — 2026-05-29
 
 Sprint 5B: Split `compat.ts` (613L) and `fonts.ts` (530L) into focused sub-directories.
