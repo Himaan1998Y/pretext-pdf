@@ -3,7 +3,7 @@
  * No element-type knowledge. Used by all render modules.
  */
 
-import { PDFArray, PDFDocument, PDFFont, PDFHexString, PDFName, PDFNull, PDFRef, rgb } from '@cantoo/pdf-lib'
+import { PDFArray, PDFDocument, PDFFont, PDFHexString, PDFName, PDFNull, rgb } from '@cantoo/pdf-lib'
 import { PretextPdfError } from './errors.js'
 import { SAFE_URL_SCHEME } from './url-utils.js'
 
@@ -95,47 +95,6 @@ export function addLinkAnnotation(
     }
   } else {
     pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([linkAnnot]))
-  }
-}
-
-/**
- * Adds a clickable internal anchor link (GoTo) annotation over a rendered text region.
- * Jumps to a page with a named destination when clicked.
- * Must be called after drawText() — annotation sits above the text layer.
- */
-export function addGoToAnnotation(
-  pdfDoc: PDFDocument,
-  pdfPage: ReturnType<PDFDocument['addPage']>,
-  x: number,
-  pdfY: number,
-  width: number,
-  fontSize: number,
-  destPageRef: PDFRef,
-  destPdfY: number
-): void {
-  const rectBottom = pdfY - fontSize * 0.2
-  const rectTop = pdfY + fontSize * 0.8
-
-  const goToAnnot = pdfDoc.context.register(
-    pdfDoc.context.obj({
-      Type: 'Annot',
-      Subtype: 'Link',
-      Rect: [x, rectBottom, x + width, rectTop],
-      Border: [0, 0, 0],
-      Dest: pdfDoc.context.obj([destPageRef, PDFName.of('XYZ'), PDFNull, destPdfY, PDFNull]),
-    })
-  )
-
-  const existingAnnots = pdfPage.node.get(PDFName.of('Annots'))
-  if (existingAnnots) {
-    const annots = pdfDoc.context.lookup(existingAnnots)
-    if (annots instanceof PDFArray) {
-      annots.push(goToAnnot)
-    } else {
-      pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([goToAnnot]))
-    }
-  } else {
-    pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([goToAnnot]))
   }
 }
 

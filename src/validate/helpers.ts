@@ -71,12 +71,6 @@ export function assertDepthOk(depth: number, path: string): void {
   }
 }
 
-/**
- * RTL strong bidi characters — Bidi_Class=R or AL per UAX #9.
- * See src/validate.ts (pre-split) for full block list. Range preserved bit-exact.
- */
-export const RTL_REGEX = /[֐-ࣿיִ-ﭏﭐ-﷿ﹰ-﻿\u{10800}-\u{10CFF}\u{10D00}-\u{10D3F}\u{10E80}-\u{10EFF}\u{10F30}-\u{10FFF}\u{1E800}-\u{1E95F}\u{1EC70}-\u{1ECBF}\u{1EE00}-\u{1EEFF}]/u
-
 /** Valid 6-digit hex color */
 export const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/
 

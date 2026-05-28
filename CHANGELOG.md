@@ -7,6 +7,25 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.0.9] — 2026-05-29
+
+Sprint 5A: dead-export removal, ts-prune scan.
+
+### Changed
+
+- **`addGoToAnnotation` removed from `src/render-utils.ts`** — The function was exported but
+  never called anywhere in the codebase. GoTo annotation support (internal document links)
+  was prepared prematurely; the implementation is preserved in git history and can be
+  restored when anchor-link rendering is actually wired up.
+
+- **`RTL_REGEX` removed from `src/validate/helpers.ts`** — Exported constant never imported
+  anywhere. The regex pattern is preserved in git history.
+
+- **`PDFRef` import removed from `render-utils.ts`** — Only needed for the now-deleted
+  `addGoToAnnotation` signature.
+
+---
+
 ## [2.0.7] — 2026-05-28
 
 Sprint 4: Split `schema.ts` (907 LOC) into focused `src/schema/` modules.
