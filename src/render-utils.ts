@@ -128,9 +128,12 @@ export function addGoToAnnotation(
 
   const existingAnnots = pdfPage.node.get(PDFName.of('Annots'))
   if (existingAnnots) {
-    // PDFArray.push() is now typed via augmentation (pdf-lib-augment.d.ts)
-    const annots = pdfDoc.context.lookup(existingAnnots) as any
-    annots.push(goToAnnot)
+    const annots = pdfDoc.context.lookup(existingAnnots)
+    if (annots instanceof PDFArray) {
+      annots.push(goToAnnot)
+    } else {
+      pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([goToAnnot]))
+    }
   } else {
     pdfPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([goToAnnot]))
   }

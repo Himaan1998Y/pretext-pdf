@@ -7,6 +7,26 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.0.3] — 2026-05-28
+
+Sprint 1 audit fixes: GoTo annotation guard, BCP47 metadata validation, dependency security.
+
+### Fixed
+
+- **`addGoToAnnotation` now has `instanceof PDFArray` guard** — the same fix applied to
+  `addLinkAnnotation` and `addStickyNoteAnnotation` in v2.0.2 was missed for GoTo annotations.
+  Existing `Annots` entries that are not a direct `PDFArray` now fall back to creating a new
+  array instead of silently calling `.push()` on an `any`-cast value.
+
+- **`metadata.language` validated against `LANGUAGE_TAG_REGEX`** — previously only checked for
+  non-empty string and max length. Now enforces the same BCP47 regex (`/^[a-zA-Z]{2,8}(-[a-zA-Z0-9]{2,8})*$/`)
+  used for `hyphenation.language`, closing an inconsistency in the validation layer.
+
+- **Dependency audit** — `npm audit fix` resolved `fast-uri <=3.1.1` CVE (GHSA-v39h-62p7-jpjc,
+  GHSA-q3j6-qgpj-74h6) in the dev dependency chain.
+
+---
+
 ## [2.0.2] — 2026-05-28
 
 Second post-release audit patch: PDF injection hardening (metadata, AcroForm names), PDFHexString encoding correctness, signing field escaping, annotation array safety.

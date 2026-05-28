@@ -320,7 +320,12 @@ export function validateDocumentLevel(doc: PdfDocument, ctx: ValidationContext):
     if (m.language !== undefined && (typeof m.language !== 'string' || m.language.trim() === '')) {
       throw new PretextPdfError('VALIDATION_ERROR', 'metadata.language must be a non-empty string (BCP47 tag e.g. "en-US")')
     }
-    if (m.language !== undefined && typeof m.language === 'string') validateMetadataString(m.language, 'language')
+    if (m.language !== undefined && typeof m.language === 'string') {
+      validateMetadataString(m.language, 'language')
+      if (!LANGUAGE_TAG_REGEX.test(m.language)) {
+        throw new PretextPdfError('VALIDATION_ERROR', `metadata.language must be a valid BCP47 language tag (e.g. "en", "en-US", "zh-Hant"). Got: "${m.language}"`)
+      }
+    }
     if (m.producer !== undefined && (typeof m.producer !== 'string' || m.producer.trim() === '')) {
       throw new PretextPdfError('VALIDATION_ERROR', 'metadata.producer must be a non-empty string')
     }
