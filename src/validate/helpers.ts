@@ -80,8 +80,13 @@ export const RTL_REGEX = /[֐-ࣿיִ-ﭏﭐ-﷿ﹰ-﻿\u{10800}-\u{10CFF}\u{10D0
 /** Valid 6-digit hex color */
 export const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/
 
-/** BCP47 language tag pattern for hyphenation.language — prevents dynamic-import path injection */
-export const LANGUAGE_TAG_REGEX = /^[a-zA-Z]{2,8}(-[a-zA-Z0-9]{2,8})*$/
+/**
+ * BCP47 language tag pattern — prevents dynamic-import path injection in hyphenation.language
+ * and ensures metadata.language is a valid tag.
+ * Covers: regular tags (en, en-US, zh-Hant-TW), grandfathered (i-klingon), private-use (x-custom).
+ * Leading subtag allows 1–8 chars to support single-char `i` and `x` prefixes (RFC 5646 §2.2.7).
+ */
+export const LANGUAGE_TAG_REGEX = /^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$/
 
 /** Valid column width: positive number OR '2*', '*', '1.5*' format */
 export const STAR_WIDTH_REGEX = /^(\d*\.?\d+)?\*$/

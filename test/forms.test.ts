@@ -232,7 +232,7 @@ test('Phase 8B — Interactive Forms', async (t) => {
       assert.ok(!text.includes(`(${label})`), `raw literal survived for fieldType=${fieldType}`)
       assert.ok(text.includes('FEFF'), `UTF-16BE BOM missing for fieldType=${fieldType}`)
     }
-    // Radio and dropdown require options
+    // Radio and dropdown require options — same three assertions as checkbox/button
     for (const fieldType of ['radio', 'dropdown'] as const) {
       const doc: PdfDocument = {
         content: [{
@@ -246,6 +246,7 @@ test('Phase 8B — Interactive Forms', async (t) => {
       const text = new TextDecoder('latin1').decode(pdf)
       assert.ok(text.includes('/TU'), `/TU missing for fieldType=${fieldType}`)
       assert.ok(!text.includes(`(${label})`), `raw literal survived for fieldType=${fieldType}`)
+      assert.ok(text.includes('FEFF'), `UTF-16BE BOM missing for fieldType=${fieldType}`)
     }
   })
 

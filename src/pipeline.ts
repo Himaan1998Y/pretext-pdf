@@ -1,4 +1,4 @@
-import { PDFDocument, PDFHexString, PDFName } from '@cantoo/pdf-lib'
+import { PDFDocument, PDFHexString, PDFName, PDFString } from '@cantoo/pdf-lib'
 import type { PdfDocument, Margins, RenderOptions } from './types-public/index.js'
 import type { PageGeometry, FontMap, ImageMap, MeasuredBlock } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
@@ -43,9 +43,11 @@ export async function stageInit(doc: PdfDocument): Promise<{
   if (doc.metadata) {
     const m = doc.metadata
     if (m.language) {
-      // Lang lives in the catalog, not Info dict — always write it first.
-      // PDFHexString encodes as <hex> — immune to unbalanced-parenthesis injection.
-      pdfDoc.catalog.set(PDFName.of('Lang'), PDFHexString.of(m.language))
+      // /Lang is a text string per PDF 32000 §14.9.2. PDFString (literal string) is correct
+      // here — matching pdf-lib's own setLanguage() behavior. BCP47 tags are validated to
+      // ASCII letters/digits/hyphens only (no parentheses), so literal-string injection risk
+      // is zero. PDFHexString.fromText() would add a UTF-16 BOM that some readers misparse.
+      pdfDoc.catalog.set(PDFName.of('Lang'), PDFString.of(m.language))
     }
     // Write all Info dict entries via PDFHexString to prevent PDF literal-string
     // injection through unbalanced parentheses in user-controlled content (B3).

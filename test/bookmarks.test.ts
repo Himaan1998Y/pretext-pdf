@@ -247,7 +247,9 @@ test('Phase 7A — Bookmarks / Outlines', async (t) => {
     assert.ok(pdfText.includes('/Title'), '/Title key not found in PDF bytes')
     // Raw literal form `(Chapter (1): Introduction & Overview)` must NOT appear
     assert.ok(!pdfText.includes(`(${specialTitle})`), 'heading title must not appear as raw PDF literal string')
-    // UTF-16BE encoding with BOM: FEFF0043 = BOM + "C" (Chapter)
-    assert.ok(pdfText.includes('FEFF0043'), 'UTF-16BE BOM+C hex prefix not found (bookmark Title encoding check)')
+    // UTF-16BE encoding with BOM: FEFF + "Chapte" = FEFF004300680061007000740065
+    // Using 6 chars of the title for a unique match that won't appear by accident.
+    const chapterHex = 'FEFF' + Array.from('Chapte').map(c => c.charCodeAt(0).toString(16).padStart(4, '0').toUpperCase()).join('')
+    assert.ok(pdfText.includes(chapterHex), `UTF-16BE BOM+title hex not found (expected ${chapterHex}) — bookmark Title encoding check`)
   })
 })

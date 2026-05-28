@@ -7,6 +7,41 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.0.6] — 2026-05-28
+
+Post-sprint audit fixes: /Lang encoding, BCP47 regex, test correctness.
+
+### Fixed
+
+- **`/Lang` catalog entry now uses `PDFString.of()` (correct literal string)** — Previously
+  used `PDFHexString.of()` which stored raw ASCII bytes as invalid hex. `/Lang` is a
+  PDF text string per spec §14.9.2; `PDFString` (literal string) is correct and matches
+  pdf-lib's own `setLanguage()`. BCP47 tags are ASCII-only (validated by regex) so
+  literal-string injection risk is zero.
+
+- **BCP47 regex widened to accept `i-` and `x-` prefixed tags** — `/^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$/`
+  now allows the single-char leading subtag required by grandfathered (`i-klingon`) and
+  private-use (`x-custom-app`) tags per RFC 5646 §2.2.7. Previously `{2,8}` incorrectly
+  rejected valid language codes.
+
+### Tests
+
+- **H6 (signerName truncation)** strengthened — replaced the vacuous 5% byte-size ratio with
+  a `deepEqual(pdf100, pdf101)` identity check: a 100-char and 101-char signerName must produce
+  byte-identical PDFs, directly testing that `slice(0, 100)` is applied.
+
+- **M5 (/TU encoding)** — added `FEFF` BOM assertion to the radio and dropdown loop,
+  making it consistent with the checkbox/button loop.
+
+- **M6 (bookmark Title)** — replaced the `FEFF0043` prefix check (too broad) with the full
+  6-character "Chapte" UTF-16BE hex prefix for an unambiguous unique match.
+
+- **M7 (signing field escaping)** — clarified test scope: the visual placeholder path uses
+  `drawText()` (CIDFont glyph encoding — no injection risk). The `escapePdfLit` contract is
+  tested in `signatures-validation.test.ts` which covers the crypto signing code path.
+
+---
+
 ## [2.0.5] — 2026-05-28
 
 Sprint 3 audit fixes: annotation array safety, test coverage gaps closed.
