@@ -897,4 +897,11 @@ export const pdfDocumentSchema = {
       description: 'Restrict filesystem access to these absolute directory paths.',
     },
   },
+  // additionalProperties: false on the root object catches unknown top-level keys
+  // in AI-agent and MCP code-generation contexts, where an LLM might hallucinate
+  // a property that doesn't exist. Element schemas (content items) are intentionally
+  // not locked down here — they use runtime validation in validate/index.ts which
+  // produces precise per-property VALIDATION_ERROR messages for better DX than
+  // JSON Schema's generic "additional property" error.
+  additionalProperties: false,
 } as const satisfies Record<string, unknown>

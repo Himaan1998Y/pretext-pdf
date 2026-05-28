@@ -201,4 +201,16 @@ describe('SVG sanitizer — size and element-count guards (T4)', () => {
       }
     )
   })
+
+  test('SVG at exactly SVG_MAX_BYTES → sanitizes without throwing (> not >= boundary)', () => {
+    // The guard is `svg.length > SVG_MAX_BYTES`, so exactly SVG_MAX_BYTES must pass.
+    // This pins the `>` vs `>=` boundary: if someone changes it to `>=`, this test fails.
+    const svgOpen = '<svg>'
+    const svgClose = '</svg>'
+    const payloadLen = SVG_MAX_BYTES - svgOpen.length - svgClose.length
+    const padding = '<!--' + 'x'.repeat(Math.max(0, payloadLen - 7)) + '-->'
+    const input = (svgOpen + padding + svgClose).slice(0, SVG_MAX_BYTES)
+    // Should not throw — exactly at the boundary is still allowed
+    assert.doesNotThrow(() => sanitizeSvg(input), 'SVG at exactly SVG_MAX_BYTES must not throw')
+  })
 })

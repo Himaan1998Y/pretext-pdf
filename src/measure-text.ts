@@ -526,6 +526,12 @@ export async function measureText(
   hyphenatorOpts?: HyphenatorOpts,
   wordWidthCache?: Map<string, number>,
 ): Promise<Array<{ text: string; width: number }>> {
+  // Strip null bytes before they reach the C extension font metric layer.
+  //   causes "Convert String to CString failed" in @cantoo/pdf-lib's
+  // native font measurement. PDF viewers also terminate strings at null bytes,
+  // so stripping is the correct semantic action.
+  // eslint-disable-next-line no-control-regex
+  if (text && text.includes(' ')) text = text.replace(/ /g, '')
   if (!text || text.trim() === '') return []
 
   const { prepareWithSegments, layoutWithLines } = await getPretext()
