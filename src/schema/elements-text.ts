@@ -1,4 +1,4 @@
-import { alignSchema, alignNoJustify, fontWeightSchema, colorSchema, dirSchema, spaceSchema, inlineSpanSchema } from './shared.js'
+import { alignSchema, fontWeightSchema, colorSchema, dirSchema, spaceSchema, inlineSpanSchema } from './shared.js'
 
 export const paragraphSchema = {
   type: 'object',
@@ -266,5 +266,3 @@ export const footnoteDefSchema = {
     spaceAfter: spaceSchema,
   },
 } as const
-
-void alignNoJustify // imported for completeness — used by sub-schemas above

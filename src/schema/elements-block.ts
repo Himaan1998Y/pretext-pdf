@@ -1,4 +1,4 @@
-import { colorSchema, spaceSchema, fontWeightSchema } from './shared.js'
+import { colorSchema, spaceSchema } from './shared.js'
 
 export const spacerSchema = {
   type: 'object',
@@ -161,4 +161,3 @@ export const floatGroupSchema = {
   },
 } as const
 
-void fontWeightSchema // imported for completeness
