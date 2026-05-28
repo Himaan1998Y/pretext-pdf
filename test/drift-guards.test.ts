@@ -1,11 +1,16 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { ELEMENT_TYPES } from '../src/element-types.js'
 import { ALLOWED_PROPS } from '../src/allowed-props.js'
 
-const ROOT = join(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1'), '..', '..')
+// fileURLToPath handles Windows drive-letter paths correctly (file:///C:/... → C:\...).
+// The previous regex-based strip `/^\/([A-Z]:/` was brittle: it assumed a leading
+// slash before a capital drive letter, which breaks on network paths and lowercase drives.
+// dirname() gives test/, so one '..' reaches the project root.
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 // Types that exist in ELEMENT_TYPES but are legitimately absent from render.ts because
 // they are converted to other types by pre-render pipeline passes.

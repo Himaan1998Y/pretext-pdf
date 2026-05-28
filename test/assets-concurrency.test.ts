@@ -54,7 +54,7 @@ function buildDoc() {
 }
 
 describe('G4 — parallel render concurrency', () => {
-  test('10 concurrent renders all succeed and produce identical bytes', async () => {
+  test('10 concurrent renders all succeed and produce identical bytes (state-bleed guard)', async () => {
     const N = 10
     const results = await Promise.all(
       Array.from({ length: N }, () => render(buildDoc())),
@@ -79,5 +79,23 @@ describe('G4 — parallel render concurrency', () => {
           `module-level mutable state in assets.ts or its split modules.`,
       )
     }
+  })
+
+  test('10 concurrent renders do not error or deadlock (liveness guard)', async () => {
+    // PDF rendering is CPU-bound and runs on Node.js single thread, so Promise.all
+    // serializes renders on the event loop — wall-time parallelism cannot be measured
+    // reliably for CPU-bound work. The meaningful guard is: concurrent renders must
+    // ALL complete without throwing, and must not deadlock or hang indefinitely.
+    // The byte-identity test above is the primary concurrency correctness guard.
+    const N = 10
+    const start = performance.now()
+    const results = await Promise.all(
+      Array.from({ length: N }, () => render(buildDoc())),
+    )
+    const elapsedMs = performance.now() - start
+    assert.equal(results.length, N, `expected ${N} results`)
+    // Sanity check: if all 10 renders took more than 60 seconds total, something is hung.
+    assert.ok(elapsedMs < 60_000, `${N} concurrent renders took ${Math.round(elapsedMs)}ms — possible deadlock`)
+    console.log(`[concurrency] ${N} renders in ${Math.round(elapsedMs)}ms — no deadlock or hang`)
   })
 })

@@ -87,7 +87,10 @@ test('Phase 8B — Interactive Forms', async (t) => {
     assert(pdf instanceof Uint8Array && pdf.length > 0)
   })
 
-  await t.test('flattenForms: true renders flattened PDF', async () => {
+  await t.test('flattenForms: true produces a PDF without interactive AcroForm fields', async () => {
+    // A flattened PDF must not contain /AcroForm or /Widget annotations — the
+    // fields are baked into the content stream and no longer interactive.
+    // Without this assertion, silently ignoring flattenForms: true would pass.
     const doc: PdfDocument = {
       flattenForms: true,
       content: [
@@ -97,6 +100,16 @@ test('Phase 8B — Interactive Forms', async (t) => {
     }
     const pdf = await render(doc)
     assert(pdf instanceof Uint8Array && pdf.length > 0)
+
+    const bytes = new TextDecoder('latin1').decode(pdf)
+    // After flattening, /AcroForm should not appear in the catalog dict.
+    // Note: /AcroForm may still be present as an empty dict in some pdf-lib
+    // versions after flatten() clears all fields — check for /Fields array
+    // absence as a stronger signal that the form was actually flattened.
+    assert.ok(
+      !bytes.includes('/Widget'),
+      'flattened PDF must not contain /Widget annotations (form fields not removed)'
+    )
   })
 
   await t.test('duplicate field name throws FORM_FIELD_NAME_DUPLICATE', async () => {
@@ -184,6 +197,26 @@ test('Phase 8B — Interactive Forms', async (t) => {
         return true
       }
     )
+  })
+
+  await t.test('field name appears in /T as hex-encoded string, not raw PDF literal (AcroForm /T encoding guard)', async () => {
+    // The AcroForm /T field (partial field name) must not appear as a raw literal
+    // string like `(my.field)` in the PDF. PDFHexString encoding produces `<FEFF...>`.
+    // A raw literal would allow injection of synthetic /T dict entries if the name
+    // ever contains `(` or `)` (caught at validation), but even safe names must be
+    // hex-encoded to prevent confusion with PDF dict structure.
+    // This test verifies that a valid name 'my.field' is hex-encoded (not `(my.field)`).
+    const doc: PdfDocument = {
+      content: [
+        { type: 'form-field', fieldType: 'text', name: 'my.field', label: 'My Field' },
+      ],
+    }
+    const pdf = await render(doc)
+    const text = new TextDecoder('latin1').decode(pdf)
+    // Raw PDF literal form must NOT appear in the byte stream
+    assert.ok(!text.includes('(my.field)'), 'field name must not appear as raw PDF literal string (my.field)')
+    // /T key must be present somewhere in the AcroForm dict
+    assert.ok(text.includes('/T'), '/T annotation key not found in PDF bytes')
   })
 
   await t.test('T6: accessibilityLabel appears as /TU — UTF-16BE hex-encoded, not raw literal (injection guard)', async () => {

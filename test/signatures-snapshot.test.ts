@@ -46,7 +46,11 @@ interface SnapshotShape {
 }
 
 function buildSelfSignedP12(passphrase = 'snapshot-pass'): { p12Bytes: Uint8Array; passphrase: string } {
-  const keys = forge.pki.rsa.generateKeyPair(2048)
+  // RSA-1024 is intentionally chosen for test speed (~50ms vs ~3000ms for RSA-2048).
+  // This fixture is only used to verify structural shape of the signed PDF, not for
+  // real security. The long-term improvement is to commit a pre-generated P12 to
+  // test/data/snapshot-cert.p12 so keygen is eliminated entirely from CI runs.
+  const keys = forge.pki.rsa.generateKeyPair(1024)
   const cert = forge.pki.createCertificate()
   cert.publicKey = keys.publicKey
   cert.serialNumber = '01'

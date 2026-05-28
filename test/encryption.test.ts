@@ -181,4 +181,44 @@ test('Phase 7G — Encryption', async (t) => {
     const header = Buffer.from(pdf.slice(0, 4)).toString('ascii')
     assert.strictEqual(header, '%PDF')
   })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Test 8: permissions.printing = false clears the printing permission bit in /P
+  // PDF spec §7.6.4: /P is a 32-bit signed integer. Bit 3 (value 4) = PrintDocument.
+  // When printing is false, bit 3 must be CLEAR in /P.
+  // This test verifies that the /P value is encoded correctly — not just that
+  // /Encrypt appears (which would pass even if all permissions were granted).
+  // ─────────────────────────────────────────────────────────────────────────
+  await t.test('permissions.printing = false clears printing bit in /P flag', async () => {
+    const doc: PdfDocument = {
+      pageSize: 'A4',
+      margins: { top: 40, bottom: 40, left: 40, right: 40 },
+      defaultFont: 'Inter',
+      defaultFontSize: 12,
+      defaultLineHeight: 16,
+      encryption: { userPassword: 'test', permissions: { printing: false, copying: false } },
+      content: [{ type: 'paragraph', text: 'Restricted document.' }],
+    }
+
+    const pdf = await render(doc)
+    const pdfString = Buffer.from(pdf).toString('latin1')
+
+    // Extract /P value from /Encrypt dict. PDF spec: /P <integer>
+    const pMatch = pdfString.match(/\/P\s+(-?\d+)/)
+    assert.ok(pMatch, '/P permission flag must be present in /Encrypt dict')
+
+    const P = parseInt(pMatch![1]!, 10)
+    // Bit 3 (0-indexed from 1 per PDF spec) = value 4 = PrintDocument permission.
+    // When printing is DISABLED, bit 3 must be CLEAR (i.e., P & 4 === 0).
+    assert.strictEqual(
+      P & 4, 0,
+      `Expected printing bit (bit 3) to be clear in /P=${P} when printing:false`
+    )
+    // Bit 5 (value 16) = CopyContent permission.
+    // When copying is DISABLED, bit 5 must be CLEAR.
+    assert.strictEqual(
+      P & 16, 0,
+      `Expected copying bit (bit 5) to be clear in /P=${P} when copying:false`
+    )
+  })
 })

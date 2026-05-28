@@ -105,4 +105,38 @@ test('Phase 3 — Cryptographic Digital Signatures', async (t) => {
     )
   })
 
+  await t.test('signing fields with parentheses must not appear as unescaped PDF literal strings (injection guard)', async () => {
+    // PDF literal strings use `(` and `)` as delimiters. If reason/location/signerName
+    // contain unescaped parens, the PDF dict is malformed and an attacker could inject
+    // synthetic dict entries (e.g. `/Author (injected)` inside a reason field).
+    // The escapePdfLit fix in post-process.ts escapes `\`, `(`, `)` before
+    // passing values to pdflibAddPlaceholder. This test verifies the escaping holds.
+    const reason = 'Approved (Q1 2026)'
+    const location = 'New York (USA)'
+    const signerName = 'Alice (Smith)'
+    const doc = {
+      signature: { signerName, reason, location },
+      content: [{ type: 'paragraph' as const, text: 'Contract.' }],
+    }
+    const pdf = await render(doc as any)
+    assert.ok(pdf instanceof Uint8Array && pdf.length > 0)
+
+    const bytes = new TextDecoder('latin1').decode(pdf)
+
+    // Raw unescaped parenthesized form must NOT appear in the byte stream.
+    // If present, it means the inner parens are unescaped and break PDF structure.
+    assert.ok(
+      !bytes.includes(`(${reason})`),
+      `reason must not appear as unescaped PDF literal — found raw "(${reason})" in bytes`
+    )
+    assert.ok(
+      !bytes.includes(`(${location})`),
+      `location must not appear as unescaped PDF literal — found raw "(${location})" in bytes`
+    )
+    assert.ok(
+      !bytes.includes(`(${signerName})`),
+      `signerName must not appear as unescaped PDF literal — found raw "(${signerName})" in bytes`
+    )
+  })
+
 })

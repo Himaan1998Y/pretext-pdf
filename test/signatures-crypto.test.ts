@@ -286,8 +286,13 @@ test('Phase 9A — Cryptographic Signatures', async (t) => {
     assert.match(pdfText, /\/Fields\s*\[/, 'AcroForm must contain a /Fields array')
   })
 
-  await t.test('multiple signature fields in document', async () => {
-    // Test that multiple elements can reference signature (though only one visual box renders)
+  await t.test('multi-section document with top-level signature renders all sections without suppressing signature', async () => {
+    // Verifies that a document with multiple headings and paragraphs correctly
+    // renders the visual signature placeholder alongside the content.
+    // (The schema supports only one top-level signature per document; this test
+    // ensures complex content layout doesn't suppress or corrupt the sig field.)
+    // Note: /Type /Sig only appears when a P12 cert is provided (crypto signing).
+    // Visual-only signatures produce a rendered box and an /AcroForm catalog entry.
     const pdf = await render({
       content: [
         { type: 'heading', level: 1, text: 'Section 1' },
@@ -298,8 +303,15 @@ test('Phase 9A — Cryptographic Signatures', async (t) => {
       signature: { signerName: 'Authorized Signer', page: 0 }
     })
 
-    assert.ok(pdf instanceof Uint8Array)
-    assert.equal(new TextDecoder().decode(pdf.slice(0, 4)), '%PDF')
+    assert.ok(pdf instanceof Uint8Array && pdf.length > 0)
+    const pdfText = Buffer.from(pdf).toString('latin1')
+    // AcroForm catalog entry must be present (required by PDF spec for sig widgets)
+    assert.match(pdfText, /\/AcroForm\b/, 'multi-section signed PDF must contain /AcroForm catalog entry')
+    // Bookmark outline must exist — confirms both headings were laid out
+    // (outlines are only emitted when headings exist in the content)
+    assert.match(pdfText, /\/Type\s*\/Outlines\b/, 'signed PDF with headings must contain /Outlines entry')
+    // Section 1 bookmark title: UTF-16BE hex for "Section 1" = 0053 0065 006300740069006F006E 0020 0031
+    assert.ok(pdfText.includes('006E00200031'), 'Section 1 heading must appear in PDF bookmark outline')
   })
 
 })
