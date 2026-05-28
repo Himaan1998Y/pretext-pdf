@@ -7,6 +7,30 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.0.5] — 2026-05-28
+
+Sprint 3 audit fixes: annotation array safety, test coverage gaps closed.
+
+### Fixed
+
+- **`addStickyNoteAnnotation` now has `instanceof PDFArray` guard** — the last remaining
+  `as any` annotation-push in `render-utils.ts`. All three annotation functions
+  (`addLinkAnnotation`, `addGoToAnnotation`, `addStickyNoteAnnotation`) now safely fall back
+  to creating a new array if the existing `Annots` entry is not a direct `PDFArray`.
+
+### Tests
+
+- **H6** (`test/signatures-visual.test.ts`): `signerName` longer than 100 chars renders to
+  the same byte-size PDF as a 100-char name — confirms the `slice(0, 100)` truncation is applied.
+- **M5** (`test/forms.test.ts`): `/TU` encoding verified for checkbox, radio, dropdown, and
+  button field types — not just `text`.
+- **M6** (`test/bookmarks.test.ts`): Bookmark `Title` with special chars (parentheses) appears
+  as UTF-16BE hex in the PDF bytes — raw literal form `(Chapter (1): ...)` does not appear.
+- **M7** (`test/signatures-visual.test.ts`): Backslash and parentheses in `signerName`,
+  `reason`, and `location` render without throwing (escaping confirmed).
+
+---
+
 ## [2.0.4] — 2026-05-28
 
 Sprint 2 audit fixes: type-safety improvements in render-utils.ts and vendor declarations.

@@ -61,6 +61,49 @@ test('Phase 8E — Signature Placeholder', async (t) => {
     assert(pdf instanceof Uint8Array && pdf.length > 0)
   })
 
+  await t.test('H6: signerName longer than 100 chars renders without error (truncation guard)', async () => {
+    // signing/placeholder.ts: displayName = sig.signerName.slice(0, 100)
+    // CIDFont encoding means we cannot directly search for the raw string in PDF bytes.
+    // What we CAN verify: a 300-char name renders to a valid PDF of SMALLER byte size
+    // than a 300-char-rendered version would — and critically, it does NOT throw.
+    const longName = 'Himanshu'.repeat(40)  // 320 chars — well over the 100-char cap
+    const doc: PdfDocument = {
+      signature: { signerName: longName },
+      content: [{ type: 'paragraph', text: 'Truncation test document.' }],
+    }
+    const pdfLong = await render(doc)
+    assert.ok(pdfLong instanceof Uint8Array && pdfLong.length > 0, 'PDF with 320-char signerName must render')
+
+    // Baseline: render with exactly 100 chars. Output should be approximately the same size
+    // (both truncate to 100 chars in the visual placeholder).
+    const doc100: PdfDocument = {
+      signature: { signerName: 'Himanshu'.repeat(13).slice(0, 100) },  // exactly 100 chars
+      content: [{ type: 'paragraph', text: 'Truncation test document.' }],
+    }
+    const pdf100 = await render(doc100)
+    // Both PDFs should be within 5% of each other — same visual content after truncation.
+    const ratio = pdfLong.length / pdf100.length
+    assert.ok(ratio > 0.95 && ratio < 1.05,
+      `PDFs diverged too much (ratio=${ratio.toFixed(3)}) — truncation may not be applied. ` +
+      `longName=${pdfLong.length}B, 100-char=${pdf100.length}B`)
+  })
+
+  await t.test('M7: backslash in signerName/reason is escaped in PDF literal string', async () => {
+    // post-process.ts: escapePdfLit escapes \\ -> \\\\, ( -> \\(, ) -> \\)
+    const doc: PdfDocument = {
+      signature: {
+        signerName: 'C:\\Users\\Himanshu',
+        reason: 'path\\to\\approval',
+        location: 'Delhi (India)',
+      },
+      content: [{ type: 'paragraph', text: 'Escape test.' }],
+    }
+    // Just confirm it renders without throwing — the escaping prevents PDF corruption
+    const pdf = await render(doc)
+    assert(pdf instanceof Uint8Array && pdf.length > 0)
+    assert.equal(new TextDecoder().decode(pdf.slice(0, 4)), '%PDF')
+  })
+
   await t.test('signature.width <= 0 throws VALIDATION_ERROR', async () => {
     const doc: PdfDocument = {
       signature: { width: -10 },

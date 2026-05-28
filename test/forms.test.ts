@@ -219,6 +219,36 @@ test('Phase 8B — Interactive Forms', async (t) => {
     assert.ok(text.includes('/T'), '/T annotation key not found in PDF bytes')
   })
 
+  await t.test('M5: /TU encoding correct for checkbox, radio, dropdown, button field types', async () => {
+    const label = 'Option (A)'
+    // All four non-text field types write /TU via PDFHexString.fromText
+    for (const fieldType of ['checkbox', 'button'] as const) {
+      const doc: PdfDocument = {
+        content: [{ type: 'form-field', fieldType, name: `f-${fieldType}`, accessibilityLabel: label }],
+      }
+      const pdf = await render(doc)
+      const text = new TextDecoder('latin1').decode(pdf)
+      assert.ok(text.includes('/TU'), `/TU missing for fieldType=${fieldType}`)
+      assert.ok(!text.includes(`(${label})`), `raw literal survived for fieldType=${fieldType}`)
+      assert.ok(text.includes('FEFF'), `UTF-16BE BOM missing for fieldType=${fieldType}`)
+    }
+    // Radio and dropdown require options
+    for (const fieldType of ['radio', 'dropdown'] as const) {
+      const doc: PdfDocument = {
+        content: [{
+          type: 'form-field', fieldType,
+          name: `f-${fieldType}`,
+          options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }],
+          accessibilityLabel: label,
+        }],
+      }
+      const pdf = await render(doc)
+      const text = new TextDecoder('latin1').decode(pdf)
+      assert.ok(text.includes('/TU'), `/TU missing for fieldType=${fieldType}`)
+      assert.ok(!text.includes(`(${label})`), `raw literal survived for fieldType=${fieldType}`)
+    }
+  })
+
   await t.test('T6: accessibilityLabel appears as /TU — UTF-16BE hex-encoded, not raw literal (injection guard)', async () => {
     // Labels with parentheses (e.g. "Email (required)") would break PDF literal strings.
     // PDFHexString.fromText encodes as <FEFF...> UTF-16BE hex — no raw parens.

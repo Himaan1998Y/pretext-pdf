@@ -229,4 +229,25 @@ test('Phase 7A — Bookmarks / Outlines', async (t) => {
     const pdfString = Buffer.from(pdf).toString('latin1')
     assert(pdfString.includes('/Outlines'), 'Default behavior should include bookmarks')
   })
+
+  await t.test('M6: bookmark Title with special chars uses UTF-16BE hex encoding, not raw PDF literal', async () => {
+    // render-extras.ts: PDFHexString.fromText(h.text) produces <FEFF...> not (raw string)
+    // A heading with unbalanced parens must NOT appear as a parenthesis-delimited literal
+    // which would corrupt the /Title dict entry.
+    const specialTitle = 'Chapter (1): Introduction & Overview'
+    const doc: PdfDocument = {
+      content: [
+        { type: 'heading', level: 1, text: specialTitle },
+        { type: 'paragraph', text: 'Content.' },
+      ],
+    }
+    const pdf = await render(doc)
+    const pdfText = Buffer.from(pdf).toString('latin1')
+    // /Title key must be present in the bookmark dict
+    assert.ok(pdfText.includes('/Title'), '/Title key not found in PDF bytes')
+    // Raw literal form `(Chapter (1): Introduction & Overview)` must NOT appear
+    assert.ok(!pdfText.includes(`(${specialTitle})`), 'heading title must not appear as raw PDF literal string')
+    // UTF-16BE encoding with BOM: FEFF0043 = BOM + "C" (Chapter)
+    assert.ok(pdfText.includes('FEFF0043'), 'UTF-16BE BOM+C hex prefix not found (bookmark Title encoding check)')
+  })
 })
