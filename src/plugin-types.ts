@@ -58,9 +58,9 @@ export interface PluginMeasureResult<T = unknown> {
   /** Total block height in pt. Must be a finite non-negative number. */
   readonly height: number
   /** Space before the block in pt. Defaults to 0. */
-  spaceBefore?: number
+  readonly spaceBefore?: number
   /** Space after the block in pt. Defaults to 0. */
-  spaceAfter?: number
+  readonly spaceAfter?: number
   /**
    * Arbitrary plugin-specific data that the pipeline carries untouched from
    * `measure` to `render`. Use this to avoid re-computing expensive values.

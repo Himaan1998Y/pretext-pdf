@@ -22,6 +22,8 @@
  * tripwire) keep working unchanged.
  */
 
+import { PretextPdfError } from '../../errors.js'
+
 /** Maximum SVG string length (5 MB) — prevents ReDoS on oversized inputs. */
 export const SVG_MAX_BYTES = 5 * 1024 * 1024
 
@@ -29,18 +31,28 @@ export const SVG_MAX_BYTES = 5 * 1024 * 1024
 export const MAX_SVG_ELEMENTS = 5000
 
 export function sanitizeSvg(svg: string): string {
-  // Skip regex passes on oversized strings — canvas will reject them anyway
-  if (svg.length > SVG_MAX_BYTES) return svg
-  // Heuristic element count guard — very deeply nested SVGs can exhaust memory
-  // during rasterization. Count open tags as a cheap proxy for nesting depth.
+  // Guard oversized inputs — regex passes on 5 MB+ strings create ReDoS risk.
+  // Throw rather than pass through: an oversized SVG must never reach the
+  // rasterizer with unstripped script/event content intact.
+  if (svg.length > SVG_MAX_BYTES) {
+    throw new PretextPdfError('SVG_LOAD_FAILED', `SVG exceeds maximum size of ${SVG_MAX_BYTES} bytes (got ${svg.length})`)
+  }
+  // Heuristic element count guard — deeply nested SVGs can exhaust rasterizer
+  // memory. Count open tags as a cheap proxy. Throw rather than return raw:
+  // passing unsanitized content downstream is worse than rejecting the input.
   const elementCount = (svg.match(/<[a-zA-Z]/g) ?? []).length
-  if (elementCount > MAX_SVG_ELEMENTS) return svg
+  if (elementCount > MAX_SVG_ELEMENTS) {
+    throw new PretextPdfError('SVG_LOAD_FAILED', `SVG exceeds maximum element count of ${MAX_SVG_ELEMENTS} (got ${elementCount})`)
+  }
   // Remove self-closing <script/> then paired <script>...</script> blocks
   let s = svg.replace(/<script\b[^>]*\/>/gi, '')
   s = s.replace(/<script[\s\S]*?<\/script>/gi, '')
   // Remove event handler attributes (onload, onclick, onerror, etc.)
-  // [\s\n\r]* instead of \s* so newline-injected attributes (e.g. on\nload=...) are caught.
-  s = s.replace(/\bon\w+[\s\n\r]*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
+  // Use [\w\r\n\t ]+ for the name portion so that whitespace injected INSIDE the
+  // attribute name (e.g. on\nload=, on\tclick=) is also stripped. The original
+  // \w+ stopped at non-word chars, leaving split names unmatched. The \s* before
+  // = stays to catch normal spacing between the name and the assignment operator.
+  s = s.replace(/\bon[\w\r\n\t ]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
   // Remove <image> and <use> hrefs pointing to unsafe schemes
   s = s.replace(
     /(<(?:image|use)\b[^>]*?)\s+(?:xlink:)?href\s*=\s*["'](?:file|data|javascript):[^"']*["']/gi,
@@ -57,10 +69,19 @@ export function sanitizeSvg(svg: string): string {
     /\s+(?:xlink:)?href\s*=\s*["'](?:javascript|vbscript|data):[^"']*["']/gi,
     ''
   )
-  // v1.6.0: strip CSS expression(...) inside <style> blocks. Replace just the
-  // expression call with an empty string so the surrounding stylesheet stays
-  // parseable.
-  s = s.replace(/expression\s*\([^)]*\)/gi, '')
+  // v1.6.0: strip CSS expression(...) inside <style> blocks.
+  // Multi-pass to handle nested parens. Each pass strips expression() calls
+  // whose arguments contain at most one level of paren nesting — e.g.
+  // expression(alert(1)) and expression(eval(x)) are handled in one pass.
+  // Deeper nesting (e.g. expression(f(g(x)))) unwinds over multiple passes:
+  // the innermost expression()-shaped call is consumed first, then the outer.
+  // Pattern: (?:[^()]*|\([^()]*\))* matches argument content with one level
+  // of inner parens — e.g. "alert(1)" = [^()]* + \([^()]*\) + [^()]*.
+  let prev: string
+  do {
+    prev = s
+    s = s.replace(/expression\s*\((?:[^()]*|\([^()]*\))*\)/gi, '')
+  } while (s !== prev)
   // v1.7.1: strip @import rules — SVGs embedded in PDFs have no business
   // importing external stylesheets; also an outbound network-leak vector.
   s = s.replace(/@import\s+[^;{}]*/gi, '')

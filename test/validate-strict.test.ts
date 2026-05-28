@@ -538,7 +538,84 @@ describe('Strict validation — Group 7: Levenshtein edge cases', () => {
   })
 })
 
-// ─── Group 8: Discriminated unions (Phase B type safety) ───
+// ─── Group 8: Form-field strict-mode per-variant unknown props (T2 + T5) ───
+
+describe('Strict validation — Group 8: Form-field per-variant unknown props', () => {
+  test('form-field text with checkbox-only prop "checked" → VALIDATION_ERROR', async () => {
+    const doc: PdfDocument = {
+      metadata: { title: 'Test' },
+      content: [{ type: 'form-field', fieldType: 'text', name: 'f1', checked: true as any }],
+    }
+    await expectValidationError(() => render(doc, { strict: true }), 'checked')
+  })
+
+  test('form-field checkbox with text-only prop "maxLength" → VALIDATION_ERROR', async () => {
+    const doc: PdfDocument = {
+      metadata: { title: 'Test' },
+      content: [{ type: 'form-field', fieldType: 'checkbox', name: 'chk', maxLength: 10 as any }],
+    }
+    await expectValidationError(() => render(doc, { strict: true }), 'maxLength')
+  })
+
+  test('form-field radio with text-only prop "multiline" → VALIDATION_ERROR', async () => {
+    const doc: PdfDocument = {
+      metadata: { title: 'Test' },
+      content: [
+        {
+          type: 'form-field',
+          fieldType: 'radio',
+          name: 'r1',
+          options: [{ value: 'a', label: 'A' }],
+          multiline: true as any,
+        },
+      ],
+    }
+    await expectValidationError(() => render(doc, { strict: true }), 'multiline')
+  })
+
+  test('form-field button with radio-only prop "options" → VALIDATION_ERROR', async () => {
+    const doc: PdfDocument = {
+      metadata: { title: 'Test' },
+      content: [
+        {
+          type: 'form-field',
+          fieldType: 'button',
+          name: 'btn',
+          options: [{ value: 'x', label: 'X' }] as any,
+        },
+      ],
+    }
+    await expectValidationError(() => render(doc, { strict: true }), 'options')
+  })
+
+  test('form-field with unknown fieldType → VALIDATION_ERROR (T5)', async () => {
+    const doc: PdfDocument = {
+      metadata: { title: 'Test' },
+      content: [{ type: 'form-field', fieldType: 'textarea' as any, name: 'bad' }],
+    }
+    await expectValidationError(() => render(doc, { strict: false }), 'fieldType')
+  })
+
+  test('form-field text valid props with strict → passes', async () => {
+    const doc: PdfDocument = {
+      metadata: { title: 'Test' },
+      content: [
+        {
+          type: 'form-field',
+          fieldType: 'text',
+          name: 'email',
+          label: 'Email',
+          placeholder: 'you@example.com',
+          maxLength: 100,
+          multiline: false,
+        },
+      ],
+    }
+    await expectPass(() => render(doc, { strict: true }))
+  })
+})
+
+// ─── Group 9: Discriminated unions (Phase B type safety) ───
 
 describe('Discriminated unions — WatermarkSpec', () => {
   test('WatermarkSpec with text → passes', async () => {

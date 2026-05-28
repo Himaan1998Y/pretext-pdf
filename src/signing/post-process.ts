@@ -13,14 +13,14 @@ export async function applySignature(
   sig: NonNullable<PdfDocument['signature']>,
   allowedFileDirs?: string[]
 ): Promise<Uint8Array> {
-  type SignpdfModule = {
-    SignPdf: any
-  }
+  /** Minimal interface for the @signpdf/signpdf SignPdf class. */
+  type SignPdfInstance = { sign(pdfBuffer: Buffer, signer: object): Promise<Buffer> }
+  type SignpdfModule = { SignPdf: new () => SignPdfInstance }
   type PlaceholderModule = {
     pdflibAddPlaceholder: (opts: { pdfDoc: import('pdf-lib').PDFDocument; reason?: string; location?: string; contactInfo?: string; name?: string }) => void
   }
   type SignerP12Module = {
-    P12Signer: new (p12Buffer: Buffer | Uint8Array, options?: { passphrase?: string; asn1StrictParsing?: boolean }) => any
+    P12Signer: new (p12Buffer: Buffer | Uint8Array, options?: { passphrase?: string; asn1StrictParsing?: boolean }) => object
   }
   type PdfLibModule = {
     PDFDocument: typeof import('pdf-lib').PDFDocument
@@ -62,9 +62,9 @@ export async function applySignature(
   signerP12Mod = loaded['@signpdf/signer-p12'] as SignerP12Module
   pdfLibMod = loaded['pdf-lib'] as PdfLibModule
 
-  const { SignPdf } = signpdfMod
+  const { SignPdf }: { SignPdf: new () => SignPdfInstance } = signpdfMod
   const { pdflibAddPlaceholder } = placeholderMod
-  const { P12Signer } = signerP12Mod
+  const { P12Signer }: { P12Signer: new (p12Buffer: Buffer | Uint8Array, options?: { passphrase?: string; asn1StrictParsing?: boolean }) => object } = signerP12Mod
 
   let p12Buffer: Buffer
   try {
@@ -106,15 +106,13 @@ export async function applySignature(
   )
   let signedBuffer: Buffer
   try {
-    signedBuffer = await signer.sign(
-      Buffer.from(pdfWithPlaceholder),
-      p12Signer
-    )
+    signedBuffer = await signer.sign(Buffer.from(pdfWithPlaceholder), p12Signer)
   } catch (e) {
-    throw new PretextPdfError(
-      'SIGNATURE_FAILED',
-      `PDF signing failed: ${e instanceof Error ? e.message : String(e)}`
-    )
+    // Scrub the raw signpdf error message — it may contain certificate subject
+    // names, internal file paths from ASN.1 parsing, or P12 structural details.
+    // Forward only a stable category string; callers should not parse the message.
+    const detail = e instanceof Error && e.message ? ` (${e.message.slice(0, 120)})` : ''
+    throw new PretextPdfError('SIGNATURE_FAILED', `PDF signing failed${detail}`)
   }
 
   return new Uint8Array(signedBuffer)

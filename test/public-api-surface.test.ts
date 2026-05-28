@@ -32,6 +32,8 @@ const ENTRY_POINTS: EntryPointSpec[] = [
     modulePath: '../dist/index.js',
     expected: [
       { name: 'ELEMENT_TYPES', type: 'object' },
+      { name: 'LEGACY_ERROR_CODE_MAP', type: 'object' },
+      { name: 'MAX_PDF_BYTES', type: 'number' },
       { name: 'PretextPdfError', type: 'function' },
       { name: 'assemble', type: 'function' },
       { name: 'createFootnoteSet', type: 'function' },
@@ -71,6 +73,16 @@ const ENTRY_POINTS: EntryPointSpec[] = [
     label: './schema',
     modulePath: '../dist/schema.js',
     expected: [{ name: 'pdfDocumentSchema', type: 'object' }],
+  },
+  {
+    label: './signing',
+    modulePath: '../dist/signing/index.js',
+    expected: [
+      { name: 'applyEncryption', type: 'function' },
+      { name: 'applyPostProcessing', type: 'function' },
+      { name: 'applySignature', type: 'function' },
+      { name: 'renderSignaturePlaceholder', type: 'function' },
+    ],
   },
 ]
 

@@ -1,4 +1,4 @@
-import { PDFDocument, PDFName, PDFString } from '@cantoo/pdf-lib'
+import { PDFDocument, PDFHexString, PDFName } from '@cantoo/pdf-lib'
 import type { PdfDocument, Margins, RenderOptions } from './types-public/index.js'
 import type { PageGeometry, FontMap, ImageMap, MeasuredBlock } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
@@ -49,12 +49,23 @@ export async function stageInit(doc: PdfDocument): Promise<{
     pdfDoc.setCreator(m.creator ?? 'pretext-pdf')
     if (m.producer) pdfDoc.setProducer(m.producer)
     if (m.language) {
-      pdfDoc.catalog.set(PDFName.of('Lang'), PDFString.of(m.language))
+      // PDFHexString encodes as <hex> — immune to unbalanced-parenthesis PDF injection
+      pdfDoc.catalog.set(PDFName.of('Lang'), PDFHexString.of(m.language))
     }
-    // Custom reserved fields: write as JSON strings into the PDF Info dict
-    const infoDict = (pdfDoc as unknown as { getInfoDict(): import('@cantoo/pdf-lib').PDFDict }).getInfoDict()
-    if (m.accessibility) infoDict.set(PDFName.of('Accessibility'), PDFString.of(JSON.stringify(m.accessibility)))
-    if (m.semantic)      infoDict.set(PDFName.of('Semantic'), PDFString.of(JSON.stringify(m.semantic)))
+    // Custom reserved fields: write as JSON strings into the PDF Info dict.
+    // PDFHexString is used throughout to prevent PDF literal-string injection via
+    // unescaped parentheses in user-controlled content (B3).
+    // getInfoDict() is an internal @cantoo/pdf-lib method not in the public type
+    // surface; the cast is intentional. Wrapped in try/catch so a library upgrade
+    // that removes or renames the method degrades gracefully instead of crashing (M7).
+    try {
+      const infoDict = (pdfDoc as unknown as { getInfoDict(): import('@cantoo/pdf-lib').PDFDict }).getInfoDict()
+      if (m.accessibility) infoDict.set(PDFName.of('Accessibility'), PDFHexString.of(JSON.stringify(m.accessibility)))
+      if (m.semantic)      infoDict.set(PDFName.of('Semantic'),       PDFHexString.of(JSON.stringify(m.semantic)))
+    } catch {
+      // Graceful degradation: accessibility/semantic metadata silently omitted if
+      // the internal getInfoDict() API is unavailable in a future library version.
+    }
   }
 
   const creationDate = doc.renderDate

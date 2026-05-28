@@ -158,6 +158,21 @@ const RADIO_FORM_FIELD_KEYS = [...FORM_FIELD_BASE_KEYS, 'options', 'defaultSelec
 const DROPDOWN_FORM_FIELD_KEYS = [...FORM_FIELD_BASE_KEYS, 'options', 'defaultSelected'] as const
 const BUTTON_FORM_FIELD_KEYS = [...FORM_FIELD_BASE_KEYS] as const
 
+/**
+ * Union of every field that can appear on *any* FormFieldElement variant.
+ * Used for the top-level ALLOWED_PROPS dispatch so the generic strict check in
+ * validate/index.ts never false-flags a valid variant-specific key (e.g.
+ * `placeholder` on a text field). The per-variant check inside
+ * validateFormField then narrows further and rejects cross-variant
+ * contamination (e.g. `checked` on a text field).
+ */
+const FORM_FIELD_ALL_KEYS = [
+  ...FORM_FIELD_BASE_KEYS,
+  'placeholder', 'defaultValue', 'multiline', 'maxLength', // text only
+  'checked',                                                // checkbox only
+  'options', 'defaultSelected',                            // radio + dropdown
+] as const
+
 const FOOTNOTE_DEF_KEYS = ['type', 'id', 'text', 'fontSize', 'fontFamily', 'spaceAfter'] as const
 
 const TOC_KEYS = [
@@ -242,11 +257,19 @@ export const ALLOWED_PROPS = {
   'callout': new Set(CALLOUT_KEYS),
   'footnote-def': new Set(FOOTNOTE_DEF_KEYS),
   'float-group': new Set(FLOAT_GROUP_KEYS),
-  'form-field': new Set(FORM_FIELD_BASE_KEYS),
+  'form-field': new Set(FORM_FIELD_ALL_KEYS),
 } as const
 
-/** Per-variant allowed-property sets for form-field strict validation. */
-export const FORM_FIELD_VARIANT_PROPS: Record<string, ReadonlySet<string>> = {
+/**
+ * Per-variant allowed-property sets for form-field strict validation.
+ * Typed as a closed record over the exact fieldType literals so TypeScript
+ * will fail the build if a new variant is added to FormFieldElement without
+ * a corresponding entry here.
+ */
+export const FORM_FIELD_VARIANT_PROPS: Record<
+  'text' | 'checkbox' | 'radio' | 'dropdown' | 'button',
+  ReadonlySet<string>
+> = {
   text: new Set(TEXT_FORM_FIELD_KEYS),
   checkbox: new Set(CHECKBOX_FORM_FIELD_KEYS),
   radio: new Set(RADIO_FORM_FIELD_KEYS),

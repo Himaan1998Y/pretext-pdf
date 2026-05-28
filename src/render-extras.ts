@@ -3,7 +3,7 @@
  * These are meta-layer concerns distinct from content block rendering.
  */
 
-import { PDFDocument, PDFName, PDFNull, PDFRef, PDFString, rgb } from '@cantoo/pdf-lib'
+import { PDFDocument, PDFHexString, PDFName, PDFNull, PDFRef, rgb } from '@cantoo/pdf-lib'
 import type { PaginatedDocument, FontMap, PageGeometry, PagedBlock } from './types-internal.js'
 import { PretextPdfError } from './errors.js'
 import { toPdfY, hexToRgb } from './render-utils.js'
@@ -76,7 +76,7 @@ export function buildOutlineTree(
     }
 
     const entry: Record<string, unknown> = {
-      Title: PDFString.of(h.text),
+      Title: PDFHexString.of(h.text),
       Parent: myParentRef,
       Dest: dest,
     }
@@ -216,7 +216,7 @@ export function renderFormField(
       if (el.multiline) field.enableMultiline()
       if (el.maxLength) field.setMaxLength(el.maxLength)
       field.addToPage(pdfPage, fieldOpts)
-      if (el.accessibilityLabel) field.acroField.dict.set(PDFName.of('TU'), PDFString.of(el.accessibilityLabel))
+      if (el.accessibilityLabel) field.acroField.dict.set(PDFName.of('TU'), PDFHexString.of(el.accessibilityLabel))
       break
     }
     case 'checkbox': {
@@ -230,7 +230,7 @@ export function renderFormField(
         borderColor: rgb(borderRgb[0], borderRgb[1], borderRgb[2]),
         backgroundColor: rgb(bgRgb[0], bgRgb[1], bgRgb[2]),
       })
-      if (el.accessibilityLabel) field.acroField.dict.set(PDFName.of('TU'), PDFString.of(el.accessibilityLabel))
+      if (el.accessibilityLabel) field.acroField.dict.set(PDFName.of('TU'), PDFHexString.of(el.accessibilityLabel))
       break
     }
     case 'radio': {
@@ -255,7 +255,7 @@ export function renderFormField(
       if (el.defaultSelected) {
         try { group.select(el.defaultSelected) } catch { /* option may not exist */ }
       }
-      if (el.accessibilityLabel) group.acroField.dict.set(PDFName.of('TU'), PDFString.of(el.accessibilityLabel))
+      if (el.accessibilityLabel) group.acroField.dict.set(PDFName.of('TU'), PDFHexString.of(el.accessibilityLabel))
       break
     }
     case 'dropdown': {
@@ -266,13 +266,13 @@ export function renderFormField(
         try { field.select(el.defaultSelected) } catch { /* option may not exist */ }
       }
       field.addToPage(pdfPage, fieldOpts)
-      if (el.accessibilityLabel) field.acroField.dict.set(PDFName.of('TU'), PDFString.of(el.accessibilityLabel))
+      if (el.accessibilityLabel) field.acroField.dict.set(PDFName.of('TU'), PDFHexString.of(el.accessibilityLabel))
       break
     }
     case 'button': {
       const field = form.createButton(el.name)
       field.addToPage(el.label ?? el.name, pdfPage, fieldOpts)
-      if (el.accessibilityLabel) field.acroField.dict.set(PDFName.of('TU'), PDFString.of(el.accessibilityLabel))
+      if (el.accessibilityLabel) field.acroField.dict.set(PDFName.of('TU'), PDFHexString.of(el.accessibilityLabel))
       break
     }
     default: {

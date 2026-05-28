@@ -7,6 +7,88 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.0.1] — 2026-05-28
+
+Post-release patch: audit-driven hardening of every change introduced in v2.0.0.
+
+### Fixed
+
+- **SVG sanitizer: `on*` handlers with whitespace in attribute name now stripped** — Attackers
+  could inject `on\nload=` or `on\tclick=` to bypass the previous `\w+` name regex. The pattern
+  now uses `[\w\r\n\t ]+` for the attribute name portion (`H3`).
+
+- **SVG sanitizer: `expression()` strips arguments with nested parens** — `expression(alert(1))`
+  and `expression(eval(x))` are now stripped in a single pass. The inner-parens pattern
+  `(?:[^()]*|\([^()]*\))*` handles one level of argument nesting; multi-pass unwinds deeper
+  nesting (`M6`).
+
+- **SVG sanitizer: size/element-count guards now throw `PretextPdfError('SVG_LOAD_FAILED')`** —
+  Previously both guards returned the raw unstripped SVG on overflow, silently bypassing
+  script/event stripping. Now both throw, so callers always receive a typed error (`H1`).
+
+- **Form-field strict mode no longer flags cross-variant props as unknown** — `ALLOWED_PROPS`
+  entry for `form-field` now covers the union of all variant-specific keys so the first strict
+  check never fires false positives. Per-variant narrowing still runs inside `validateFormField`
+  to catch cross-contamination (`B1`).
+
+- **Bookmark `Title` and AcroForm `/TU` now use `PDFHexString`** — Previously `PDFString` was
+  used, which is vulnerable to unbalanced-parenthesis injection in user-controlled strings. All
+  five `/TU` writes and the outline `Title` write now use the hex-encoded form (`B3`).
+
+- **Link URI annotation and sticky-note `Contents`/`T` use `PDFHexString`** — Same injection
+  guard extended to `addLinkAnnotation` and `addStickyNoteAnnotation` (`B3`).
+
+- **`getInfoDict()` private-API call is now try/caught** — Accessibility and semantic metadata
+  are silently omitted (rather than throwing) if the `@cantoo/pdf-lib` internal API is removed
+  in a future library version (`M7`).
+
+- **`SignPdf`/`P12Signer` dynamic imports typed via local interfaces** — Removes `any` casts
+  on the signpdf module destructuring, catching future API drift at compile time (`M4`).
+
+- **Signing error message scrubbed of certificate details** — `SIGNATURE_FAILED` no longer
+  leaks P12 structural details or ASN.1 internals; only the first 120 chars of the underlying
+  error message are included (`F9`).
+
+- **`FORM_FIELD_VARIANT_PROPS` type narrowed** — The export type is now
+  `Record<'text'|'checkbox'|'radio'|'dropdown'|'button', ReadonlySet<string>>` so callers that
+  iterate the map get exhaustive narrowing rather than a plain string index (`M1`).
+
+- **`fieldType` validation is now derived from `FORM_FIELD_VARIANT_PROPS`** — The allowed-values
+  list and the dispatch map are now the same object, removing the risk of one going stale (`M2`).
+
+- **Form-field options arrays are structurally validated** — Each item in `options` for `radio`
+  and `dropdown` is now checked to be a `{value: string, label: string}` object. Invalid items
+  throw `VALIDATION_ERROR` with an indexed path like `options[1].value` (`H2`).
+
+- **`accessibilityLabel` validated as non-empty string** — Empty or non-string values now
+  throw `VALIDATION_ERROR` rather than embedding an empty `/TU` annotation (`H2`).
+
+- **`signing/placeholder.ts` uses `buildFontKey()` instead of hardcoded literal** — Keeps the
+  font lookup in sync with the canonical key format if the naming convention ever changes (`L1`).
+
+- **`PluginMeasureResult.spaceBefore/spaceAfter` marked readonly** — Plugins cannot mutate the
+  pipeline's spacing side-table; callers can still construct the object with literal values (`L2`).
+
+- **`package.json` `mcpCompat` range updated** — Was `>=1.4.0 <2.0.0` (excluded v2.0.0 itself);
+  now `>=1.5.0 <3.0.0` (`B2`).
+
+- **`pdfDocumentSchema`: `form-field` now a `oneOf` discriminated union** — The flat single-object
+  schema was replaced with five variant schemas keyed by `fieldType: { const: '...' }`, with
+  correct per-variant `required` arrays (radio/dropdown require `options`) (`M3`).
+
+### Tests
+
+- Added T1: `on\nload` and `on\tclick` attribute-name injection regression guard in
+  `test/svg-sanitizer.test.ts`.
+- Added T2: Per-variant strict-mode unknown-props tests for form-field in
+  `test/validate-strict.test.ts` (Group 8).
+- Added T3: `./signing` entry point added to `test/public-api-surface.test.ts` tripwire.
+- Added T4: `MAX_SVG_ELEMENTS` boundary tests (at-limit sanitizes, over-limit throws) in
+  `test/svg-sanitizer.test.ts`.
+- Added T5: `fieldType: 'textarea'` (unknown value) test triggering `VALIDATION_ERROR`.
+
+---
+
 ## [2.0.0] — 2026-05-28
 
 Major release. Three breaking changes, six improvements, and two security fixes.

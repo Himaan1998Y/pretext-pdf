@@ -1,6 +1,7 @@
 import { PDFDocument, rgb } from '@cantoo/pdf-lib'
 import type { FontMap, PageGeometry } from '../types-internal.js'
 import { hexToRgb } from '../render-utils.js'
+import { buildFontKey } from '../font-key.js'
 
 /** Draw a visual signature placeholder box on the specified page. */
 export function renderSignaturePlaceholder(
@@ -28,7 +29,7 @@ export function renderSignaturePlaceholder(
   const borderRgb = hexToRgb(sig.borderColor ?? '#000000')
   const borderColor = rgb(borderRgb[0], borderRgb[1], borderRgb[2])
   const grayColor = rgb(0.5, 0.5, 0.5)
-  const font = fontMap.get('Inter-400-normal') ?? [...fontMap.values()][0]
+  const font = fontMap.get(buildFontKey('Inter', 400, 'normal')) ?? [...fontMap.values()][0]
 
   if (!font) return
 

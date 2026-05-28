@@ -19,15 +19,31 @@ export function validateFormField(
   prefix: string,
   ctx: ValidationContext,
 ): void {
-  const fieldTypes = ['text', 'checkbox', 'radio', 'dropdown', 'button']
-  if (!fieldTypes.includes(el.fieldType)) {
-    throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): fieldType must be one of: ${fieldTypes.join(', ')}`)
+  // Derive valid fieldType values directly from the variant map — never drifts.
+  const validFieldTypes = Object.keys(FORM_FIELD_VARIANT_PROPS) as Array<keyof typeof FORM_FIELD_VARIANT_PROPS>
+  if (!(el.fieldType in FORM_FIELD_VARIANT_PROPS)) {
+    throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): fieldType must be one of: ${validFieldTypes.join(', ')}. Got: "${String(el.fieldType)}"`)
   }
-  if (!el.name || el.name.trim() === '') {
+  if (!el.name || typeof el.name !== 'string' || el.name.trim() === '') {
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): name is required and must be a non-empty string`)
   }
   if ((el.fieldType === 'radio' || el.fieldType === 'dropdown') && (!el.options || el.options.length === 0)) {
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): type "${el.fieldType}" requires a non-empty options array`)
+  }
+  // Validate each options item has non-empty string value and label (H2)
+  if (el.fieldType === 'radio' || el.fieldType === 'dropdown') {
+    for (let i = 0; i < (el.options ?? []).length; i++) {
+      const opt = (el.options ?? [])[i]
+      if (!opt || typeof opt !== 'object') {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): options[${i}] must be an object with 'value' and 'label' strings`)
+      }
+      if (typeof opt.value !== 'string' || opt.value.trim() === '') {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): options[${i}].value must be a non-empty string`)
+      }
+      if (typeof opt.label !== 'string' || opt.label.trim() === '') {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): options[${i}].label must be a non-empty string`)
+      }
+    }
   }
   if (el.width !== undefined && (typeof el.width !== 'number' || el.width <= 0)) {
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): width must be a positive number`)
@@ -41,13 +57,16 @@ export function validateFormField(
   if (el.backgroundColor !== undefined && !/^#[0-9A-Fa-f]{6}$/.test(el.backgroundColor)) {
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): backgroundColor must be a 6-digit hex color`)
   }
-  // Per-variant unknown-props check (replaces the generic ALLOWED_PROPS['form-field'] dispatch
-  // which no longer exists — FormFieldElement is now a discriminated union).
+  if (el.accessibilityLabel !== undefined && (typeof el.accessibilityLabel !== 'string' || el.accessibilityLabel.trim() === '')) {
+    throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (form-field): accessibilityLabel must be a non-empty string`)
+  }
+  // Per-variant strict unknown-props check. The top-level dispatch in validate/index.ts
+  // uses ALLOWED_PROPS['form-field'] (the full union of all variant keys) so it never
+  // false-flags valid variant-specific props. This check then narrows to the exact
+  // variant's allowed set and rejects cross-variant contamination (e.g. 'checked' on text).
   if (ctx.strict) {
-    const variantAllowed = FORM_FIELD_VARIANT_PROPS[el.fieldType]
-    if (variantAllowed) {
-      assertUnknownProps(el, variantAllowed as Set<string>, prefix, ctx.errors)
-    }
+    const variantAllowed = FORM_FIELD_VARIANT_PROPS[el.fieldType as keyof typeof FORM_FIELD_VARIANT_PROPS]
+    assertUnknownProps(el, variantAllowed as Set<string>, prefix, ctx.errors)
   }
 }
 

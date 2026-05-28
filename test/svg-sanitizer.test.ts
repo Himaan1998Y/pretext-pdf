@@ -13,7 +13,11 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 
-const { sanitizeSvg } = await import('../dist/assets.js') as { sanitizeSvg: (s: string) => string }
+const { sanitizeSvg, MAX_SVG_ELEMENTS, SVG_MAX_BYTES } = await import('../dist/assets.js') as {
+  sanitizeSvg: (s: string) => string
+  MAX_SVG_ELEMENTS: number
+  SVG_MAX_BYTES: number
+}
 
 describe('SVG sanitizer — v1.6.0 hardening', () => {
   test('strips <foreignObject> with HTML child', () => {
@@ -67,6 +71,23 @@ describe('SVG sanitizer — v1.6.0 hardening', () => {
     assert.ok(!/onclick/i.test(out))
     assert.ok(!/onload/i.test(out))
   })
+
+  test('strips on* handler with newline injected inside attribute name (H3 regression)', () => {
+    // Attacker injects whitespace into the attribute name to bypass simple \w+ regex:
+    // "on\nload" and "on\tclick" must be stripped just like "onload"/"onclick".
+    const input = '<svg><rect on\nload="evil()" on\tclick="bad()"/></svg>'
+    const out = sanitizeSvg(input)
+    assert.ok(!/on[\s\S]*?load/i.test(out), `on\\nload handler survived: ${out}`)
+    assert.ok(!/on[\s\S]*?click/i.test(out), `on\\tclick handler survived: ${out}`)
+  })
+
+  test('strips CSS expression with nested parens in argument (M6 regression)', () => {
+    // expression(eval(x)) has one level of inner parens. The (?:[^()]*|\([^()]*\))*
+    // pattern handles this in a single pass. Multi-pass unwinds deeper nesting.
+    const input = '<svg><style>rect { width: expression(eval(x)); height: expression(document.body.scrollWidth); }</style></svg>'
+    const out = sanitizeSvg(input)
+    assert.ok(!/expression\s*\(/i.test(out), `CSS expression() with nested arg survived: ${out}`)
+  })
 })
 
 describe('SVG sanitizer — v1.7.1 CSS vector hardening', () => {
@@ -110,5 +131,44 @@ describe('SVG sanitizer — v1.7.1 CSS vector hardening', () => {
     const input = '<svg xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g"><stop offset="0%" stop-color="red"/></linearGradient></defs><rect fill="url(#g)"/></svg>'
     const out = sanitizeSvg(input)
     assert.ok(/fill="url\(#g\)"/.test(out), 'local gradient references must be preserved')
+  })
+})
+
+describe('SVG sanitizer — size and element-count guards (T4)', () => {
+  test('SVG at exactly MAX_SVG_ELEMENTS open tags → sanitizes without throwing', () => {
+    // Build a string with exactly MAX_SVG_ELEMENTS open tags
+    const rects = '<rect/>'.repeat(MAX_SVG_ELEMENTS - 1) // -1 for the <svg tag itself
+    const input = `<svg xmlns="http://www.w3.org/2000/svg">${rects}</svg>`
+    // Should not throw — count is at the boundary (not over)
+    assert.doesNotThrow(() => sanitizeSvg(input))
+  })
+
+  test('SVG with MAX_SVG_ELEMENTS + 1 open tags → throws SVG_LOAD_FAILED', () => {
+    const rects = '<rect/>'.repeat(MAX_SVG_ELEMENTS) // +1 extra beyond the <svg tag
+    const input = `<svg xmlns="http://www.w3.org/2000/svg">${rects}</svg>`
+    assert.throws(
+      () => sanitizeSvg(input),
+      (e: unknown) => {
+        assert.ok(e instanceof Error && 'code' in e, 'expected PretextPdfError')
+        assert.equal((e as any).code, 'SVG_LOAD_FAILED')
+        assert.ok(e.message.includes('element count'), `unexpected message: ${e.message}`)
+        return true
+      }
+    )
+  })
+
+  test('SVG over SVG_MAX_BYTES → throws SVG_LOAD_FAILED', () => {
+    // Pad with a comment to exceed the byte limit without adding open tags
+    const padding = '<!--' + 'x'.repeat(SVG_MAX_BYTES) + '-->'
+    const input = `<svg>${padding}</svg>`
+    assert.throws(
+      () => sanitizeSvg(input),
+      (e: unknown) => {
+        assert.ok(e instanceof Error && 'code' in e, 'expected PretextPdfError')
+        assert.equal((e as any).code, 'SVG_LOAD_FAILED')
+        assert.ok(e.message.includes('maximum size'), `unexpected message: ${e.message}`)
+        return true
+      }
+    )
   })
 })

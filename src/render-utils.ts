@@ -3,7 +3,7 @@
  * No element-type knowledge. Used by all render modules.
  */
 
-import { PDFDocument, PDFFont, PDFName, PDFNull, PDFRef, PDFString, rgb } from '@cantoo/pdf-lib'
+import { PDFDocument, PDFFont, PDFHexString, PDFName, PDFNull, PDFRef, rgb } from '@cantoo/pdf-lib'
 import { PretextPdfError } from './errors.js'
 import { SAFE_URL_SCHEME } from './url-utils.js'
 
@@ -80,7 +80,7 @@ export function addLinkAnnotation(
       A: pdfDoc.context.obj({
         Type: 'Action',
         S: 'URI',
-        URI: PDFString.of(url),
+        URI: PDFHexString.of(url),
       }),
     })
   )
@@ -153,8 +153,8 @@ export function addStickyNoteAnnotation(
       Type: 'Annot',
       Subtype: 'Text',
       Rect: [x, pdfY - 16, x + 16, pdfY],
-      Contents: PDFString.of(contents),
-      T: author ? PDFString.of(author) : PDFNull,
+      Contents: PDFHexString.of(contents),
+      T: author ? PDFHexString.of(author) : PDFNull,
       Open: open === true,
       Name: 'Comment',
       C: [r, g, b],
