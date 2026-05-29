@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs'
 import { PretextPdfError } from '../../errors.js'
 
 /**
@@ -22,7 +23,14 @@ export function assertPathAllowed(
         `Configure allowedFileDirs to explicitly list the directories from which files may be read.`,
     )
   }
-  const norm = resolvedPath.replace(/\\/g, '/')
+  // Resolve symlinks so a symlink inside an allowed dir cannot escape to an arbitrary path.
+  let canonicalPath = resolvedPath
+  try {
+    canonicalPath = realpathSync(resolvedPath)
+  } catch {
+    // File does not exist yet — fall through to prefix check on the raw resolved path.
+  }
+  const norm = canonicalPath.replace(/\\/g, '/')
   const allowed = allowedDirs.some((dir) => {
     const d = dir.replace(/\\/g, '/').replace(/\/$/, '')
     return norm === d || norm.startsWith(d + '/')

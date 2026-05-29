@@ -181,6 +181,15 @@ export function validateBarcode(
   }
 }
 
+function _hasUnsafeChartKeys(node: unknown, depth = 0): boolean {
+  if (depth > 32 || node === null || typeof node !== 'object') return false
+  for (const key of Object.keys(node as Record<string, unknown>)) {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') return true
+    if (_hasUnsafeChartKeys((node as Record<string, unknown>)[key], depth + 1)) return true
+  }
+  return false
+}
+
 export function validateChart(
   el: Extract<ContentElement, { type: 'chart' }>,
   prefix: string,
@@ -188,6 +197,9 @@ export function validateChart(
 ): void {
   if (el.spec === null || typeof el.spec !== 'object' || Array.isArray(el.spec)) {
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (chart): 'spec' must be a plain vega-lite specification object`)
+  }
+  if (_hasUnsafeChartKeys(el.spec)) {
+    throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (chart): 'spec' contains unsafe keys (__proto__, constructor, or prototype)`)
   }
   if (el.width !== undefined && (typeof el.width !== 'number' || el.width <= 0 || !isFinite(el.width))) {
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (chart): 'width' must be a positive finite number`)

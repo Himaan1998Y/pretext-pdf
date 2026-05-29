@@ -25,7 +25,10 @@ export async function resolveSvgContent(el: SvgElement, allowedFileDirs?: string
     throw new PretextPdfError('SVG_LOAD_FAILED', "SvgElement requires either 'svg' (inline string) or 'src' (file path or https:// URL)")
   }
 
-  if (el.src.startsWith('https://') || el.src.startsWith('http://')) {
+  if (el.src.startsWith('http://')) {
+    throw new PretextPdfError('SVG_LOAD_FAILED', 'SVG HTTP URLs are not allowed — use HTTPS')
+  }
+  if (el.src.startsWith('https://')) {
     // SSRF validation happens inside fetchWithTimeout — no need to pre-validate
     let resp: Response
     try {

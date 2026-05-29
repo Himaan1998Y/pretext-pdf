@@ -7,6 +7,26 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.0.13] — 2026-05-29
+
+Security hardening and coverage improvements from final review pass.
+
+### Security
+
+- **Symlink escape closed in `assertPathAllowed`** — `path-allowlist.ts` now calls `realpathSync` before the prefix comparison, so a symlink placed inside an allowed directory cannot dereference to an arbitrary path outside the allowlist (F-1).
+- **Chart `spec` scanned for prototype-pollution keys** — `validateChart` in `media.ts` now rejects any `spec` object containing `__proto__`, `constructor`, or `prototype` keys at any nesting depth before passing it to the Vega renderer (F-9).
+- **`http://` URLs rejected at loader entry points** — `images.ts` and `resolve-content.ts` now throw immediately on `http://` src values instead of entering the fetch path and relying on the inner SSRF guard (F-4).
+
+### Fixed
+
+- **`stageInit` metadata fallback logs message only** — `pipeline.ts` no longer serializes the full error object into `console.warn`; only `err.message` is included, preventing internal API names and stack frames from appearing in library stderr (F-3).
+
+### Tests Added
+
+- `test/compat-normalize.test.ts` — 62 tests covering all exported functions in `src/compat/normalize.ts` directly via tsx (previously only reachable through the dist/ barrel).
+
+---
+
 ## [2.0.12] — 2026-05-29
 
 Multi-perspective review fixes: security, correctness, silent failures, dead code, and test coverage.

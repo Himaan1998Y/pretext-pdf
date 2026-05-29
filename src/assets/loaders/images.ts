@@ -50,7 +50,10 @@ export async function loadImageBytes(el: ImageElement, key: string, allowedDirs?
     throw new PretextPdfError('IMAGE_LOAD_FAILED', `Image "${key}": 'src' must be a non-empty string path, URL, or Uint8Array`)
   }
 
-  if (src.startsWith('https://') || src.startsWith('http://')) {
+  if (src.startsWith('http://')) {
+    throw new PretextPdfError('IMAGE_LOAD_FAILED', `Image "${key}": HTTP URLs are not allowed — use HTTPS`)
+  }
+  if (src.startsWith('https://')) {
     // SSRF validation happens inside fetchWithTimeout — no need to pre-validate
     let resp: Response
     try {
