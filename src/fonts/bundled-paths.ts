@@ -7,7 +7,7 @@ import { createRequire } from 'module'
 export const IS_NODE = typeof window === 'undefined' && typeof process !== 'undefined' && !!(process.versions?.node)
 
 export const __dirname_fonts = IS_NODE ? path.dirname(fileURLToPath(import.meta.url)) : ''
-export const _require = IS_NODE ? createRequire(import.meta.url) : null
+const _require = IS_NODE ? createRequire(import.meta.url) : null
 
 export function resolveInterFile(filename: string): string | null {
   if (!_require) return null

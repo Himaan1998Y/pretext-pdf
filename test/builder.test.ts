@@ -323,3 +323,29 @@ describe('Builder API (5B.1)', () => {
     })
   })
 })
+
+// ─── H-1: toDocument() content snapshot isolation ────────────────────────────
+
+describe('toDocument() content snapshot isolation (H-1)', () => {
+  it('mutating builder after toDocument() does not change the snapshot', () => {
+    const builder = createPdf()
+    builder.addText('First')
+    const doc = builder.toDocument()
+    builder.addText('Second')
+    const texts = (doc.content as any[])
+      .filter((el: any) => el.type === 'paragraph')
+      .map((el: any) => el.text)
+    assert.ok(!texts.includes('Second'), `snapshot should not contain 'Second', got: ${JSON.stringify(texts)}`)
+    assert.ok(texts.includes('First'), 'snapshot must contain First')
+  })
+
+  it('two calls to toDocument() produce independent snapshots', () => {
+    const builder = createPdf()
+    builder.addText('A')
+    const doc1 = builder.toDocument()
+    builder.addText('B')
+    const doc2 = builder.toDocument()
+    assert.strictEqual((doc1.content as any[]).length, 1)
+    assert.strictEqual((doc2.content as any[]).length, 2)
+  })
+})

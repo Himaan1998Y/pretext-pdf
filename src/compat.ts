@@ -11,7 +11,7 @@
  *
  * Implementation split across src/compat/:
  *   pdfmake-types.ts — PdfmakeDocument, PdfmakeNode, PdfmakeStyle, CompatOptions, TranslateCtx
- *   translate.ts     — translateNode, translateNodeInner, translateTextNode, collectSpans, pdfmakeNodeToListItem
+ *   translate.ts     — translateNode, translateTextNode, pdfmakeNodeToListItem (internal: translateNodeInner, applyStyleToParagraph, collectSpans)
  *   normalize.ts     — extractFlatText, translateTable, mergeStyles, normalizePageSize/Margins/HeaderFooter
  */
 import type { PdfDocument, ContentElement, DocumentMetadata } from './types.js'
@@ -37,7 +37,13 @@ export type { PdfmakeDocument, PdfmakeNode, PdfmakeObjectNode, PdfmakeStyle, Com
  */
 export function fromPdfmake(doc: PdfmakeDocument, options: CompatOptions = {}): PdfDocument {
   const headingMap = options.headingMap ?? DEFAULT_HEADING_MAP
-  const onUnsupported = options.onUnsupported ?? (() => {})
+  const _warnedFeatures = new Set<string>()
+  const onUnsupported = options.onUnsupported ?? ((f: string) => {
+    if (!_warnedFeatures.has(f)) {
+      _warnedFeatures.add(f)
+      console.warn(`[pretext-pdf/compat] Unsupported pdfmake feature skipped: ${f}`)
+    }
+  })
   const styles = doc.styles ?? {}
   const defaultStyle = doc.defaultStyle ?? {}
 
@@ -91,7 +97,7 @@ export function fromPdfmake(doc: PdfmakeDocument, options: CompatOptions = {}): 
   }
 
   if (doc.allowedFileDirs !== undefined) {
-    result.allowedFileDirs = doc.allowedFileDirs
+    result.allowedFileDirs = [...doc.allowedFileDirs]
   }
 
   return result as PdfDocument

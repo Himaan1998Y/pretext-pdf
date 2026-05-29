@@ -6,7 +6,7 @@ import { paginate } from './paginate.js'
 const SEPARATOR_HEIGHT = 16  // separator line + padding above/below
 
 /** Build document-order footnote numbering by scanning rich-paragraphs in content order. */
-export function buildFootnoteNumbering(content: ContentElement[]): Map<string, number> {
+export function buildFootnoteNumbering(content: readonly ContentElement[]): Map<string, number> {
   const numbering = new Map<string, number>()
   let counter = 1
   for (const el of content) {
@@ -32,7 +32,7 @@ export function runFootnoteTwoPass(
   measuredBlocks: MeasuredBlock[],
   contentHeight: number,
   paginateConfig: { minOrphanLines: number; minWidowLines: number },
-  doc: { content: ContentElement[] }
+  doc: { content: readonly ContentElement[] }
 ): PaginatedDocument {
   const footnoteDefElements = doc.content.filter(
     el => el.type === 'footnote-def'
@@ -105,8 +105,14 @@ export function runFootnoteTwoPass(
     page.footnoteItems = refIds
       .map(id => {
         const def = footnoteDefElements.find(d => d.id === id)
-        const num = footnoteNumbering.get(id) ?? 0
-        return def ? { def, number: num } : null
+        const rawNum = footnoteNumbering.get(id)
+        if (rawNum === undefined) {
+          throw new PretextPdfError(
+            'PAGINATION_FAILED',
+            `Footnote ref "${id}" has no assigned number — doc.content may have been mutated between pipeline stages`
+          )
+        }
+        return def ? { def, number: rawNum } : null
       })
       .filter(Boolean) as Array<{ def: FootnoteDefElement; number: number }>
     const zoneHeight = footnoteZones.get(pageIdx)

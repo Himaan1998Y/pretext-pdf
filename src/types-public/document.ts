@@ -67,7 +67,7 @@ export interface PdfDocument {
     readonly footer?: PdfDocument['footer']
   }>
   /** Document content elements, rendered top-to-bottom. */
-  content: ContentElement[]
+  readonly content: readonly ContentElement[]
   /** If true, flatten all form fields into static content (no longer interactive). Default: false */
   readonly flattenForms?: boolean
   /**

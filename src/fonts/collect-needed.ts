@@ -30,7 +30,7 @@ export function collectNeededFonts(doc: PdfDocument): Map<string, FontSpec & { s
     } else {
       throw new PretextPdfError(
         'FONT_EMBED_FAILED',
-        `Font variant "${key}" is required by the document but was not found in doc.fonts and is not a bundled variant. This is a bug — font validation should have caught this.`
+        `Font variant "${key}" is used in the document but was not found in doc.fonts. Make sure all custom fonts are declared in doc.fonts[]. If using a bundled font, check the font family name matches exactly.`
       )
     }
   }

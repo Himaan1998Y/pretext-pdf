@@ -261,7 +261,7 @@ export function createPdf(options: PdfBuilderOptions = {}): PdfBuilder {
         metadata: options.metadata,
         ...(defaultParagraphStyle !== undefined && { defaultParagraphStyle }),
         ...(sections.length > 0 && { sections }),
-        content,
+        content: [...content] as ContentElement[],
       } as PdfDocument
       return doc
     },

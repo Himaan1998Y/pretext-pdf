@@ -7,6 +7,38 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.0.12] — 2026-05-29
+
+Multi-perspective review fixes: security, correctness, silent failures, dead code, and test coverage.
+
+### Security
+
+- **`allowedFileDirs` array now copied in `fromPdfmake()`** — Previously assigned by reference, allowing the caller to mutate the allowlist after translation and silently expand path-traversal permissions mid-render. Now copied with `[...arr]` (SEC-1).
+
+### Fixed
+
+- **`content` field is now `readonly ContentElement[]` on `PdfDocument`** — The last mutable public field. Prevents callers from `.push()`-ing into a document after passing it to `render()`, which could corrupt multi-stage async pipeline results. `builder.toDocument()` now snapshots the content array at call time (H-1).
+- **`buildFootnoteNumbering` and `runFootnoteTwoPass` parameter widened to `readonly ContentElement[]`** — Required by the `content` readonly change; no semantic change.
+- **Footnote sentinel `?? 0` replaced with `PretextPdfError`** — A missing footnote number now throws `PAGINATION_FAILED` with a clear message instead of silently rendering footnote `0` (M-3).
+- **`onUnsupported` default now logs a one-time warning** — The previous default was a silent no-op, contradicting its own JSDoc. Default is now `console.warn('[pretext-pdf/compat] Unsupported pdfmake feature skipped: <feature>')` with per-call deduplication (M-1).
+- **`stageInit` metadata catch block now logs the error** — The fallback path for `getInfoDict()` unavailability no longer silently swallows the root cause (M-2).
+- **`FONT_EMBED_FAILED` error message is user-facing** — Removed "this is a bug" from the message; replaced with actionable guidance (M-5).
+- **Internal exports removed from `translate.ts`** — `translateNodeInner`, `applyStyleToParagraph`, `collectSpans` are no longer exported from the sub-module (M-4).
+- **`_require` unexported from `bundled-paths.ts`** — Was exported with a misleading `_` prefix but only used internally (L-1).
+- **`fonts.ts` header comment includes `collect-text.ts`** — Fourth sub-module was omitted (L-2).
+- **`translate.ts` uses named `ListItem` import** — Replaced inline `import('../types.js').ListItem` expression (L-3).
+
+### Tests Added
+
+- `test/compat/normalize.test.ts` — 28 direct unit tests for `mergeStyles`, `normalizePageSize`, `normalizeMargins`, `normalizeHeaderFooter`, `normalizeStyleNames`
+- `test/fonts/collect-text.test.ts` — 9 direct unit tests for `collectTextByFont` across paragraph, heading, rich-paragraph, header/footer, and defaultFont override
+- `test/compat.test.ts` — 3 isolation tests for `allowedFileDirs` array copy (SEC-1)
+- `test/builder.test.ts` — 2 snapshot isolation tests for `toDocument()` content copy (H-1)
+
+### Changed
+
+- **`pdfmake-types.ts`: `allowedFileDirs` is now `readonly string[]`** — Type made symmetric with `PdfDocument.allowedFileDirs`
+
 ## [2.0.11] — 2026-05-29
 
 Phase 6a: `readonly` on all scalar public interface fields (non-breaking).

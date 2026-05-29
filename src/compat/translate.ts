@@ -6,6 +6,7 @@ import type {
   RichParagraphElement,
   HeadingElement,
   ListElement,
+  ListItem,
   PageBreakElement,
   ImageElement,
   QrCodeElement,
@@ -40,7 +41,7 @@ export function translateNode(node: PdfmakeNode, ctx: TranslateCtx): ContentElem
   return translateNodeInner(node, ctx)
 }
 
-export function translateNodeInner(node: PdfmakeObjectNode, ctx: TranslateCtx): ContentElement[] {
+function translateNodeInner(node: PdfmakeObjectNode, ctx: TranslateCtx): ContentElement[] {
   if (node.ul) {
     return [{
       type: 'list',
@@ -148,7 +149,7 @@ export function translateTextNode(node: PdfmakeObjectNode, ctx: TranslateCtx): C
   return rich
 }
 
-export function applyStyleToParagraph(para: ParagraphElement, s: PdfmakeStyle): void {
+function applyStyleToParagraph(para: ParagraphElement, s: PdfmakeStyle): void {
   if (s.fontSize !== undefined) para.fontSize = s.fontSize
   if (s.color) para.color = s.color
   if (s.bold) para.fontWeight = 700
@@ -157,7 +158,7 @@ export function applyStyleToParagraph(para: ParagraphElement, s: PdfmakeStyle): 
   if (s.font) para.fontFamily = s.font
 }
 
-export function collectSpans(child: PdfmakeNode, ctx: TranslateCtx, parent: PdfmakeStyle, out: InlineSpan[]): void {
+function collectSpans(child: PdfmakeNode, ctx: TranslateCtx, parent: PdfmakeStyle, out: InlineSpan[]): void {
   if (typeof child === 'string') {
     const span: InlineSpan = { text: child }
     if (parent.bold) span.fontWeight = 700
@@ -187,7 +188,7 @@ export function collectSpans(child: PdfmakeNode, ctx: TranslateCtx, parent: Pdfm
   }
 }
 
-export function pdfmakeNodeToListItem(node: PdfmakeNode, ctx: TranslateCtx): import('../types.js').ListItem {
+export function pdfmakeNodeToListItem(node: PdfmakeNode, ctx: TranslateCtx): ListItem {
   if (typeof node === 'string') return { text: node }
   if (node && typeof node === 'object') {
     if (node.ul || node.ol) {

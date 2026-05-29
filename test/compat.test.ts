@@ -774,3 +774,24 @@ describe('round-trip — pdfmake to pretext to render (M3)', () => {
     }
   })
 })
+
+// ─── SEC-1: allowedFileDirs isolation ────────────────────────────────────────
+
+describe('allowedFileDirs isolation (SEC-1)', () => {
+  test('mutating source array after fromPdfmake() does not affect the produced doc', () => {
+    const dirs = ['/a', '/b']
+    const result = fromPdfmake({ content: [], allowedFileDirs: dirs })
+    dirs.push('/c')
+    assert.deepStrictEqual(result.allowedFileDirs, ['/a', '/b'])
+  })
+
+  test('allowedFileDirs is present when provided', () => {
+    const result = fromPdfmake({ content: [], allowedFileDirs: ['/safe'] })
+    assert.deepStrictEqual(result.allowedFileDirs, ['/safe'])
+  })
+
+  test('allowedFileDirs is absent when not provided', () => {
+    const result = fromPdfmake({ content: [] })
+    assert.strictEqual(result.allowedFileDirs, undefined)
+  })
+})

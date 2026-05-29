@@ -6,6 +6,7 @@
  *   bundled-paths.ts   — IS_NODE, __dirname, resolveInterFile, BUNDLED_INTER_*_PATHS
  *   load-bytes.ts      — loadFontBytes (file / Uint8Array / bundled-Inter loader)
  *   collect-needed.ts  — collectNeededFonts (document font-variant scanner)
+ *   collect-text.ts    — collectTextByFont (text-by-font map for font subsetting)
  */
 import { PDFDocument } from '@cantoo/pdf-lib'
 import fontkit from '@pdf-lib/fontkit'

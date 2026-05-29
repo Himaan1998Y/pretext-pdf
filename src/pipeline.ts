@@ -65,7 +65,9 @@ export async function stageInit(doc: PdfDocument): Promise<{
       if (m.producer) infoDict.set(PDFName.of('Producer'), PDFHexString.fromText(m.producer))
       if (m.accessibility) infoDict.set(PDFName.of('Accessibility'), PDFHexString.fromText(JSON.stringify(m.accessibility)))
       if (m.semantic)      infoDict.set(PDFName.of('Semantic'),       PDFHexString.fromText(JSON.stringify(m.semantic)))
-    } catch {
+    } catch (err) {
+      // getInfoDict() is not part of the official @cantoo/pdf-lib API surface — log before falling back.
+      console.warn('[pretext-pdf] metadata write via PDFHexString failed, falling back to convenience API:', err)
       // Fallback: convenience methods may use literal strings but are better than no metadata.
       if (m.title)    pdfDoc.setTitle(m.title)
       if (m.author)   pdfDoc.setAuthor(m.author)

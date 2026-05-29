@@ -13,7 +13,7 @@ export interface PdfmakeDocument {
   header?: string | { text: string; alignment?: PdfmakeStyle['alignment']; fontSize?: number; color?: string }
   footer?: string | { text: string; alignment?: PdfmakeStyle['alignment']; fontSize?: number; color?: string }
   info?: { title?: string; author?: string; subject?: string; keywords?: string }
-  allowedFileDirs?: string[]
+  readonly allowedFileDirs?: readonly string[]
 }
 
 export type PdfmakeNode = string | PdfmakeObjectNode
@@ -64,7 +64,9 @@ export interface CompatOptions {
   headingMap?: Record<string, 1 | 2 | 3 | 4>
   /**
    * Called when a pdfmake feature is encountered that the shim doesn't translate
-   * (canvas, function-style headers, etc.). Default: log a one-time warning.
+   * (canvas, function-style headers, etc.).
+   * Default: logs a one-time `console.warn` per feature per `fromPdfmake()` call.
+   * Pass `() => {}` to suppress all warnings.
    */
   onUnsupported?: (feature: string) => void
 }
