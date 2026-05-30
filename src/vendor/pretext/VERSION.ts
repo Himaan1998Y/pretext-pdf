@@ -7,5 +7,5 @@
 // When you re-vendor from upstream, update BOTH fields here and the matching
 // row in UPSTREAM.md. The boot-time check compares VENDORED_PRETEXT_VERSION
 // against COMPATIBLE_RANGE in `src/version-check.ts`.
-export const VENDORED_PRETEXT_VERSION = '0.0.6-patched.2'
-export const VENDORED_PRETEXT_COMMIT = '658edfec'
+export const VENDORED_PRETEXT_VERSION = '0.0.7-patched.1'
+export const VENDORED_PRETEXT_COMMIT = 'd74da1f1'

@@ -7,6 +7,18 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.0.14] — 2026-05-30
+
+Vendor snapshot updated to pretext v0.0.7-patched.1 (upstream v0.0.7 + 11 unique patches).
+
+### Changed
+
+- **Vendored pretext layout engine upgraded from v0.0.6-patched.2 to v0.0.7-patched.1.**
+  Incorporates upstream v0.0.7 improvements: keep-all mixed-script grouping, punctuation chain wrapping, opening punctuation line breaks, soft-hyphen break preservation, terminal letter spacing, numeric affix stickiness, rich inline boundary overflow prevention, browser-like dash/symbol runs, and line streaming performance optimizations.
+  Plus fork-specific patches: German low-opening-quote fix, bidi surrogate handling, trailing collapsible space reconstruction, stream-friendly chunk layout optimization, and no-op merge pass skipping.
+
+---
+
 ## [2.0.13] — 2026-05-29
 
 Security hardening and coverage improvements from final review pass.
