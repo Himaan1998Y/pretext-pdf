@@ -13,8 +13,8 @@ published npm release.
 |-------------------|-------|
 | Upstream repo     | https://github.com/chenglou/pretext |
 | Fork repo         | https://github.com/Himaan1998Y/pretext |
-| Upstream base tag | `v0.0.6` (commit `b290344`) |
-| Vendored tag      | `v0.0.6-patched.2` (commit `658edfec`) |
+| Upstream base tag | `v0.0.7` (commit `c01ca0a`) |
+| Vendored tag      | `v0.0.7-patched.1` (commit `d74da1f1`) |
 | License           | MIT — "Copyright (c) 2026 Pretext contributors" |
 | Vendored files    | `src/vendor/pretext/*.ts` (9 source files, see below) |
 
