@@ -129,6 +129,18 @@ export async function render(doc: PdfDocument, options?: RenderOptions): Promise
 }
 
 /**
+ * Alias for `render()`. Renders a PdfDocument to PDF bytes.
+ * @public
+ */
+export const generatePdf = render
+
+/**
+ * Alias for `render()`. Renders a PdfDocument to PDF bytes.
+ * @public
+ */
+export const generate = render
+
+/**
  * Merge multiple pre-rendered PDFs into a single PDF.
  * @param pdfs - Array of Uint8Array PDF bytes to combine
  * @returns Combined PDF bytes

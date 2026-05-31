@@ -86,7 +86,10 @@ export function validateDocumentLevel(doc: PdfDocument, ctx: ValidationContext):
 
   // ── fonts ──
   // font specs
-  if (doc.fonts) {
+  if (doc.fonts !== undefined) {
+    if (!Array.isArray(doc.fonts)) {
+      throw new PretextPdfError('VALIDATION_ERROR', `doc.fonts must be an array. Got: ${typeof doc.fonts}. Fonts should be defined as: fonts: [{ fontFamily: '...', ... }, ...]`)
+    }
     for (const font of doc.fonts) {
       validateFontSpec(font)
     }

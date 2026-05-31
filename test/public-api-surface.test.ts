@@ -38,6 +38,8 @@ const ENTRY_POINTS: EntryPointSpec[] = [
       { name: 'assemble', type: 'function' },
       { name: 'createFootnoteSet', type: 'function' },
       { name: 'createPdf', type: 'function' },
+      { name: 'generate', type: 'function' },
+      { name: 'generatePdf', type: 'function' },
       { name: 'merge', type: 'function' },
       { name: 'render', type: 'function' },
       { name: 'validate', type: 'function' },

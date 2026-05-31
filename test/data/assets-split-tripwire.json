@@ -94,7 +94,7 @@
     "kind": "error",
     "result": {
       "errorCode": "IMAGE_LOAD_FAILED",
-      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": HTTP URLs are not allowed — use HTTPS"
+      "message": "Image \"img-0\": HTTP URLs are not allowed — use HTTPS"
     }
   },
   "F15-data-url": {
@@ -129,21 +129,21 @@
     "kind": "error",
     "result": {
       "errorCode": "IMAGE_LOAD_FAILED",
-      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": HTTP URLs are not allowed — use HTTPS"
+      "message": "Image \"img-0\": HTTP URLs are not allowed — use HTTPS"
     }
   },
   "F20-redirect-chain-too-many": {
     "kind": "error",
     "result": {
       "errorCode": "IMAGE_LOAD_FAILED",
-      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": HTTP URLs are not allowed — use HTTPS"
+      "message": "Image \"img-0\": HTTP URLs are not allowed — use HTTPS"
     }
   },
   "F21-redirect-no-location": {
     "kind": "error",
     "result": {
       "errorCode": "IMAGE_LOAD_FAILED",
-      "message": "Image \"img-0\": failed to fetch URL: Image \"img-0\": HTTP URLs are not allowed — use HTTPS"
+      "message": "Image \"img-0\": HTTP URLs are not allowed — use HTTPS"
     }
   },
   "F22-svg-file-passwd": {

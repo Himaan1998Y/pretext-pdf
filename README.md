@@ -842,6 +842,59 @@ margins: { top: 36, bottom: 36, left: 36, right: 36 }
 
 `flattenForms: true` bakes fields into static content — by design. Remove the flag to keep them interactive.
 
+### Common schema mistakes
+
+#### `doc.fonts must be an array`
+```typescript
+// ❌ WRONG
+{ pageSize: 'A4', fonts: {} }
+
+// ✅ CORRECT
+{ pageSize: 'A4', fonts: [] }
+```
+
+#### Table schema is not like other PDF libraries
+```typescript
+// ❌ WRONG — assumes headers + simple rows
+{
+  type: 'table',
+  headers: ['Col1', 'Col2'],
+  rows: [['val1', 'val2']]
+}
+
+// ✅ CORRECT — columns + rows with cell objects
+{
+  type: 'table',
+  columns: [{ width: '*' }, { width: 200 }],  // '*' is flex; number is fixed pt
+  rows: [
+    { isHeader: true, cells: [{ text: 'Col1', fontWeight: 700 }, { text: 'Col2' }] },
+    { cells: [{ text: 'val1' }, { text: 'val2' }] }
+  ]
+}
+```
+
+> **Why the schema differs:** pretext-pdf's table design supports colspan, rowspan, repeating headers, and fine-grained per-cell styling that other PDF libraries can't express. The column-first design lets you define layout once and reuse it across all rows.
+
+#### Callout element uses `content` not `text`
+```typescript
+// ❌ WRONG
+{ type: 'callout', variant: 'info', text: 'Note here' }
+
+// ✅ CORRECT
+{ type: 'callout', style: 'info', content: 'Note here' }
+```
+
+Valid `style` values: `'info'`, `'warning'`, `'tip'`, `'error'`.
+
+#### List items must be objects
+```typescript
+// ❌ WRONG
+{ type: 'list', items: ['Item 1', 'Item 2'] }
+
+// ✅ CORRECT
+{ type: 'list', items: [{ text: 'Item 1' }, { text: 'Item 2' }] }
+```
+
 ### Browser usage
 
 Supply font bytes via `doc.fonts: [{ family: 'Inter', weight: 400, src: <Uint8Array> }]` — the bundled Inter loader is Node-only. Also register the same font with `document.fonts.add(new FontFace(...))` so pretext's measurement matches pdf-lib's drawing.
