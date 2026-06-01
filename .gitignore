@@ -53,3 +53,4 @@ worktrees/
 
 # Local font copies for the static demo (the deploy workflow copies these in at build time)
 demo/static/fonts/
+test-output2.txt
