@@ -7,6 +7,29 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.1.0] — 2026-06-01
+
+Developer experience improvements: auto-coercion for intuitive-but-incorrect patterns, better error messages with structure hints, and deprecation pathway for v3.0 breaking changes.
+
+### Added
+
+- **Auto-coercion: List items** — strings now auto-convert to `{text: 'string'}` objects, allowing intuitive `items: ['a', 'b']` syntax alongside `items: [{text: 'a'}, {text: 'b'}]`
+- **Auto-coercion: Fonts** — single font object auto-converts to array, allowing `fonts: {family: 'Inter'}` alongside `fonts: [{family: 'Inter'}]`
+- **Auto-coercion: Table structure** — pdfmake-style `{headers, rows}` tables auto-adapt to pretext `{columns, rows[{cells}]}` schema for smoother migration from other PDF libraries
+- **Better error messages** — validation errors now include expected structure hints: list items show `{text: 'string'}` format, tables show `{columns: [...], rows: [{cells: [...]}]}` format, helping agents and humans understand the correct schema
+
+### Changed
+
+- **Deprecation: Callout `content` field** — `content` will be renamed to `text` in v3.0 for consistency with paragraph/heading/blockquote. v2.1 emits a console warning when `content` is used.
+- **Table error messages enhanced** — columns and rows validation now include structure hints in error output
+
+### Testing
+
+- Added 49 new corpus tests covering list auto-coercion, font coercion, and table adapter edge cases
+- All validation changes verified with pixel-perfect rendering equivalence tests
+
+---
+
 ## [2.0.14] — 2026-05-30
 
 Vendor snapshot updated to pretext v0.0.7-patched.1 (upstream v0.0.7 + 11 unique patches).
