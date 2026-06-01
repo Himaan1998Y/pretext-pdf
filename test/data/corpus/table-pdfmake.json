@@ -1,0 +1,17 @@
+{
+  "description": "Table with pdfmake-style {headers, rows} structure — adapts to pretext {columns, rows[{cells}]}",
+  "document": {
+    "content": [
+      {
+        "type": "table",
+        "headers": ["Name", "Age", "City"],
+        "rows": [
+          ["Alice", "28", "New York"],
+          ["Bob", "34", "San Francisco"],
+          ["Charlie", "45", "Chicago"]
+        ]
+      }
+    ]
+  },
+  "expectedBehavior": "pdfmake format auto-adapts to pretext structure; headers become isHeader row; renders identically"
+}

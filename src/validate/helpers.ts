@@ -255,6 +255,31 @@ export function adaptTableStructure(el: any): any {
 
     if (columnCount === 0) return el // Empty table, no adaptation needed
 
+    // Map data rows, validating row shape (HIGH-4 fix: check if row is array before mapping)
+    const dataRows = (el.rows || []).map((row: any) => {
+      let cells: Array<{text: string}>
+      if (Array.isArray(row)) {
+        // pdfmake format: row is array of cells
+        cells = row.map((cell: any) => ({
+          text: typeof cell === 'string' ? cell : (cell?.text ? String(cell.text) : '')
+        }))
+      } else if (row && typeof row === 'object' && Array.isArray(row.cells)) {
+        // pretext format: row is {cells: [...]}
+        cells = row.cells.map((cell: any) => ({
+          text: typeof cell === 'string' ? cell : (cell?.text ? String(cell.text) : '')
+        }))
+      } else {
+        // fallback: treat row as string
+        cells = [{ text: typeof row === 'string' ? row : String(row) }]
+      }
+      return { cells }
+    })
+
+    // HIGH-1 fix: Headers-only tables are invalid (preserve empty rows constraint)
+    if (dataRows.length === 0) {
+      return el // Don't adapt; let validator reject empty rows
+    }
+
     // Adapt to pretext structure
     const adapted: any = {
       ...el,
@@ -268,14 +293,7 @@ export function adaptTableStructure(el: any): any {
           }))
         }] : []),
         // Data rows
-        ...(el.rows || []).map((row: any) => {
-          const cells = Array.isArray(row)
-            ? row.map((cell: any) => ({
-              text: typeof cell === 'string' ? cell : (cell?.text ? String(cell.text) : '')
-            }))
-            : [{ text: typeof row === 'string' ? row : String(row) }]
-          return { cells }
-        })
+        ...dataRows
       ],
     }
     // Delete pdfmake-style fields to avoid strict-mode false positives (HIGH-2 fix)

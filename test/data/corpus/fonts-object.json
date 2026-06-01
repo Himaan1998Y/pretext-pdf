@@ -1,0 +1,16 @@
+{
+  "description": "Document with single font object — auto-coerced to array",
+  "document": {
+    "fonts": {
+      "family": "Inter",
+      "fallback": true
+    },
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "This document uses a single font object that auto-coerces to [object] array"
+      }
+    ]
+  },
+  "expectedBehavior": "single font object auto-coerces to [{family, fallback}] array; renders identically"
+}

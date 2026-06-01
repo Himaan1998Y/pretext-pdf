@@ -1,0 +1,16 @@
+{
+  "description": "List with string items — auto-coerced to {text} objects",
+  "document": {
+    "content": [
+      {
+        "type": "list",
+        "items": [
+          "First item",
+          "Second item",
+          "Third item"
+        ]
+      }
+    ]
+  },
+  "expectedBehavior": "strings auto-coerce to {text: 'string'} objects; renders identically to manual {text} spec"
+}

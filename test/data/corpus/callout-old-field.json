@@ -1,0 +1,13 @@
+{
+  "description": "Callout using deprecated 'content' field — triggers v2.1 deprecation warning",
+  "document": {
+    "content": [
+      {
+        "type": "callout",
+        "variant": "info",
+        "content": "This uses the old 'content' field"
+      }
+    ]
+  },
+  "expectedBehavior": "v2.1: accepts 'content' but emits deprecation warning; v3.0: will require 'text' field instead"
+}
