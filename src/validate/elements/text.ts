@@ -296,8 +296,18 @@ export function validateBlockquote(
 export function validateCallout(
   el: Extract<ContentElement, { type: 'callout' }>,
   prefix: string,
-  _ctx: ValidationContext,
+  ctx: ValidationContext,
 ): void {
+  // v2.1: Deprecation warning for 'content' field (will be renamed to 'text' in v3.0)
+  if ('content' in el && !('style' in el)) {
+    const logger = ctx.options?.logger || console
+    logger.warn(
+      '[pretext-pdf v2.1] DEPRECATION: callout element uses "content" field. ' +
+      'This will be renamed to "text" in v3.0 for consistency with paragraph/heading/blockquote. ' +
+      'Please update your code to use "text" instead of "content".'
+    )
+  }
+
   if (!el.content || typeof el.content !== 'string' || el.content.trim() === '') {
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (callout): 'content' is required and must be a non-empty string`)
   }

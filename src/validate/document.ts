@@ -23,6 +23,7 @@ import {
   HEX_COLOR_REGEX,
   LANGUAGE_TAG_REGEX,
   assertUnknownProps,
+  coerceFonts,
   looksLikeUrl,
   validateFontSpec,
   validateMetadataString,
@@ -87,8 +88,10 @@ export function validateDocumentLevel(doc: PdfDocument, ctx: ValidationContext):
   // ── fonts ──
   // font specs
   if (doc.fonts !== undefined) {
+    // Auto-coerce: single object becomes array with one element
+    (doc as any).fonts = coerceFonts(doc.fonts) as any
     if (!Array.isArray(doc.fonts)) {
-      throw new PretextPdfError('VALIDATION_ERROR', `doc.fonts must be an array. Got: ${typeof doc.fonts}. Fonts should be defined as: fonts: [{ fontFamily: '...', ... }, ...]`)
+      throw new PretextPdfError('VALIDATION_ERROR', `doc.fonts must be an array or object. Got: ${typeof doc.fonts}. Fonts should be defined as: fonts: [{ family: '...', ... }] or fonts: { family: '...', ... }`)
     }
     for (const font of doc.fonts) {
       validateFontSpec(font)

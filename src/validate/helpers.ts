@@ -219,5 +219,71 @@ function isAbsolutePath(s: string): boolean {
   return s.startsWith('/') || /^[a-zA-Z]:[/\\]/.test(s)
 }
 
+// ── Auto-Coercion Helpers ────────────────────────────────────────────────────
+// Convert intuitive-but-incorrect patterns into correct schema without data loss.
+
+/** Auto-coerce list items: strings become {text: 'string'} objects */
+export function coerceListItems(items: unknown): unknown[] {
+  if (!Array.isArray(items)) return items as unknown[]
+  return items.map(item =>
+    typeof item === 'string' ? {text: item} : item
+  )
+}
+
+/** Auto-coerce fonts: single object becomes array with one element */
+export function coerceFonts(fonts: unknown): unknown {
+  if (!fonts) return fonts
+  if (Array.isArray(fonts)) return fonts
+  if (typeof fonts === 'object') return [fonts]
+  return fonts
+}
+
+/** Adapt pdfmake table structure {headers, rows} to pretext-pdf {columns, rows[{cells}]} */
+export function adaptTableStructure(el: any): any {
+  if (!el || typeof el !== 'object') return el
+
+  // Detect pdfmake pattern: has headers property or rows are simple strings/arrays
+  const hasHeaders = 'headers' in el
+  const hasSimpleRows = Array.isArray(el.rows) && el.rows.length > 0 &&
+    (Array.isArray(el.rows[0]) || typeof el.rows[0] === 'string')
+
+  // Only adapt if this looks like pdfmake format AND doesn't already have columns
+  if (!el.columns && (hasHeaders || hasSimpleRows)) {
+    const headers = el.headers || []
+    const columnCount = headers.length || (el.rows && el.rows[0] ?
+      (Array.isArray(el.rows[0]) ? el.rows[0].length : 1) : 0)
+
+    if (columnCount === 0) return el // Empty table, no adaptation needed
+
+    // Adapt to pretext structure
+    return {
+      ...el,
+      columns: Array(columnCount).fill(null).map(() => ({width: '*'})),
+      rows: [
+        // Header row (if exists)
+        ...(headers.length > 0 ? [{
+          isHeader: true,
+          cells: headers.map((h: any) => ({
+            text: typeof h === 'string' ? h : (h?.text ? String(h.text) : '')
+          }))
+        }] : []),
+        // Data rows
+        ...(el.rows || []).map((row: any) => {
+          const cells = Array.isArray(row)
+            ? row.map((cell: any) => ({
+              text: typeof cell === 'string' ? cell : (cell?.text ? String(cell.text) : '')
+            }))
+            : [{ text: typeof row === 'string' ? row : String(row) }]
+          return { cells }
+        })
+      ],
+      // Remove the old pdfmake-style fields
+      headers: undefined,
+    }
+  }
+
+  return el
+}
+
 // Re-exported for submodule convenience.
 export type { RenderOptions }

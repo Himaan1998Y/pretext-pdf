@@ -8,6 +8,7 @@ import { ALLOWED_PROPS_SUB } from '../../allowed-props.js'
 import {
   HEX_COLOR_REGEX,
   assertUnknownProps,
+  coerceListItems,
   withCycleGuard,
   type ValidationContext,
 } from '../helpers.js'
@@ -21,14 +22,20 @@ export function validateList(
   if (el.style !== 'ordered' && el.style !== 'unordered') {
     throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): 'style' must be 'ordered' or 'unordered'`)
   }
+  // Auto-coerce: strings become {text: 'string'} objects
+  el.items = coerceListItems(el.items) as any[]
   if (!Array.isArray(el.items) || el.items.length === 0) {
-    throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): 'items' must be a non-empty array`)
+    throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): 'items' must be a non-empty array of objects`)
   }
 
   // Wrap list items walk with cycle guard
   withCycleGuard(ctx.seen, el, depth + 1, prefix, () => {
     for (let ii = 0; ii < el.items.length; ii++) {
       const item = el.items[ii]!
+      // Type check: item must be an object
+      if (typeof item !== 'object' || item === null) {
+        throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}] must be an object with structure {text: 'string'}. Got: ${typeof item}`)
+      }
       // Strict: validate list item properties
       if (ctx.strict) {
         assertUnknownProps(item, ALLOWED_PROPS_SUB['list-item'], `${prefix}.items[${ii}]`, ctx.errors)
@@ -45,11 +52,17 @@ export function validateList(
       }
       // Validate nested items (1 level deep)
       if (item.items) {
+        // Auto-coerce nested items as well
+        item.items = coerceListItems(item.items) as any[]
         if (!Array.isArray(item.items) || item.items.length === 0) {
           throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].items must be a non-empty array if provided`)
         }
         for (let ni = 0; ni < item.items.length; ni++) {
           const nested = item.items[ni]!
+          // Type check: nested item must be an object
+          if (typeof nested !== 'object' || nested === null) {
+            throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (list): items[${ii}].items[${ni}] must be an object with structure {text: 'string'}. Got: ${typeof nested}`)
+          }
           // Strict: validate nested list item properties
           if (ctx.strict) {
             assertUnknownProps(nested, ALLOWED_PROPS_SUB['list-item'], `${prefix}.items[${ii}].items[${ni}]`, ctx.errors)

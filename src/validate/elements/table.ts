@@ -8,6 +8,7 @@ import { ALLOWED_PROPS_SUB } from '../../allowed-props.js'
 import {
   HEX_COLOR_REGEX,
   STAR_WIDTH_REGEX,
+  adaptTableStructure,
   assertUnknownProps,
   withCycleGuard,
   type ValidationContext,
@@ -19,11 +20,17 @@ export function validateTable(
   depth: number,
   ctx: ValidationContext,
 ): void {
+  // Auto-adapt: detect pdfmake structure {headers, rows} and convert to {columns, rows[{cells}]}
+  const adapted = adaptTableStructure(el)
+  if (adapted !== el) {
+    Object.assign(el, adapted)
+  }
+
   if (!Array.isArray(el.columns) || el.columns.length === 0) {
-    throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): 'columns' must be a non-empty array`)
+    throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): 'columns' must be a non-empty array. Expected structure: {columns: [{width: '*'|number}], rows: [{cells: [{text: 'string'}]}]}`)
   }
   if (!Array.isArray(el.rows) || el.rows.length === 0) {
-    throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): 'rows' must be a non-empty array`)
+    throw new PretextPdfError('VALIDATION_ERROR', `${prefix} (table): 'rows' must be a non-empty array. Expected: rows: [{isHeader?: true, cells: [{text: 'string'}]}]`)
   }
 
   const colCount = el.columns.length
