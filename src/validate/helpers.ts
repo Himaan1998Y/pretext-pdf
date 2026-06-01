@@ -256,7 +256,7 @@ export function adaptTableStructure(el: any): any {
     if (columnCount === 0) return el // Empty table, no adaptation needed
 
     // Adapt to pretext structure
-    return {
+    const adapted: any = {
       ...el,
       columns: Array(columnCount).fill(null).map(() => ({width: '*'})),
       rows: [
@@ -277,9 +277,10 @@ export function adaptTableStructure(el: any): any {
           return { cells }
         })
       ],
-      // Remove the old pdfmake-style fields
-      headers: undefined,
     }
+    // Delete pdfmake-style fields to avoid strict-mode false positives (HIGH-2 fix)
+    delete adapted.headers
+    return adapted
   }
 
   return el

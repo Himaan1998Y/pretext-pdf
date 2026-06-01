@@ -299,7 +299,7 @@ export function validateCallout(
   ctx: ValidationContext,
 ): void {
   // v2.1: Deprecation warning for 'content' field (will be renamed to 'text' in v3.0)
-  if ('content' in el && !('style' in el)) {
+  if ('content' in el && !('text' in el)) {
     const logger = ctx.options?.logger || console
     logger.warn(
       '[pretext-pdf v2.1] DEPRECATION: callout element uses "content" field. ' +
