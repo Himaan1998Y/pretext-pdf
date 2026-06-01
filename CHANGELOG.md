@@ -23,10 +23,20 @@ Developer experience improvements: auto-coercion for intuitive-but-incorrect pat
 - **Deprecation: Callout `content` field** — `content` will be renamed to `text` in v3.0 for consistency with paragraph/heading/blockquote. v2.1 emits a console warning when `content` is used.
 - **Table error messages enhanced** — columns and rows validation now include structure hints in error output
 
+### Fixed
+
+- **Headers-only table validation** — tables with headers but no data rows now properly trigger VALIDATION_ERROR instead of being silently adapted
+- **Mixed row format corruption prevention** — table adapter now validates row shape (array vs object) before attempting pdfmake-to-pretext conversion, preventing silent data corruption when rows use inconsistent formats
+- **Strict-mode false positives in table adapter** — removed pdfmake-style field properties cleanly with `delete` instead of setting to undefined, eliminating spurious unknown-property warnings in strict validation mode
+- **Callout deprecation warning condition** — fixed logic inversion so warning fires only when `content` field is used without `text` field
+
 ### Testing
 
 - Added 49 new corpus tests covering list auto-coercion, font coercion, and table adapter edge cases
+- Added 4 new corpus JSON files for agent edge-case testing (list-string-coercion, table-pdfmake, callout-old-field, fonts-object)
+- Added deprecation warning routing tests to verify logger.warn receives v3.0 migration warnings
 - All validation changes verified with pixel-perfect rendering equivalence tests
+- Total test count: 340/340 passing
 
 ---
 
