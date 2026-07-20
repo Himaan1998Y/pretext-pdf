@@ -9,9 +9,9 @@
 [![npm downloads](https://img.shields.io/npm/dw/pretext-pdf)](https://www.npmjs.com/package/pretext-pdf)
 [![CI](https://github.com/Himaan1998Y/pretext-pdf/actions/workflows/ci.yml/badge.svg)](https://github.com/Himaan1998Y/pretext-pdf/actions)
 [![TypeScript](https://img.shields.io/badge/typescript-strict-blue)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](#tests)
+[![Tests](https://img.shields.io/badge/tests-988-brightgreen)](#tests)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-[![Bundle](https://img.shields.io/badge/runtime%20deps-7-informational)](#runtime-footprint)
+[![Bundle](https://img.shields.io/badge/runtime%20deps-8-informational)](#runtime-footprint)
 
 **[Live demo](https://himaan1998y.github.io/pretext-pdf/)** &nbsp;·&nbsp; **[`pretext-pdf-mcp`](https://www.npmjs.com/package/pretext-pdf-mcp)** (MCP server) &nbsp;·&nbsp; **[Migrating from pdfmake?](#migrating-from-pdfmake)**
 
@@ -923,6 +923,7 @@ Mandatory runtime dependencies:
 - `@pdf-lib/fontkit` — font subsetting
 - `bidi-js` — bidirectional text resolution
 - `hypher` + `hyphenation.en-us` — hyphenation
+- `undici` — HTTP client for remote image loading (SSRF-guarded)
 
 All other capabilities (SVG, charts, QR, barcodes, markdown, signing) are optional peer deps — install only what you use.
 

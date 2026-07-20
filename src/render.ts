@@ -3,7 +3,10 @@ import type {
   PdfDocument, Logger
 } from './types.js'
 
-/** Maximum allowed PDF output size in bytes (100 MB). */
+/**
+ * Maximum allowed PDF output size in bytes (100 MB).
+ * @public
+ */
 export const MAX_PDF_BYTES = 100 * 1024 * 1024
 import type {
   PaginatedDocument, PagedBlock,

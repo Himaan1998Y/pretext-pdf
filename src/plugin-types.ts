@@ -139,10 +139,8 @@ export interface PluginRenderContext<T = unknown> {
  *
  * @typeParam T - Type of the `pluginData` payload passed from `measure` to `render`.
  *   Defaults to `unknown` so existing untyped plugins continue to compile without changes.
- *   Specify a concrete type to get type-safe `pluginData` in your `render` hook:
- *   ```ts
- *   const myPlugin: PluginDefinition<{ label: string }> = { ... }
- *   ```
+ *   Specify a concrete type via `PluginDefinition&lt;YourDataType&gt;` to get type-safe
+ *   `pluginData` in your `render` hook.
  *
  * @public
  */

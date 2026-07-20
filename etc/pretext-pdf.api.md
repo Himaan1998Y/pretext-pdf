@@ -10,10 +10,10 @@ import { PDFPage } from '@cantoo/pdf-lib';
 
 // @public (undocumented)
 export interface AnnotationSpec {
-    author?: string;
-    color?: string;
-    contents: string;
-    open?: boolean;
+    readonly author?: string;
+    readonly color?: string;
+    readonly contents: string;
+    readonly open?: boolean;
 }
 
 // @public
@@ -39,6 +39,23 @@ export interface BarcodeElement {
     symbology: string;
     // (undocumented)
     type: 'barcode';
+    width?: number;
+}
+
+// @public
+export interface BaseFormField {
+    accessibilityLabel?: string;
+    backgroundColor?: string;
+    borderColor?: string;
+    fontSize?: number;
+    height?: number;
+    keepTogether?: boolean;
+    label?: string;
+    name: string;
+    spaceAfter?: number;
+    spaceBefore?: number;
+    // (undocumented)
+    type: 'form-field';
     width?: number;
 }
 
@@ -71,8 +88,14 @@ export interface BlockquoteElement {
 
 // @public (undocumented)
 export interface BookmarkConfig {
-    maxLevel?: 1 | 2 | 3 | 4;
-    minLevel?: 1 | 2 | 3 | 4;
+    readonly maxLevel?: 1 | 2 | 3 | 4;
+    readonly minLevel?: 1 | 2 | 3 | 4;
+}
+
+// @public
+export interface ButtonFormField extends BaseFormField {
+    // (undocumented)
+    fieldType: 'button';
 }
 
 // @public
@@ -112,6 +135,13 @@ export interface ChartElement {
     width?: number;
 }
 
+// @public
+export interface CheckboxFormField extends BaseFormField {
+    checked?: boolean;
+    // (undocumented)
+    fieldType: 'checkbox';
+}
+
 // @public (undocumented)
 export interface CodeBlockElement {
     bgColor?: string;
@@ -144,7 +174,7 @@ export interface CodeBlockElement {
 // @public (undocumented)
 export interface ColumnDef {
     align?: 'left' | 'center' | 'right';
-    width: number | string;
+    width: number | `${number}*` | '*' | 'auto';
 }
 
 // @public (undocumented)
@@ -161,7 +191,7 @@ export interface CommentElement {
 // @public (undocumented)
 export type ContentElement = ParagraphElement | HeadingElement | SpacerElement | TableElement | ImageElement | SvgElement | QrCodeElement | BarcodeElement | ChartElement | ListElement | HorizontalRuleElement | PageBreakElement | CodeBlockElement | RichParagraphElement | BlockquoteElement | TocElement | CommentElement | FormFieldElement | CalloutElement | FootnoteDefElement | FloatGroupElement;
 
-// @beta
+// @public
 export function createFootnoteSet(items: Array<{
     text: string;
     fontSize?: number;
@@ -177,13 +207,26 @@ export function createPdf(options?: PdfBuilderOptions): PdfBuilder;
 
 // @public (undocumented)
 export interface DocumentMetadata {
-    author?: string;
-    creator?: string;
-    keywords?: string[];
-    language?: string;
-    producer?: string;
-    subject?: string;
-    title?: string;
+    readonly accessibility?: Record<string, unknown>;
+    readonly author?: string;
+    readonly creator?: string;
+    readonly keywords?: string[];
+    readonly language?: string;
+    readonly producer?: string;
+    readonly semantic?: Record<string, unknown>;
+    readonly subject?: string;
+    readonly title?: string;
+}
+
+// @public
+export interface DropdownFormField extends BaseFormField {
+    defaultSelected?: string;
+    // (undocumented)
+    fieldType: 'dropdown';
+    options: Array<{
+        value: string;
+        label: string;
+    }>;
 }
 
 // @public
@@ -194,15 +237,18 @@ export type ElementType = typeof ELEMENT_TYPES[number];
 
 // @public (undocumented)
 export interface EncryptionSpec {
-    ownerPassword?: string;
-    permissions?: {
-        printing?: boolean;
-        copying?: boolean;
-        modifying?: boolean;
-        annotating?: boolean;
+    readonly ownerPassword?: string;
+    readonly permissions?: {
+        readonly printing?: boolean;
+        readonly copying?: boolean;
+        readonly modifying?: boolean;
+        readonly annotating?: boolean;
     };
-    userPassword?: string;
+    readonly userPassword?: string;
 }
+
+// @public
+export type ErrorCategory = 'validation' | 'font' | 'image' | 'layout' | 'security' | 'dependency' | 'signature' | 'render';
 
 // @public
 export type ErrorCode = 'VALIDATION_ERROR' | 'FONT_LOAD_FAILED' | 'FONT_EMBED_FAILED' | 'FONT_ENCODE_FAIL' | 'PAGE_TOO_SMALL' | 'CANVAS_UNAVAILABLE' | 'PAGE_LIMIT_EXCEEDED' | 'IMAGE_LOAD_FAILED' | 'IMAGE_FORMAT_MISMATCH' | 'IMAGE_TOO_TALL' | 'TABLE_COLUMN_OVERFLOW' | 'TABLE_COLUMN_TOO_NARROW' | 'MONOSPACE_FONT_REQUIRED' | 'ITALIC_FONT_NOT_LOADED' | 'FONT_NOT_LOADED' | 'COLUMN_WIDTH_TOO_NARROW' | 'COLSPAN_OVERFLOW' | 'UNSUPPORTED_LANGUAGE' | 'SVG_LOAD_FAILED' | 'SVG_RENDER_FAILED' | 'WATERMARK_ROTATION_OUT_OF_RANGE' | 'SVG_INVALID_MARKUP' | 'ASSEMBLY_EMPTY' | 'ASSEMBLY_FAILED' | 'FORM_FIELD_NAME_DUPLICATE' | 'FORM_FLATTEN_FAILED' | 'SIGNATURE_DEP_MISSING' | 'SIGNATURE_P12_LOAD_FAILED' | 'SIGNATURE_FAILED' | 'SIGNATURE_CERT_AND_ENCRYPTION' | 'FOOTNOTE_REF_ORPHANED' | 'FOOTNOTE_DEF_ORPHANED' | 'FOOTNOTE_DEF_DUPLICATE' | 'PAGINATION_FAILED' | 'RENDER_FAILED' | 'PATH_TRAVERSAL' | 'QR_DEP_MISSING' | 'QR_GENERATE_FAILED' | 'BARCODE_DEP_MISSING' | 'BARCODE_GENERATE_FAILED' | 'BARCODE_SYMBOLOGY_INVALID' | 'CHART_DEP_MISSING' | 'CHART_SPEC_INVALID' | 'CHART_RENDER_FAILED' | 'UNKNOWN_PROPERTY' | 'INVALID_INPUT' | 'MARKDOWN_DEP_MISSING' | 'RTL_REORDER_FAILED' | 'CHART_LOAD_FAILED';
@@ -226,10 +272,10 @@ export interface FloatGroupElement {
 
 // @public (undocumented)
 export interface FontSpec {
-    family: string;
-    src: string | Uint8Array;
-    style?: 'normal' | 'italic';
-    weight?: 400 | 700;
+    readonly family: string;
+    readonly src: string | Uint8Array;
+    readonly style?: 'normal' | 'italic';
+    readonly weight?: 400 | 700;
 }
 
 // @public
@@ -243,41 +289,23 @@ export interface FootnoteDefElement {
     type: 'footnote-def';
 }
 
-// @public (undocumented)
-export interface FormFieldElement {
-    backgroundColor?: string;
-    borderColor?: string;
-    checked?: boolean;
-    defaultSelected?: string;
-    defaultValue?: string;
-    fieldType: 'text' | 'checkbox' | 'radio' | 'dropdown' | 'button';
-    fontSize?: number;
-    height?: number;
-    keepTogether?: boolean;
-    label?: string;
-    maxLength?: number;
-    multiline?: boolean;
-    name: string;
-    options?: Array<{
-        value: string;
-        label: string;
-    }>;
-    placeholder?: string;
-    spaceAfter?: number;
-    spaceBefore?: number;
-    // (undocumented)
-    type: 'form-field';
-    width?: number;
-}
+// @public
+export type FormFieldElement = TextFormField | CheckboxFormField | RadioFormField | DropdownFormField | ButtonFormField;
+
+// @public
+export const generate: typeof render;
+
+// @public
+export const generatePdf: typeof render;
 
 // @public (undocumented)
 export interface HeaderFooterSpec {
-    align?: 'left' | 'center' | 'right';
-    color?: string;
-    fontFamily?: string;
-    fontSize?: number;
-    fontWeight?: 400 | 700;
-    text: string;
+    readonly align?: 'left' | 'center' | 'right';
+    readonly color?: string;
+    readonly fontFamily?: string;
+    readonly fontSize?: number;
+    readonly fontWeight?: 400 | 700;
+    readonly text: string;
 }
 
 // @public (undocumented)
@@ -314,10 +342,8 @@ export interface HeadingElement {
 // @public (undocumented)
 export interface HorizontalRuleElement {
     color?: string;
-    spaceAbove?: number;
     spaceAfter?: number;
     spaceBefore?: number;
-    spaceBelow?: number;
     thickness?: number;
     // (undocumented)
     type: 'hr';
@@ -325,10 +351,10 @@ export interface HorizontalRuleElement {
 
 // @public (undocumented)
 export interface HyphenationConfig {
-    language: string;
-    leftMin?: number;
-    minWordLength?: number;
-    rightMin?: number;
+    readonly language: string;
+    readonly leftMin?: number;
+    readonly minWordLength?: number;
+    readonly rightMin?: number;
 }
 
 // Warning: (ae-forgotten-export) The symbol "ImageNoFloat" needs to be exported by the entry point index.d.ts
@@ -357,6 +383,9 @@ export interface InlineSpan {
     url?: string;
     verticalAlign?: 'superscript' | 'subscript';
 }
+
+// @public
+export const LEGACY_ERROR_CODE_MAP: Record<string, ErrorCode>;
 
 // @public (undocumented)
 export interface ListElement {
@@ -395,14 +424,17 @@ export interface Logger {
 // @public (undocumented)
 export interface Margins {
     // (undocumented)
-    bottom: number;
+    readonly bottom: number;
     // (undocumented)
-    left: number;
+    readonly left: number;
     // (undocumented)
-    right: number;
+    readonly right: number;
     // (undocumented)
-    top: number;
+    readonly top: number;
 }
+
+// @public
+export const MAX_PDF_BYTES: number;
 
 // @public
 export function merge(pdfs: Uint8Array[]): Promise<Uint8Array>;
@@ -510,8 +542,6 @@ export interface PdfBuilderOptions {
     metadata?: DocumentMetadata;
     // (undocumented)
     pageSize?: PdfDocument['pageSize'];
-    // Warning: (ae-incompatible-release-tags) The symbol "plugins" is marked as @public, but its signature references "PluginDefinition" which is marked as @beta
-    //
     // (undocumented)
     plugins?: PluginDefinition[];
     // (undocumented)
@@ -520,71 +550,71 @@ export interface PdfBuilderOptions {
 
 // @public
 export interface PdfDocument {
-    allowedFileDirs?: string[];
-    bookmarks?: false | BookmarkConfig;
-    content: ContentElement[];
-    defaultFont?: string;
-    defaultFontSize?: number;
-    defaultLineHeight?: number;
-    defaultParagraphStyle?: {
-        fontSize?: number;
-        lineHeight?: number;
-        fontFamily?: string;
-        fontWeight?: 400 | 700;
-        color?: string;
-        align?: 'left' | 'center' | 'right' | 'justify';
-        letterSpacing?: number;
-        spaceBefore?: number;
-        spaceAfter?: number;
+    readonly allowedFileDirs?: string[];
+    readonly bookmarks?: false | BookmarkConfig;
+    readonly content: readonly ContentElement[];
+    readonly defaultFont?: string;
+    readonly defaultFontSize?: number;
+    readonly defaultLineHeight?: number;
+    readonly defaultParagraphStyle?: {
+        readonly fontSize?: number;
+        readonly lineHeight?: number;
+        readonly fontFamily?: string;
+        readonly fontWeight?: 400 | 700;
+        readonly color?: string;
+        readonly align?: 'left' | 'center' | 'right' | 'justify';
+        readonly letterSpacing?: number;
+        readonly spaceBefore?: number;
+        readonly spaceAfter?: number;
     };
-    encryption?: EncryptionSpec;
-    flattenForms?: boolean;
-    fonts?: FontSpec[];
-    footer?: HeaderFooterSpec;
-    header?: HeaderFooterSpec;
-    hyphenation?: HyphenationConfig;
-    margins?: Partial<Margins>;
-    metadata?: DocumentMetadata;
-    onFormFieldError?: (fieldName: string | undefined, error: Error) => 'skip' | 'throw';
-    onImageLoadError?: (src: string | Uint8Array, error: Error) => 'skip' | 'throw';
-    pageSize?: NamedPageSize | [number, number];
-    renderDate?: string | Date;
-    sections?: Array<{
-        fromPage?: number;
-        toPage?: number;
-        header?: PdfDocument['header'];
-        footer?: PdfDocument['footer'];
+    readonly encryption?: EncryptionSpec;
+    readonly flattenForms?: boolean;
+    readonly fonts?: FontSpec[];
+    readonly footer?: HeaderFooterSpec;
+    readonly header?: HeaderFooterSpec;
+    readonly hyphenation?: HyphenationConfig;
+    readonly margins?: Partial<Margins>;
+    readonly metadata?: DocumentMetadata;
+    readonly onFormFieldError?: (fieldName: string | undefined, error: Error) => 'skip' | 'throw';
+    readonly onImageLoadError?: (src: string | Uint8Array, error: Error) => 'skip' | 'throw';
+    readonly pageSize?: NamedPageSize | [number, number];
+    readonly renderDate?: string | Date;
+    readonly sections?: Array<{
+        readonly fromPage?: number;
+        readonly toPage?: number;
+        readonly header?: PdfDocument['header'];
+        readonly footer?: PdfDocument['footer'];
     }>;
-    signature?: SignatureSpec;
-    watermark?: WatermarkSpec;
+    readonly signature?: SignatureSpec;
+    readonly watermark?: WatermarkSpec;
 }
 
-// @beta
-export interface PluginDefinition {
+// @public
+export interface PluginDefinition<T = unknown> {
     loadAsset?: (element: Record<string, unknown>, pdfDoc: PDFDocument, contentWidth: number) => Promise<PDFImage | undefined>;
-    measure: (element: Record<string, unknown>, context: PluginMeasureContext) => Promise<PluginMeasureResult>;
-    render: (context: PluginRenderContext) => void;
+    measure: (element: Record<string, unknown>, context: PluginMeasureContext) => Promise<PluginMeasureResult<T>>;
+    render: (context: PluginRenderContext<T>) => void;
     type: string;
     validate?: (element: Record<string, unknown>) => string | void;
 }
 
-// @beta
+// @public
 export interface PluginMeasureContext {
     contentHeight: number;
     contentWidth: number;
     doc: PdfDocument;
 }
 
-// @beta
-export interface PluginMeasureResult {
-    height: number;
-    pluginData?: unknown;
-    spaceAfter?: number;
-    spaceBefore?: number;
+// @public
+export interface PluginMeasureResult<T = unknown> {
+    readonly height: number;
+    pluginData?: T;
+    readonly spaceAfter?: number;
+    readonly spaceBefore?: number;
 }
 
-// @beta
-export interface PluginRenderContext {
+// @public
+export interface PluginRenderContext<T = unknown> {
     element: Record<string, unknown>;
     height: number;
     margins: Margins;
@@ -593,7 +623,7 @@ export interface PluginRenderContext {
     pdfDoc: PDFDocument;
     pdfImage?: PDFImage;
     pdfPage: PDFPage;
-    pluginData?: unknown;
+    pluginData?: T;
     width: number;
     x: number;
     y: number;
@@ -602,6 +632,7 @@ export interface PluginRenderContext {
 // @public
 export class PretextPdfError extends Error {
     constructor(code: ErrorCode, message: string, options?: ErrorOptions);
+    readonly category: ErrorCategory;
     // (undocumented)
     readonly code: ErrorCode;
 }
@@ -619,6 +650,17 @@ export interface QrCodeElement {
     spaceBefore?: number;
     // (undocumented)
     type: 'qr-code';
+}
+
+// @public
+export interface RadioFormField extends BaseFormField {
+    defaultSelected?: string;
+    // (undocumented)
+    fieldType: 'radio';
+    options: Array<{
+        value: string;
+        label: string;
+    }>;
 }
 
 // @public
@@ -654,20 +696,20 @@ export interface RichParagraphElement {
 
 // @public (undocumented)
 export interface SignatureSpec {
-    borderColor?: string;
-    contactInfo?: string;
-    fontSize?: number;
-    height?: number;
-    invisible?: boolean;
-    location?: string;
-    p12?: string | Uint8Array;
-    page?: number;
-    passphrase?: string;
-    reason?: string;
-    signerName?: string;
-    width?: number;
-    x?: number;
-    y?: number;
+    readonly borderColor?: string;
+    readonly contactInfo?: string;
+    readonly fontSize?: number;
+    readonly height?: number;
+    readonly invisible?: boolean;
+    readonly location?: string;
+    readonly p12?: string | Uint8Array;
+    readonly page?: number;
+    readonly passphrase?: string;
+    readonly reason?: string;
+    readonly signerName?: string;
+    readonly width?: number;
+    readonly x?: number;
+    readonly y?: number;
 }
 
 // @public (undocumented)
@@ -732,6 +774,16 @@ export interface TableRow {
     isHeader?: boolean;
 }
 
+// @public
+export interface TextFormField extends BaseFormField {
+    defaultValue?: string;
+    // (undocumented)
+    fieldType: 'text';
+    maxLength?: number;
+    multiline?: boolean;
+    placeholder?: string;
+}
+
 // @public (undocumented)
 export interface TocElement {
     entrySpacing?: number;
@@ -761,31 +813,30 @@ export function validateDocument(doc: unknown, options?: {
 
 // @public
 export interface ValidationError {
-    code: ErrorCode;
-    message: string;
-    path: string;
-    severity: 'error' | 'warning';
-    suggestion?: string;
-    unknownProp?: string;
+    readonly code: ErrorCode;
+    readonly message: string;
+    readonly path: string;
+    readonly severity: 'error' | 'warning';
+    readonly suggestion?: string;
+    readonly unknownProp?: string;
 }
 
 // @public
 export interface ValidationResult {
-    errorCount: number;
-    errors: ValidationError[];
-    valid: boolean;
-    warningCount: number;
+    readonly errorCount: number;
+    readonly errors: readonly ValidationError[];
+    readonly valid: boolean;
 }
 
 // Warning: (ae-forgotten-export) The symbol "WatermarkBase" needs to be exported by the entry point index.d.ts
 //
 // @public (undocumented)
 export type WatermarkSpec = (WatermarkBase & {
-    text: string;
-    image?: never;
+    readonly text: string;
+    readonly image?: never;
 }) | (WatermarkBase & {
-    image: string | Uint8Array;
-    text?: never;
+    readonly image: string | Uint8Array;
+    readonly text?: never;
 });
 
 // (No @packageDocumentation comment for this package)
