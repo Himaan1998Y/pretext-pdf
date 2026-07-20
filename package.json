@@ -1,6 +1,6 @@
 {
   "name": "pretext-pdf",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Generate PDFs from JSON — declarative, serverless, no Chromium. TypeScript-first with professional typography. Ideal for invoices, reports, and AI agents.",
   "keywords": [
     "pdf",
@@ -153,7 +153,7 @@
     "bidi-js": "^1.0.3",
     "hyphenation.en-us": "^0.2.1",
     "hypher": "^0.2.5",
-    "undici": "^6.25.0"
+    "undici": "^6.27.0"
   },
   "peerDependencies": {
     "@napi-rs/canvas": "^0.1.57",

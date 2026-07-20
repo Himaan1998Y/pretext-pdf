@@ -7,6 +7,21 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.1.1] — 2026-07-20
+
+Dependency security fix.
+
+### Security
+
+- **`undici` bumped from `^6.25.0` to `^6.27.0`** — resolves 4 HIGH-severity advisories in this direct production dependency: HTTP header injection via Set-Cookie percent-decoding, WebSocket client DoS via fragment count bypass, HTTP response queue poisoning via keep-alive socket reuse, and Set-Cookie SameSite downgrade via permissive substring matching.
+- Dev-only transitive advisories (`markdown-it`/`linkify-it` via `typedoc`) resolved via `npm audit fix`. `esbuild` (via `tsx`, dev-only, Windows dev-server file read) remains at low severity — below the CI `--audit-level=high` gate, tracked in ROADMAP.
+
+### Testing
+
+- Full suite re-verified after the bump: 340/340 unit tests, 61/61 security tests (SSRF, IPv4-bypass, scheme blocklist) passing.
+
+---
+
 ## [2.1.0] — 2026-06-01
 
 Developer experience improvements: auto-coercion for intuitive-but-incorrect patterns, better error messages with structure hints, and deprecation pathway for v3.0 breaking changes.
