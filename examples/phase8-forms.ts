@@ -61,7 +61,7 @@ const doc: PdfDocument = {
         { value: '0-2', label: '0-2 years' },
         { value: '3-5', label: '3-5 years' },
         { value: '6-10', label: '6-10 years' },
-        { value: '10+', label: '10+ years' },
+        { value: '10-plus', label: '10+ years' },
       ],
       defaultSelected: '3-5',
     },
