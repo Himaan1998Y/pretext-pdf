@@ -7,6 +7,37 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.2.0] — 2026-07-22
+
+Vendored `@chenglou/pretext` engine upgraded from `v0.0.7-patched.1` to
+`v0.0.8-patched.1`.
+
+### Added
+
+- **Browser-parity dash breaking** — when a long unbreakable run (a URL, a
+  hyphenated compound word) must be force-broken to fit the line width, the
+  layout engine now prefers breaking right after a dash/hyphen character
+  (`-`, U+058A, U+2010, U+2012–U+2014) instead of at an arbitrary grapheme.
+  Matches how Chrome/Safari wrap such text. No API change — this is purely a
+  layout-quality improvement in the vendored engine.
+
+### Changed
+
+- Retired the `PR #119` cherry-pick ("skip no-op merge passes in analysis
+  pipeline"). Upstream's own `v0.0.8` work generalized the same code path
+  (`mergeAsciiPunctuationChains` → `mergeNoSpaceWordChains`, now also handling
+  CJK/emoji/unicode punctuation, not just plain ASCII chains), superseding our
+  narrower patch. See `UPSTREAM.md` for the full reconciliation.
+
+### Testing
+
+- Full suite verified after the upgrade: 988/988 tests (contract, unit, e2e,
+  phases, benchmark), plus visual regression (5/5). Manually verified the new
+  dash-break behavior end-to-end (render → extract PDF text → confirm line
+  breaks land on dash boundaries).
+
+---
+
 ## [2.1.1] — 2026-07-20
 
 Dependency security fix.

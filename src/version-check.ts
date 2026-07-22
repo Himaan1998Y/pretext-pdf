@@ -16,11 +16,11 @@ import { VENDORED_PRETEXT_VERSION } from './vendor/pretext/VERSION.js'
  * Range the current pretext-pdf release is known-compatible with.
  *
  * Format: `MAJOR.MINOR.PATCH-LABEL.x` — the `.x` wildcard matches any
- * pre-release patch increment (e.g. `0.0.7-patched.1`, `0.0.7-patched.2`, …)
- * but NOT a different base version (`0.0.8-patched.0`) or a different label
- * (`0.0.7-rc.2`). Bump this string when re-vendoring.
+ * pre-release patch increment (e.g. `0.0.8-patched.1`, `0.0.8-patched.2`, …)
+ * but NOT a different base version (`0.0.9-patched.0`) or a different label
+ * (`0.0.8-rc.2`). Bump this string when re-vendoring.
  */
-export const COMPATIBLE_RANGE = '0.0.7-patched.x'
+export const COMPATIBLE_RANGE = '0.0.8-patched.x'
 
 /** Module-level idempotency guard — warn at most once per process. */
 let _checked = false

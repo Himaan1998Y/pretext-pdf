@@ -101,12 +101,16 @@ describe('v1.3.6 #12 — assertVendorIntegrity', () => {
           `manually edited or re-vendored without updating VERSION.ts. Proceeding anyway.`,
       )
     }
-    fakeAssert('0.0.7-patched.0')
-    fakeAssert('0.0.7-patched.0')
-    fakeAssert('0.0.7-patched.0')
+    const badVersion = '0.0.0-patched.0'
+    fakeAssert(badVersion)
+    fakeAssert(badVersion)
+    fakeAssert(badVersion)
     assert.equal(calls.length, 1, `mismatched version must warn exactly once, got ${calls.length}`)
-    assert.match(calls[0]!, /0\.0\.7-patched\.0/)
-    assert.match(calls[0]!, /0\.0\.6-patched\.x/)
+    assert.match(calls[0]!, /0\.0\.0-patched\.0/)
+    assert.ok(
+      calls[0]!.includes(COMPATIBLE_RANGE),
+      `warning must mention the current COMPATIBLE_RANGE (${COMPATIBLE_RANGE}), got: ${calls[0]}`,
+    )
   })
 
   test('pre-release suffix variations — .x matches any patch increment', () => {
