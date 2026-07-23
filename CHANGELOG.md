@@ -7,6 +7,32 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.2.1] — 2026-07-23
+
+Bug fix in the vendored layout engine, found by an independent audit of the
+v2.2.0 vendor upgrade.
+
+### Fixed
+
+- **Terminal letter-spacing gap restored** — the vendored engine's internal
+  `letterSpacing` option was missing the gap after the *last* character on a
+  line. A fork commit had silently deleted `getTerminalLetterSpacing`/
+  `finalizeLinePaintWidth` while doing an unrelated cleanup; the bug has been
+  present since (confirmed present in v2.1.1 and earlier). Restored from
+  upstream `v0.0.8`. **No consumer-visible effect** — `render()`'s own
+  paragraph/rich-text `letterSpacing` support (`src/rich-text.ts`) does its
+  own independent math against pdf-lib and was never affected; this only
+  fixes the vendored engine's internal feature for future internal callers.
+
+### Testing
+
+- Added `test/vendor-letter-spacing.test.ts` (wired into `test:contract`) —
+  exercises the vendored engine's `letterSpacing` option directly and pins
+  the terminal-gap behavior so a future vendor upgrade can't silently drop
+  it again without a test failure.
+
+---
+
 ## [2.2.0] — 2026-07-22
 
 Vendored `@chenglou/pretext` engine upgraded from `v0.0.7-patched.1` to

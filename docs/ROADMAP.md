@@ -1,6 +1,6 @@
 # pretext-pdf — Roadmap
 
-**Last updated:** 2026-07-22 · **Current version:** 2.2.0
+**Last updated:** 2026-07-23 · **Current version:** 2.2.1
 
 This is a **living document**. See [Update discipline](#update-discipline) at the bottom for how and when this file is touched.
 
@@ -8,7 +8,7 @@ This is a **living document**. See [Update discipline](#update-discipline) at th
 
 ## Now
 
-Active work: none. `v2.1.1` (CI pipeline repair + `undici` CVE fix) and `v2.2.0` (vendor engine upgrade) both shipped through the real tagged pipeline.
+Active work: none. `v2.1.1` (CI pipeline repair + `undici` CVE fix), `v2.2.0` (vendor engine upgrade), and `v2.2.1` (terminal letter-spacing fix + regression test) all shipped through the real tagged pipeline.
 
 ---
 
@@ -24,7 +24,6 @@ Ordered backlog. No dates — tiers only. Effort tags: **S** (≤½ day) · **M*
 | **Rotate `NPM_TOKEN` before every expiry, not after** | This release was blocked by a token that silently expired ~1 month before anyone tried to publish through CI. Add a calendar reminder or, better, use a token type/expiry that outlives the release cadence. | S |
 | **Re-scope the upstream `pretext` tracking decision** | The old Tier 2 item ("rebase PR #81 or close") assumed a small, trackable delta. The fork is now 410 commits behind `upstream/main` and 295 commits ahead — effectively fully diverged. The real question is whether tracking upstream is still worth the overhead at all, not whether to rebase one PR. | M |
 | **`CONTRIBUTING.md`: "how to add a new element type" walkthrough** | Still missing (carried over from the pre-2026-05 roadmap — verified not done). Lowers time-to-first-PR for external contributors. `src/validate/elements/README.md` already documents the validator-signature contract; this item is about a full add-a-type walkthrough spanning schema, validate, measure, render. | M |
-| **Restore terminal letter-spacing in the vendored engine, or document the divergence** | Independent audit during the v2.2.0 vendor upgrade found `src/vendor/pretext/line-break.ts` is missing upstream's `getTerminalLetterSpacing`/`finalizeLinePaintWidth` mechanism — a line's reported width doesn't include the letter-spacing gap after the last character. Silently deleted by fork commit `6bdba9f` (bundled into an unrelated "cleanup"), present in every release since. Currently **zero real-world effect** — nothing in `src/` (outside `vendor/`) routes a `letterSpacing` option through the vendored engine's internal feature; `src/rich-text.ts`/`src/render-blocks/text.ts` do their own independent letter-spacing math against pdf-lib directly. Cheap to restore (well-isolated in upstream `v0.0.8`) — worth fixing before something *does* start relying on the vendored engine's own `letterSpacing` option. | S |
 
 ### Tier 2 — Should, this quarter
 
@@ -33,7 +32,7 @@ Ordered backlog. No dates — tiers only. Effort tags: **S** (≤½ day) · **M*
 | **Local pre-tag verification script** bundling `npm run build && npm run api:check && npm run verify:badges:full && npm audit --audit-level=high && npm test && npm run example:watermark ... (all examples)` | Every gate that broke CI this session (badges, api:check, examples) is independently cheap to check locally in under 2 minutes. A single `npm run verify:release` would have caught all three before they ever reached a tag push. | S |
 | **Fresh ADR if v3 breaking-change work resumes** | The abandoned `v3.0.0-rc.1` tag ("readonly array fields, breaking") was deleted this session — it was never published, and wasn't an ancestor of `master`. If v3 planning resumes (the callout `content`→`text` rename is already deprecated toward v3 per the 2.1.0 CHANGELOG), start it from a new ADR in `docs/adr/`, not by reviving the old branch. | S |
 | **Test the example scripts as part of any local pre-release check**, not just in CI | `examples/phase8-forms.ts` had been broken for who knows how long because the only place it ran was a CI pipeline nobody was watching. Folding these into a local `verify:release` script (see row above) fixes this permanently. | (covered above) |
-| **Deepen letter-spacing/currency-glue test assertions** | Independent audit of the v2.2.0 vendor upgrade flagged that `inline-formatting.test.ts`'s letterSpacing test only asserts `pdf instanceof Uint8Array`, and `hard-text-contract.test.ts`'s currency-glue test only asserts determinism + page count — neither would catch a real regression in the underlying behavior. This exact gap is *how* the terminal letter-spacing bug above went unnoticed for this many releases. `hyphenation.test.ts`'s pattern (assert the actual line-break/text-content shape, not just "didn't throw") is the model to follow. | M |
+| **Deepen `inline-formatting.test.ts`/`hard-text-contract.test.ts` assertions** | `test/vendor-letter-spacing.test.ts` (added in v2.2.1) closes the gap at the vendored-engine level, but `inline-formatting.test.ts`'s letterSpacing test still only asserts `pdf instanceof Uint8Array`, and `hard-text-contract.test.ts`'s currency-glue test still only asserts determinism + page count — neither would catch a regression in `src/rich-text.ts`'s own independent letter-spacing math (the public-API-facing path, not the vendored engine). `hyphenation.test.ts`'s pattern (assert the actual line-break/text-content shape) is the model to follow. | M |
 
 ### Tier 3 — post-1.0
 
@@ -65,6 +64,7 @@ The authoritative record is [CHANGELOG.md](../CHANGELOG.md). This section is a *
 
 | Milestone | Version | Date | Theme |
 | --- | --- | --- | --- |
+| Terminal letter-spacing fix | 2.2.1 | 2026-07-23 | Restored a vendored-engine mechanism silently dropped by an old fork commit; found by independent audit of v2.2.0; added a regression test pinning the behavior |
 | Vendor engine upgrade to pretext v0.0.8 | 2.2.0 | 2026-07-22 | Browser-parity dash-break for force-broken unbreakable runs; retired 2 cherry-picks (`PR #119`, `PR #105`) superseded by upstream's own rework; independently audited before release |
 | Dependency security fix + CI pipeline repair | 2.1.1 | 2026-07-20 | `undici` HIGH-CVE bump; fixed 3 independently-broken CI gates (badges, api-surface snapshot, example smoke test) that had silently blocked releases since ~2026-05-30 |
 | DX release: auto-coercion + better errors | 2.1.0 | 2026-06-01 | List/font/table auto-coercion for common mistakes, structure-hint error messages, callout `content`→`text` deprecation path |
@@ -126,6 +126,8 @@ This document gets out-of-sync loudly, not silently. The rules:
 ---
 
 ## History
+
+**2026-07-23** · Restored the terminal letter-spacing mechanism the v2.2.0 audit found missing (v2.2.1). Added `test/vendor-letter-spacing.test.ts` to `test:contract` so a future vendor upgrade can't silently drop it again. Removed the now-closed Tier 1 item; narrowed the related Tier 2 test-coverage item to the remaining gap (public-API-facing `rich-text.ts` assertions, not the vendored engine).
 
 **2026-07-22** · Vendor engine upgraded to `pretext v0.0.8-patched.1` (v2.2.0). Retired 2 cherry-picks superseded by upstream's own rework (PR #119, PR #105 — see `UPSTREAM.md`). Independent adversarial audit before shipping surfaced one pre-existing (not introduced by this upgrade) correctness bug — missing terminal letter-spacing in `line-break.ts`, currently zero real-world effect since nothing routes `letterSpacing` through the vendored engine — and thin test coverage on that exact code path. Both added to Tier 1/2 below rather than blocking the release.
 

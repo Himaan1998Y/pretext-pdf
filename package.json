@@ -1,6 +1,6 @@
 {
   "name": "pretext-pdf",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Generate PDFs from JSON — declarative, serverless, no Chromium. TypeScript-first with professional typography. Ideal for invoices, reports, and AI agents.",
   "keywords": [
     "pdf",
@@ -112,7 +112,7 @@
     "test:8e": "tsx --test test/signatures-visual.test.ts",
     "test:8b": "tsx --test test/forms.test.ts",
     "test:plugin": "tsx --test test/plugin-registry.test.ts",
-    "test:contract": "tsx --test test/drift-guards.test.ts test/plugin-registry.test.ts test/benchmark-corpora.test.ts test/smoke-staging.test.ts test/table-determinism.test.ts",
+    "test:contract": "tsx --test test/drift-guards.test.ts test/plugin-registry.test.ts test/benchmark-corpora.test.ts test/smoke-staging.test.ts test/table-determinism.test.ts test/vendor-letter-spacing.test.ts",
     "test:benchmark": "tsx --test test/benchmark-baseline.test.ts",
     "test:2f": "cross-env NODE_OPTIONS=--max-old-space-size=4096 tsx --test test/stress.test.ts",
     "test": "node scripts/test-all.mjs",
