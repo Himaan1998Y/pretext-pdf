@@ -14,7 +14,7 @@ published npm release.
 | Upstream repo     | https://github.com/chenglou/pretext |
 | Fork repo         | https://github.com/Himaan1998Y/pretext |
 | Upstream base tag | `v0.0.8` (commit `a79a6a5`) |
-| Vendored tag      | `v0.0.8-patched.1` (commit `8a9ffe5`) |
+| Vendored tag      | `v0.0.8-patched.1` (commit `e758ec5`) |
 | License           | MIT — "Copyright (c) 2026 Pretext contributors" |
 | Vendored files    | `src/vendor/pretext/*.ts` (9 source files, see below) |
 
@@ -42,7 +42,7 @@ Test files (`layout.test.ts`, `test-data.ts`) are **not** vendored.
 
 ## Cherry-Picked Upstream Fixes
 
-8 upstream PRs are cherry-picked on top of `v0.0.8`. Each fix addresses a
+7 upstream PRs are cherry-picked on top of `v0.0.8`. Each fix addresses a
 correctness or performance bug in the upstream code that was not yet published
 to npm at the time of vendoring.
 
@@ -53,16 +53,22 @@ to npm at the time of vendoring.
 | #138  | `2c771b2`          | Unify `stepRichInlineLine`/`Stats`, remove `containsCJKText` wrapper |
 | #140  | `4571c64`          | O(1) chunk layout side table (stream-friendly) |
 | #3    | `6b40bb4`, `58dd9ff` | Fix bidi surrogate handling, ctx.font caching, emoji, soft-hyphen type soundness |
-| #105  | `4c8c249`, `fc71581` | Currency symbols stick to adjacent numbers during line-breaking |
 | #165  | `86fd5b3`          | Fix German low opening quote (`„`, U+201E) breaking at line-start |
 | #29   | `bd76aad`, `658edfe` | Include trailing collapsible space in line boundary for reconstruction |
 
-**Retired this upgrade:** PR #119 ("skip no-op merge passes in analysis
-pipeline") is no longer carried — upstream's own `v0.0.8` work generalized the
-same code path (`mergeAsciiPunctuationChains` → `mergeNoSpaceWordChains`,
-handling CJK/emoji/unicode punctuation in addition to plain ASCII chains),
-making our narrower patch redundant. This is the scenario the Upgrade
-Procedure below anticipates.
+**Retired this upgrade:**
+
+- PR #119 ("skip no-op merge passes in analysis pipeline") — upstream's own
+  `v0.0.8` work generalized the same code path (`mergeAsciiPunctuationChains`
+  → `mergeNoSpaceWordChains`), handling CJK/emoji/unicode punctuation in
+  addition to plain ASCII chains, making our narrower patch redundant.
+- PR #105 ("currency symbols stick to adjacent numbers", `4c8c249`/`fc71581`)
+  — upstream's own `v0.0.8` `isLineBreakNumericAffix`/UAX #14 PR/PO-class
+  handling (`src/vendor/pretext/analysis.ts`) is a strict superset: it covers
+  `$`, `£`, `¥`, `€`, `%`, `°`, etc. via proper Unicode numeric-affix
+  classification, not just a currency-symbol regex.
+
+Both are the scenario the Upgrade Procedure below anticipates.
 
 **New in `v0.0.8` base (not a cherry-pick — ships with upstream):** long
 unbreakable runs (URLs, hyphenated compounds) that must be force-broken now
