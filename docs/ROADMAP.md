@@ -20,8 +20,7 @@ Ordered backlog. No dates — tiers only. Effort tags: **S** (≤½ day) · **M*
 
 | Item | Why | Effort |
 | --- | --- | --- |
-| **Document the actual release process** (`CONTRIBUTING.md` or a new `docs/RELEASING.md`) | Nobody has been following the tag-triggered pipeline for at least two months — releases went out via manual local `npm publish`, which is how the CI breaks in "Now" went unnoticed. Needs: version bump → CHANGELOG entry → commit → tag → push → verify all 3 CI jobs before considering it shipped. | S |
-| **Rotate `NPM_TOKEN` before every expiry, not after** | This release was blocked by a token that silently expired ~1 month before anyone tried to publish through CI. Add a calendar reminder or, better, use a token type/expiry that outlives the release cadence. | S |
+| **Automate the `NPM_TOKEN` expiry reminder** | `docs/RELEASING.md` (added in v2.2.1) documents rotating it proactively, but that only helps if someone reads it before a release. Nothing currently pings anyone as expiry approaches — a scheduled check (even a simple cron comparing `gh secret list`'s "updated" date against a threshold) would close this for real. | S |
 | **Re-scope the upstream `pretext` tracking decision** | The old Tier 2 item ("rebase PR #81 or close") assumed a small, trackable delta. The fork is now 410 commits behind `upstream/main` and 295 commits ahead — effectively fully diverged. The real question is whether tracking upstream is still worth the overhead at all, not whether to rebase one PR. | M |
 | **`CONTRIBUTING.md`: "how to add a new element type" walkthrough** | Still missing (carried over from the pre-2026-05 roadmap — verified not done). Lowers time-to-first-PR for external contributors. `src/validate/elements/README.md` already documents the validator-signature contract; this item is about a full add-a-type walkthrough spanning schema, validate, measure, render. | M |
 
@@ -127,7 +126,7 @@ This document gets out-of-sync loudly, not silently. The rules:
 
 ## History
 
-**2026-07-23** · Restored the terminal letter-spacing mechanism the v2.2.0 audit found missing (v2.2.1). Added `test/vendor-letter-spacing.test.ts` to `test:contract` so a future vendor upgrade can't silently drop it again. Removed the now-closed Tier 1 item; narrowed the related Tier 2 test-coverage item to the remaining gap (public-API-facing `rich-text.ts` assertions, not the vendored engine).
+**2026-07-23** · Added `docs/RELEASING.md` (linked from `CONTRIBUTING.md`) documenting the real release checklist — closes the Tier 1 item from 2026-07-20. Re-scoped the `NPM_TOKEN` item to what's still actually missing: an automated expiry reminder, since the rotation steps themselves are now documented. Also restored the terminal letter-spacing mechanism the v2.2.0 audit found missing (v2.2.1) and added `test/vendor-letter-spacing.test.ts` to `test:contract` so a future vendor upgrade can't silently drop it again; narrowed the related Tier 2 test-coverage item to the remaining gap (public-API-facing `rich-text.ts` assertions, not the vendored engine).
 
 **2026-07-22** · Vendor engine upgraded to `pretext v0.0.8-patched.1` (v2.2.0). Retired 2 cherry-picks superseded by upstream's own rework (PR #119, PR #105 — see `UPSTREAM.md`). Independent adversarial audit before shipping surfaced one pre-existing (not introduced by this upgrade) correctness bug — missing terminal letter-spacing in `line-break.ts`, currently zero real-world effect since nothing routes `letterSpacing` through the vendored engine — and thin test coverage on that exact code path. Both added to Tier 1/2 below rather than blocking the release.
 

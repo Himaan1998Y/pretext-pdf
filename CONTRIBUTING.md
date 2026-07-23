@@ -36,6 +36,10 @@ npm run test:contract # Contract tests only
 - All public API additions require test coverage
 - No new runtime dependencies without discussion (keep the footprint lean)
 
+## Releasing
+
+Maintainers: see [docs/RELEASING.md](docs/RELEASING.md) for the full pre-flight checklist and how to verify a release actually published.
+
 ## Reporting Bugs
 
 Open a [GitHub issue](https://github.com/Himaan1998Y/pretext-pdf/issues) with:
