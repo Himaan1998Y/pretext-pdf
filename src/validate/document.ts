@@ -188,6 +188,9 @@ export function validateDocumentLevel(doc: PdfDocument, ctx: ValidationContext):
     if (!wm.text && !wm.image) {
       throw new PretextPdfError('VALIDATION_ERROR', 'doc.watermark requires either text or image — received an object with neither.')
     }
+    if (wm.text && wm.image) {
+      throw new PretextPdfError('VALIDATION_ERROR', 'doc.watermark accepts either text or image, not both — renderWatermark() would draw both stacked on top of each other. Use one or the other.')
+    }
     if (wm.opacity !== undefined && (typeof wm.opacity !== 'number' || wm.opacity < 0 || wm.opacity > 1 || !isFinite(wm.opacity))) {
       throw new PretextPdfError('VALIDATION_ERROR', 'doc.watermark.opacity must be a number 0.0–1.0')
     }

@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test'
 import * as assert from 'node:assert'
-import { render, validate, PretextPdfError } from '../dist/index.js'
+import { render, validate, assemble, PretextPdfError } from '../dist/index.js'
 import type { PdfDocument } from '../dist/index.js'
 
 async function expectValidationError(fn: () => Promise<void> | void, expectedSubstring: string): Promise<void> {
@@ -636,10 +636,19 @@ describe('Discriminated unions — WatermarkSpec', () => {
     await expectPass(() => render(doc))
   })
 
-  test('WatermarkSpec with both text and image → type error at compile-time', async () => {
-    // This test documents the compile-time constraint.
-    // At runtime, validation still ensures one is set.
-    // TypeScript would catch this at compile time with stricter checking.
+  test('WatermarkSpec with both text and image → VALIDATION_ERROR (v2.2.4 fix)', async () => {
+    // Previously unguarded at runtime: renderWatermark() draws BOTH text and
+    // image stacked at the same position/opacity when both are set, with no
+    // validation error. Fixed by rejecting the ambiguous case explicitly.
+    const doc: PdfDocument = {
+      metadata: { title: 'Test' },
+      content: [{ type: 'paragraph', text: 'Content' }],
+      watermark: { text: 'DRAFT', image: new Uint8Array(100), opacity: 0.5 } as any,
+    }
+    await expectValidationError(
+      () => render(doc),
+      "doc.watermark accepts either text or image, not both"
+    )
   })
 })
 
@@ -658,7 +667,7 @@ describe('Discriminated unions — SvgElement', () => {
     await expectPass(() => render(doc))
   })
 
-  test('SvgElement with src (file path) → validation recognizes the type', async () => {
+  test('SvgElement with src (absolute file path) → passes structural validation without touching the filesystem', async () => {
     const doc: PdfDocument = {
       metadata: { title: 'Test' },
       content: [
@@ -669,11 +678,12 @@ describe('Discriminated unions — SvgElement', () => {
         },
       ],
     }
-    // This would fail on rendering (file doesn't exist), but validation accepts the type structure
-    assert.ok(doc.content[0].type === 'svg')
+    // validate() only checks the path *shape* (absolute path or https://) —
+    // it must not try to read the file, so a nonexistent path still passes.
+    await expectPass(() => validate(doc))
   })
 
-  test('SvgElement with src (https URL) → validation recognizes the type', async () => {
+  test('SvgElement with src (https URL) → passes structural validation without making a network request', async () => {
     const doc: PdfDocument = {
       metadata: { title: 'Test' },
       content: [
@@ -684,33 +694,66 @@ describe('Discriminated unions — SvgElement', () => {
         },
       ],
     }
-    // This would fail on rendering (file doesn't exist), but validation accepts the type structure
-    assert.ok(doc.content[0].type === 'svg')
+    await expectPass(() => validate(doc))
   })
 
-  test('SvgElement with both svg and src → type error at compile-time', async () => {
-    // TypeScript enforces this constraint at compile-time.
+  test('SvgElement with both svg and src → inline svg wins, src is never touched (documented precedence, v2.2.4)', async () => {
+    // resolve-content.ts checks `el.svg` first and returns immediately —
+    // `src` is only consulted when `svg` is absent. Pointing `src` at a
+    // nonexistent absolute path proves it that path is genuinely never
+    // read: if `src` were consulted, render() would throw SVG_LOAD_FAILED.
+    const doc: PdfDocument = {
+      metadata: { title: 'Test' },
+      content: [
+        {
+          type: 'svg',
+          svg: '<svg><circle cx="50" cy="50" r="40" /></svg>',
+          src: '/definitely/does/not/exist.svg',
+          width: 100,
+        } as any,
+      ],
+    }
+    await expectPass(() => render(doc))
   })
 })
 
 describe('Discriminated unions — AssemblyPart', () => {
-  test('AssemblyPart with doc → passes', async () => {
-    const part: any = {
-      doc: { content: [{ type: 'paragraph', text: 'Page 1' }] },
-    }
-    // Would pass validation if assembled
-    assert.ok(part.doc !== undefined)
+  test('AssemblyPart with doc → assembles a working PDF from the rendered doc', async () => {
+    const result = await assemble([
+      { doc: { content: [{ type: 'paragraph', text: 'Page 1' }] } },
+    ])
+    assert.ok(result instanceof Uint8Array)
+    assert.ok(result.byteLength > 0)
   })
 
-  test('AssemblyPart with pdf → passes', async () => {
-    const part: any = {
-      pdf: new Uint8Array(100),
-    }
-    assert.ok(part.pdf !== undefined)
+  test('AssemblyPart with pdf → assembles a working PDF from the pre-rendered bytes', async () => {
+    const prerendered = await render({ content: [{ type: 'paragraph', text: 'Pre-rendered page' }] })
+    const result = await assemble([{ pdf: prerendered }])
+    assert.ok(result instanceof Uint8Array)
+    assert.ok(result.byteLength > 0)
   })
 
-  test('AssemblyPart with both doc and pdf → type error at compile-time', async () => {
-    // TypeScript enforces this constraint at compile-time.
+  test('AssemblyPart with both doc and pdf → pdf silently wins, doc is ignored (documented precedence)', async () => {
+    // assemble()'s `part.pdf ?? await render(part.doc!)` means pdf always
+    // wins when both are set. Pin this as intentional, verified behavior:
+    // render a doc with distinctive text for `pdf`, and a *different*
+    // distinctive doc for `doc`, then confirm the assembled output's text
+    // matches the pdf part, not the doc part.
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
+    const prerendered = await render({ content: [{ type: 'paragraph', text: 'FROM_PDF_PART' }] })
+    const result = await assemble([
+      {
+        pdf: prerendered,
+        doc: { content: [{ type: 'paragraph', text: 'FROM_DOC_PART' }] },
+      } as any,
+    ])
+    const loadingTask = pdfjsLib.getDocument({ data: result })
+    const pdfDoc = await loadingTask.promise
+    const page = await pdfDoc.getPage(1)
+    const content = await page.getTextContent()
+    const text = (content.items as Array<{ str: string }>).map(it => it.str).join('')
+    assert.ok(text.includes('FROM_PDF_PART'), `expected the pdf part's text to win, got: ${text}`)
+    assert.ok(!text.includes('FROM_DOC_PART'), `doc part's text must not appear, got: ${text}`)
   })
 })
 

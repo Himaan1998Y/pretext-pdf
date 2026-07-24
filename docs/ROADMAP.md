@@ -1,6 +1,6 @@
 # pretext-pdf — Roadmap
 
-**Last updated:** 2026-07-24 · **Current version:** 2.2.3
+**Last updated:** 2026-07-25 · **Current version:** 2.2.4
 
 This is a **living document**. See [Update discipline](#update-discipline) at the bottom for how and when this file is touched.
 
@@ -8,7 +8,7 @@ This is a **living document**. See [Update discipline](#update-discipline) at th
 
 ## Now
 
-Active work: a full adversarial sweep of the test suite (all 65 files, ~1000 tests) for "shallow assertion" tests. `v2.2.2` shipped the confirmed bugs the sweep found (3 security bypasses, 4 money-math bugs, 1 signing/encryption guard bypass — see CHANGELOG). Rewriting `toc.test.ts` with real PDF-text assertions (instead of "renders without error") then caught an actual engine bug — TOC page numbers were wrong whenever the TOC itself needed 2+ real pages — fixed in `v2.2.3`. The broader inventory of remaining shallow-assertion-only findings (no confirmed live bug behind them yet) is still being triaged and fixed — see the Tier 1 item below.
+The 2026-07-24 adversarial sweep of the test suite (all 65 files, ~1000 tests) for "shallow assertion" tests is complete. It shipped in three releases: `v2.2.2` (3 security bypasses, 4 money-math bugs, 1 signing/encryption guard bypass), `v2.2.3` (a TOC pagination engine bug, caught by rewriting `toc.test.ts` with real assertions), and `v2.2.4` (every hyperlink the library has ever rendered was resolving to garbage due to a hex-encoding bug, plus `InlineSpan.href` never working at all, plus a watermark both-fields-set gap — all caught the same way, by making `hyperlinks.test.ts` and `validate-strict.test.ts` actually verify their claims instead of checking `pdf.byteLength > 0`). Full detail in CHANGELOG. No further shallow-assertion findings from this sweep remain open.
 
 `v2.1.1` (CI pipeline repair + `undici` CVE fix), `v2.2.0` (vendor engine upgrade), and `v2.2.1` (terminal letter-spacing fix) all shipped through the real tagged pipeline before this.
 
@@ -22,7 +22,6 @@ Ordered backlog. No dates — tiers only. Effort tags: **S** (≤½ day) · **M*
 
 | Item | Why | Effort |
 | --- | --- | --- |
-| **Triage and fix the remaining shallow-assertion findings from the 2026-07-24 sweep** | `toc.test.ts` is done (v2.2.3 — also caught a real engine bug, see CHANGELOG). Still open: `hyperlinks.test.ts` (no test verifies `/Annots`/`/URI` actually reach the output, and no injection guard exists for unbalanced-parens URLs despite that exact bug class being fixed elsewhere in this codebase for bookmarks/forms/metadata), and a broken `expectError()` 3-arg call pattern in `validate.test.ts`/`validate-strict.test.ts` where `tsconfig.json` excluding `test/` from type-checking let a silently-dead assertion argument ship (plus vacuous "Discriminated unions" tests in `validate-strict.test.ts` that assert on a local variable never passed to the library). | M |
 | **Automate the `NPM_TOKEN` expiry reminder** | `docs/RELEASING.md` (added in v2.2.1) documents rotating it proactively, but that only helps if someone reads it before a release. Nothing currently pings anyone as expiry approaches — a scheduled check (even a simple cron comparing `gh secret list`'s "updated" date against a threshold) would close this for real. | S |
 | **Re-scope the upstream `pretext` tracking decision** | The old Tier 2 item ("rebase PR #81 or close") assumed a small, trackable delta. The fork is now 410 commits behind `upstream/main` and 295 commits ahead — effectively fully diverged. The real question is whether tracking upstream is still worth the overhead at all, not whether to rebase one PR. | M |
 | **`CONTRIBUTING.md`: "how to add a new element type" walkthrough** | Still missing (carried over from the pre-2026-05 roadmap — verified not done). Lowers time-to-first-PR for external contributors. `src/validate/elements/README.md` already documents the validator-signature contract; this item is about a full add-a-type walkthrough spanning schema, validate, measure, render. | M |
@@ -35,6 +34,7 @@ Ordered backlog. No dates — tiers only. Effort tags: **S** (≤½ day) · **M*
 | **Fresh ADR if v3 breaking-change work resumes** | The abandoned `v3.0.0-rc.1` tag ("readonly array fields, breaking") was deleted this session — it was never published, and wasn't an ancestor of `master`. If v3 planning resumes (the callout `content`→`text` rename is already deprecated toward v3 per the 2.1.0 CHANGELOG), start it from a new ADR in `docs/adr/`, not by reviving the old branch. | S |
 | **Test the example scripts as part of any local pre-release check**, not just in CI | `examples/phase8-forms.ts` had been broken for who knows how long because the only place it ran was a CI pipeline nobody was watching. Folding these into a local `verify:release` script (see row above) fixes this permanently. | (covered above) |
 | **Deepen `inline-formatting.test.ts`/`hard-text-contract.test.ts` assertions** | `test/vendor-letter-spacing.test.ts` (added in v2.2.1) closes the gap at the vendored-engine level, but `inline-formatting.test.ts`'s letterSpacing test still only asserts `pdf instanceof Uint8Array`, and `hard-text-contract.test.ts`'s currency-glue test still only asserts determinism + page count — neither would catch a regression in `src/rich-text.ts`'s own independent letter-spacing math (the public-API-facing path, not the vendored engine). `hyphenation.test.ts`'s pattern (assert the actual line-break/text-content shape) is the model to follow. | M |
+| **Reconcile `heading.anchor`/internal-anchor docs with reality, or wire it up** | `heading.anchor` and `span.href: '#anchorId'` are validated and documented (README's element table, `types-public/elements-text.ts`) as working internal navigation, but no named-destination/GoTo mechanism exists anywhere in the render pipeline (confirmed in v2.2.4 — `heading.anchor` is accepted and silently discarded; a `#anchorId` href is passed through `addLinkAnnotation` as a `/URI` action, which most viewers won't resolve as an internal jump). A prior cleanup already removed dead GoTo scaffolding with a note that it "can be restored when anchor-link rendering is actually wired up" (see CHANGELOG history) — either do that wiring, or narrow the docs to stop promising it. | M |
 
 ### Tier 3 — post-1.0
 

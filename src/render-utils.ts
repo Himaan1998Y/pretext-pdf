@@ -49,6 +49,24 @@ export function drawJustifiedLine(
 }
 
 /**
+ * Encodes an ASCII/Latin-1 string as a hex digit string suitable for
+ * PDFHexString.of() — which wraps its input verbatim in `<...>` rather than
+ * encoding it. URLs are restricted to ASCII by the URI spec (any non-ASCII
+ * is expected to already be percent-encoded by the caller), so a direct
+ * char-code-to-byte mapping is correct here.
+ */
+function asciiToHex(str: string): string {
+  let hex = ''
+  for (let i = 0; i < str.length; i++) {
+    // Mask to a byte so the output is always well-formed 2-hex-digit-per-byte,
+    // even if a code unit falls outside 0-255 (URIs should be percent-encoded
+    // for non-ASCII by the caller — this is a defensive fallback, not a charset).
+    hex += (str.charCodeAt(i) & 0xff).toString(16).padStart(2, '0')
+  }
+  return hex
+}
+
+/**
  * Adds a clickable URI annotation over a rendered text region.
  * Must be called after drawText() — annotation sits above the text layer.
  */
@@ -80,7 +98,7 @@ export function addLinkAnnotation(
       A: pdfDoc.context.obj({
         Type: 'Action',
         S: 'URI',
-        URI: PDFHexString.of(url),
+        URI: PDFHexString.of(asciiToHex(url)),
       }),
     })
   )

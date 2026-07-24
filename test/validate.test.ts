@@ -9,10 +9,13 @@ const { render, PretextPdfError } = await import('../dist/index.js')
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-async function expectError(docFn: () => Promise<unknown>, code: string): Promise<void> {
+async function expectError(docFn: () => Promise<unknown>, code: string, messageMatch?: RegExp): Promise<void> {
   await assert.rejects(docFn, (err: unknown) => {
     assert.ok(err instanceof PretextPdfError, `Expected PretextPdfError, got ${String(err)}`)
     assert.equal(err.code, code, `Expected code '${code}', got '${err.code}': ${err.message}`)
+    if (messageMatch) {
+      assert.match(err.message, messageMatch, `Expected message to match ${messageMatch}, got: ${err.message}`)
+    }
     return true
   })
 }
@@ -1074,36 +1077,48 @@ describe('Phase 10 — Wave 2: tabularNumbers on rich-paragraph', () => {
 })
 
 describe('Phase A — Cycle Detection & Depth Caps', () => {
-  test('rejects cyclic ListItem.items reference', async () => {
+  test('rejects a self-referential ListItem via the 2-level nesting cap (not via cycle detection)', async () => {
+    // withCycleGuard on `validateList` only guards the list element itself,
+    // not individual items — ListItem.items are validated inline (not
+    // re-dispatched through validateList), so a self-referential item can
+    // never re-enter the same guarded scope. Unrolling item.items=[item]
+    // hits the structural "max 2 levels" cap at level 3 well before any
+    // cycle-detection logic could apply. This test pins the *actual*
+    // rejection reason instead of assuming a message that never fires.
     const item: any = { text: 'Root' }
-    // Create a self-referential list item
     item.items = [item]
     await expectError(
       () => render({ content: [{ type: 'list', style: 'ordered', items: [item] }] }),
       'VALIDATION_ERROR',
-      /cyclic reference detected/
+      /maximum nesting depth is 2 levels/
     )
   })
 
-  test('rejects cyclic FloatGroup.content reference', async () => {
+  test('rejects a self-referential FloatGroup.content entry via the allowed-type check (not via cycle detection)', async () => {
+    // Same shape of finding as the list case above: withCycleGuard here
+    // guards the float-group element itself, and float-group.content only
+    // accepts 'paragraph' | 'heading' | 'rich-paragraph' — a float-group can
+    // never legally contain another float-group, so pushing the float-group
+    // into its own content is caught by the type allow-list, not the guard.
     const para = { type: 'paragraph', text: 'Hello' }
     const cyclic: any = { type: 'float-group', image: { src: 'test.png' }, float: 'left', content: [para] }
-    // Create a self-referential float group
     cyclic.content.push(cyclic)
     await expectError(
       () => render({ content: [cyclic] }),
       'VALIDATION_ERROR',
-      /cyclic reference detected/
+      /only 'paragraph', 'heading', and 'rich-paragraph' elements are allowed/
     )
   })
 
-  test('rejects depth > 32 in rich-paragraph spans', async () => {
-    // Create deeply nested rich-paragraph via internal span nesting simulation
-    // (Note: actual nesting is limited by structure, so we test the guard is in place)
+  test('a wide (50-span) rich-paragraph is not confused with exceeding the nesting-depth cap', async () => {
+    // rich-paragraph.spans is a flat, non-recursive array (a span cannot
+    // itself contain further spans), so there is no well-formed input that
+    // reaches MAX_VALIDATION_DEPTH (32) through breadth alone — only a
+    // self-referential structure can (covered by the cyclic-reference test
+    // below, which trips the same guard via `withCycleGuard`). This test
+    // just pins that a large but shallow span array is unaffected.
     const deepSpans: any[] = Array.from({ length: 50 }, (_, i) => ({ text: `Span ${i}` }))
     const rp = { type: 'rich-paragraph', spans: deepSpans }
-    // Even though individual spans won't hit depth 32, the guard is in place
-    // Real scenario: recursive structure through item.items chains
     const pdf = await render({ content: [rp] })
     assert.ok(pdf instanceof Uint8Array)
     assert.ok(pdf.byteLength > 0)
@@ -1142,33 +1157,40 @@ describe('Phase A — Cycle Detection & Depth Caps', () => {
     assert.ok(pdf.byteLength > 0)
   })
 
-  test('rejects cyclic RichParagraph when span references parent', async () => {
-    // Create a rich-paragraph with a self-referential span array
+  test('rejects a self-referential RichParagraph span via the span-shape check (not via cycle detection)', async () => {
+    // Same shape again: withCycleGuard here guards the rich-paragraph
+    // element itself, but spans are validated as plain {text, ...} objects,
+    // never re-dispatched through validateRichParagraph. Pushing the
+    // rich-paragraph into its own spans array fails span-shape validation
+    // (a rich-paragraph has no `.text`) before any cycle-detection applies.
     const rp: any = { type: 'rich-paragraph', spans: [{ text: 'Hello' }] }
-    // Add cycle through the span array itself
     rp.spans.push(rp)
     await expectError(
       () => render({ content: [rp] }),
       'VALIDATION_ERROR',
-      /cyclic reference detected/
+      /spans\[1\]\.text must be a string/
     )
   })
 
-  test('table rows/cells walk is wrapped in cycle guard (M2)', async () => {
-    // Self-referential row: row.cells contains the table itself. Since the
-    // table case calls withCycleGuard on the table element before iterating
-    // rows, re-entering through cell content triggers the cycle guard.
-    const table: any = {
-      type: 'table',
+  test('table.rows accepts the same row object referenced twice (sibling reuse, not an ancestor cycle)', async () => {
+    // withCycleGuard removes each row from `seen` in a `finally` block once
+    // its own walk completes, so it only detects a row that is its own
+    // *ancestor* (still in progress), not a row object reused as a sibling —
+    // matching the same "shared reference across siblings is fine" contract
+    // already proven for float-group content above. There is currently no
+    // way for a table row or cell to contain a live reference back to an
+    // in-progress ancestor (cells hold only leaf text/formatting), so the
+    // row/table-level cycle guard here is defensive: it exists for
+    // forward-compatibility but has no reachable trigger in today's schema.
+    const row = { cells: [{ text: 'A' }, { text: 'B' }] }
+    const table = {
+      type: 'table' as const,
       columns: [{ width: 100 }, { width: 100 }],
-      rows: [{ cells: [{ text: 'A' }, { text: 'B' }] }],
+      rows: [row, row],
     }
-    // Make the table reference itself by setting rows to a Proxy that, when
-    // length is read, would expose a cycle. Simpler: validate a normal table
-    // renders OK to prove the new guard does not regress the happy path.
-    const { validateDocument } = await import('../dist/index.js')
-    const result = validateDocument({ content: [table] } as any)
-    assert.equal(result.valid, true, `valid table should still validate: ${JSON.stringify(result.errors)}`)
+    const pdf = await render({ content: [table] })
+    assert.ok(pdf instanceof Uint8Array)
+    assert.ok(pdf.byteLength > 0)
   })
 
   test('depth guard is wired at root document.content entry (M1)', async () => {

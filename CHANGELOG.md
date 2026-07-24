@@ -7,6 +7,82 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.2.4] — 2026-07-25
+
+Closes out the 2026-07-24 shallow-assertion sweep's last two lower-priority
+items (`hyperlinks.test.ts`, and the broken `expectError()`/vacuous
+"Discriminated unions" tests). Neither item had a confirmed bug behind it
+going in — both did once the tests actually verified the claimed behavior.
+
+### Fixed
+
+- **Every hyperlink ever rendered by this library resolved to garbage
+  instead of the intended URL.** `addLinkAnnotation` (`src/render-utils.ts`)
+  wrapped the raw URL string directly in `PDFHexString.of()`, which does not
+  encode its input — it just wraps whatever string you give it between `<`
+  and `>` verbatim. A link to `https://google.com` produced the literal
+  (invalid) PDF bytes `/URI <https://google.com>`. Parsing that output with
+  `pdfjs-dist` confirmed the resolved URL was a single mangled character,
+  not the intended link. Fixed by hex-encoding the URL bytes before wrapping
+  them. This is the single shared implementation for every hyperlink path —
+  `paragraph.url`, `heading.url`, rich-paragraph span `href`/`url`, and
+  float `href` — so every clickable link this library has ever produced was
+  affected.
+- **`InlineSpan.href` on rich-paragraph spans never produced a link at
+  all.** `href` is documented (README, type comments) as a full alias for
+  `url` on spans, and validation treats them identically — but
+  `src/rich-text.ts` only ever read `span.url` when building the link
+  annotation, silently dropping `span.href`. This also silently broke
+  markdown-parsed links (`[text](url)` syntax builds spans with `href`,
+  never `url`) and the pdfmake-compat translation layer's link support
+  (`compat/translate.ts` sets `span.href`). Fixed by treating `span.href`
+  as equivalent to `span.url`.
+- **`doc.watermark` silently accepted both `text` and `image` set at the
+  same time**, which `renderWatermark()` drew both of — text stacked
+  directly on top of the image at the same position and opacity. Now
+  rejected with `VALIDATION_ERROR`.
+
+### Testing
+
+- Rewrote `test/hyperlinks.test.ts` from "renders without error" checks to
+  real verification: every rendering test now resolves the actual `/URI`
+  Link annotation via `pdfjs-dist` and asserts it matches the source URL
+  exactly — this is what surfaced both hyperlink bugs above — plus a
+  regression test for a URL containing parens/backslash/quotes surviving
+  the hex-encoding byte-exact.
+- Fixed a broken `expectError()` test helper in `test/validate.test.ts` that
+  silently dropped a 3rd (message-regex) argument at 3 call sites
+  (`tsconfig.json` excludes `test/` from type-checking, so nothing caught
+  this). Actually checking the message revealed all 3 "rejects cyclic X
+  reference" tests were asserting a message that never fires for their
+  construction — a different, more specific check rejects the malicious
+  input first (list nesting-depth cap; float-group content-type allow-list;
+  rich-paragraph span-shape check), before cycle-detection logic ever runs.
+  Renamed and fixed these tests to assert the actual rejection reason.
+  Also found — and documented rather than silently leaving broken — that
+  the table row/table-level cycle guard is currently unreachable dead code
+  given today's schema: table cells only hold leaf text/formatting, so
+  there is no path for a row or table to become its own ancestor during
+  validation.
+- Fixed a "rejects depth > 32 in rich-paragraph spans" test that tested
+  nothing about depth (rich-paragraph `spans` is a flat, non-recursive
+  array — no well-formed input reaches the depth cap through breadth
+  alone). Renamed to reflect what it actually verifies.
+- Rewrote `test/validate-strict.test.ts`'s "Discriminated unions" group: 3
+  tests had empty bodies with a comment claiming "TypeScript enforces this
+  at compile-time" (true for typed callers, irrelevant to what the library
+  itself does at runtime with untyped/JS input), and 4 tests asserted on a
+  local variable that was never actually passed to
+  `validate()`/`render()`/`assemble()`. All now exercise the real library —
+  this is what surfaced the watermark bug above. The analogous SVG
+  (`svg`+`src`) and `AssemblyPart` (`doc`+`pdf`) "both set" cases were
+  checked too: those already have clean, deterministic precedence (inline
+  `svg` wins over `src`; `pdf` wins over `doc`) with no broken output, so
+  those are now pinned as documented, intentional behavior rather than also
+  rejected.
+
+---
+
 ## [2.2.3] — 2026-07-24
 
 ### Fixed

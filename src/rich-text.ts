@@ -118,11 +118,13 @@ export async function measureRichText(
     const fontWeight = span.fontWeight ?? 400
     const fontStyle = span.fontStyle ?? 'normal'
     const spanFontSize = span.fontSize ?? fontSize
+    // `href` is a documented alias for `url` on spans (validation rejects
+    // setting both), so either one must produce a working link annotation.
+    const url = span.url ?? span.href
     // URLs auto-apply LINK_COLOR_DEFAULT + underline when no explicit color is set.
-    const effectiveColor = span.url && !span.color ? LINK_COLOR_DEFAULT : (span.color ?? '#000000')
-    const underline = span.url ? true : (span.underline ?? false)
+    const effectiveColor = url && !span.color ? LINK_COLOR_DEFAULT : (span.color ?? '#000000')
+    const underline = url ? true : (span.underline ?? false)
     const strikethrough = span.strikethrough ?? false
-    const url = span.url
     const fontKey = buildFontKey(fontFamily, fontWeight, fontStyle)
 
     // verticalAlign (superscript/subscript) → yOffset + smaller fontSize
