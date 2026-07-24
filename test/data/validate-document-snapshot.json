@@ -359,6 +359,16 @@
     "errorCount": 0,
     "errors": []
   },
+  "watermark-both-text-and-image": {
+    "valid": false,
+    "errorCount": 1,
+    "errors": [
+      {
+        "code": "VALIDATION_ERROR",
+        "message": "doc.watermark accepts either text or image, not both — renderWatermark() would draw both stacked on top of each other. Use one or the other."
+      }
+    ]
+  },
   "encryption-userPassword-not-string": {
     "valid": false,
     "errorCount": 1,

@@ -174,6 +174,25 @@ test('Phase 8G — Hyperlinks', async (t) => {
     assert.ok(urls.every(u => u === 'https://example.com'), `expected every link to resolve to https://example.com, got: ${JSON.stringify(urls)}`)
   })
 
+  await t.test('rich-paragraph with span.url (not href) also produces a working Link annotation', async () => {
+    // The v2.2.4 fix changed `const url = span.url` to `span.url ?? span.href`
+    // on the same line — cover the `url` branch directly too, not just href,
+    // since both share the exact line that was changed.
+    const pdf = await render({
+      pageSize: 'A4',
+      content: [
+        {
+          type: 'rich-paragraph',
+          fontSize: 12,
+          spans: [{ text: 'linked via url', url: 'https://example.com' }],
+        },
+      ],
+    })
+    const urls = await extractLinkUrls(pdf)
+    assert.ok(urls.length > 0, 'expected at least one Link annotation for the url span')
+    assert.ok(urls.every(u => u === 'https://example.com'), `expected every link to resolve to https://example.com, got: ${JSON.stringify(urls)}`)
+  })
+
   await t.test('mailto: links resolve to the exact mailto URI', async () => {
     const pdf = await render({
       pageSize: 'A4',
@@ -228,5 +247,31 @@ test('Phase 8G — Hyperlinks', async (t) => {
     })
     const urls = await extractLinkUrls(pdf)
     assert.deepStrictEqual(urls, [trickyUrl], 'URL with parens/backslash must resolve exactly — no truncation, no corruption')
+  })
+
+  await t.test('v2.2.4 regression: URL with a non-ASCII character is rejected, not silently corrupted', async () => {
+    // Audit finding: asciiToHex() masks any code unit above 0xFF to a byte
+    // rather than encoding it, so an unescaped non-ASCII URL (an emoji, an
+    // unescaped IDN/accented domain, etc.) would previously render a Link
+    // annotation that silently resolved to garbage instead of the intended
+    // address. Must now fail loudly at render time instead.
+    let error: any
+    try {
+      await render({
+        pageSize: 'A4',
+        content: [
+          {
+            type: 'paragraph',
+            text: 'Emoji link',
+            url: 'https://example.com/\u{1F389}',
+          },
+        ],
+      })
+    } catch (e) {
+      error = e
+    }
+    assert.ok(error, 'expected a non-ASCII URL to throw instead of silently rendering a corrupted link')
+    assert.strictEqual(error.code, 'VALIDATION_ERROR')
+    assert.ok(/non-ASCII/i.test(error.message), `expected a non-ASCII-specific message, got: ${error.message}`)
   })
 })

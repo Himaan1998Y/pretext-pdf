@@ -51,16 +51,14 @@ export function drawJustifiedLine(
 /**
  * Encodes an ASCII/Latin-1 string as a hex digit string suitable for
  * PDFHexString.of() — which wraps its input verbatim in `<...>` rather than
- * encoding it. URLs are restricted to ASCII by the URI spec (any non-ASCII
- * is expected to already be percent-encoded by the caller), so a direct
- * char-code-to-byte mapping is correct here.
+ * encoding it. Callers must reject any code unit above 0xFF before calling
+ * this (see the non-ASCII check in addLinkAnnotation) — masking here is only
+ * a last-resort defense so this function itself can never produce malformed
+ * (odd-length or non-hex) output, not a substitute for that rejection.
  */
 function asciiToHex(str: string): string {
   let hex = ''
   for (let i = 0; i < str.length; i++) {
-    // Mask to a byte so the output is always well-formed 2-hex-digit-per-byte,
-    // even if a code unit falls outside 0-255 (URIs should be percent-encoded
-    // for non-ASCII by the caller — this is a defensive fallback, not a charset).
     hex += (str.charCodeAt(i) & 0xff).toString(16).padStart(2, '0')
   }
   return hex
@@ -81,6 +79,9 @@ export function addLinkAnnotation(
 ): void {
   if (!SAFE_URL_SCHEME.test(url)) {
     throw new PretextPdfError('VALIDATION_ERROR', `Unsafe URL scheme rejected at render time: "${url.slice(0, 60)}"`)
+  }
+  if (/[^\x00-\xff]/.test(url)) {
+    throw new PretextPdfError('VALIDATION_ERROR', `URL contains a non-ASCII/non-Latin-1 character, which cannot be represented in a PDF /URI hex string without corruption — percent-encode it first: "${url.slice(0, 60)}"`)
   }
   if (url.length > 2048) {
     process.stderr.write(`[pretext-pdf] Warning: link URL exceeds 2048 characters (${url.length}). Some PDF viewers may truncate it.\n`)

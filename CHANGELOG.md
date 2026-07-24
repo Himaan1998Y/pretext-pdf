@@ -13,6 +13,10 @@ Closes out the 2026-07-24 shallow-assertion sweep's last two lower-priority
 items (`hyperlinks.test.ts`, and the broken `expectError()`/vacuous
 "Discriminated unions" tests). Neither item had a confirmed bug behind it
 going in — both did once the tests actually verified the claimed behavior.
+Before tagging, the fix was independently re-verified by a 5-perspective
+adversarial audit (factual reproduction, correctness, security, codebase
+consistency, and a redundancy/completeness sweep for the same bug class
+elsewhere) — see the note at the end of this entry for what that found.
 
 ### Fixed
 
@@ -24,10 +28,24 @@ going in — both did once the tests actually verified the claimed behavior.
   (invalid) PDF bytes `/URI <https://google.com>`. Parsing that output with
   `pdfjs-dist` confirmed the resolved URL was a single mangled character,
   not the intended link. Fixed by hex-encoding the URL bytes before wrapping
-  them. This is the single shared implementation for every hyperlink path —
-  `paragraph.url`, `heading.url`, rich-paragraph span `href`/`url`, and
-  float `href` — so every clickable link this library has ever produced was
-  affected.
+  them — `PDFHexString.fromText()` (used everywhere else in this codebase
+  for PDF string fields) was deliberately not used here, since it encodes
+  UTF-16BE with a BOM, which is correct for free-text fields like `/Title`
+  but not for `/URI` — URIs are ASCII by spec, and a stray BOM there is at
+  best noise and at worst misparsed by strict readers; same reasoning
+  `src/pipeline.ts` already documents for `/Lang`. This is the single shared
+  implementation for every hyperlink path — `paragraph.url`, `heading.url`,
+  rich-paragraph span `href`/`url`, and float `href` — so every clickable
+  link this library has ever produced was affected.
+- **A URL containing a non-ASCII character (an unescaped IDN domain, an
+  emoji, etc.) is now rejected with `VALIDATION_ERROR` instead of silently
+  rendering a corrupted link.** Found during the post-fix audit above: the
+  hex-encoding fix's byte-masking (`charCode & 0xff`) is only correct for
+  ASCII/Latin-1 input — anything outside that range was being silently
+  mangled rather than rejected, which is the same class of "looks fine,
+  resolves to garbage" failure as the bug it was fixing, just narrower in
+  scope. `addLinkAnnotation` now rejects such URLs up front, matching how
+  it already rejects unsafe schemes.
 - **`InlineSpan.href` on rich-paragraph spans never produced a link at
   all.** `href` is documented (README, type comments) as a full alias for
   `url` on spans, and validation treats them identically — but
@@ -80,6 +98,18 @@ going in — both did once the tests actually verified the claimed behavior.
   `svg` wins over `src`; `pdf` wins over `doc`) with no broken output, so
   those are now pinned as documented, intentional behavior rather than also
   rejected.
+- Added `watermark-both-text-and-image` to `test/validate-document-snapshot.test.ts`'s
+  fixture matrix — that file's specific job is pinning the exact error
+  code/message for every doc-level check so a future refactor can't
+  silently change one, and it had drifted out of sync with the new
+  watermark rejection above.
+
+**Audit note**: the 5-perspective review confirmed all three fixes are real
+and correct, found no other instance of either bug class anywhere else in
+`src/`, found no security regression, and found the change consistent with
+established codebase conventions. It also caught the non-ASCII URL gap
+described above — which is now fixed and covered by a regression test
+(`test/hyperlinks.test.ts`) — before this reached npm.
 
 ---
 
