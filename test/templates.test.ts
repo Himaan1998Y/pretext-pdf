@@ -202,6 +202,105 @@ test('Phase 10D — Templates', async (t) => {
     assert.match(amtEl.text, /Rupees Zero and Fifty Paise Only/, `Expected "Rupees Zero and Fifty Paise Only"; got "${amtEl.text}"`)
   })
 
+  // ── v2.2.2 money-math regressions (found by adversarial audit) ─────────────
+
+  await t.test('gst invoice: negative line amount formats correctly and matches words (v2.2.2 fix)', () => {
+    // Pre-fix: formatINR(-500) produced the malformed "₹-,500.00" (stray
+    // comma, empty digit group), and amountInWords collapsed any negative
+    // total to "Rupees Zero Only" — a figures-vs-words mismatch on the same
+    // printed document.
+    const content = createGstInvoice({
+      supplier: { name: 'S', address: 'a', gstin: 'G1', state: 'Haryana' },
+      buyer: { name: 'B', address: 'b', gstin: 'G2', state: 'Haryana' },
+      invoiceNumber: 'CREDIT-001',
+      invoiceDate: '2026-07-24',
+      placeOfSupply: 'HR',
+      items: [{ description: 'Credit adjustment', hsnSac: '998314', quantity: 1, unit: 'Nos', rate: -500, taxRate: 18 }],
+    })
+    const tables = content.filter(e => e.type === 'table') as any[]
+    const itemTable = tables[1]
+    const lineCells = itemTable.rows[1].cells as any[]
+    for (const c of lineCells) {
+      assert.doesNotMatch(c.text, /₹-,/, `malformed negative currency in cell "${c.text}"`)
+    }
+    assert.equal(lineCells[5].text, '-₹500.00', `rate cell: ${lineCells[5].text}`)
+    assert.equal(lineCells[9].text, '-₹590.00', `line total cell: ${lineCells[9].text}`)
+    const amtEl = content.find(e => e.type === 'paragraph' && (e as any).text?.includes('Amount in words')) as any
+    assert.match(amtEl.text, /^Amount in words: Minus Rupees/, `expected a "Minus" prefix to match the negative total; got "${amtEl.text}"`)
+    assert.doesNotMatch(amtEl.text, /Rupees Zero Only/, 'negative total must not collapse to "Rupees Zero Only" while the figure shows a nonzero negative amount')
+  })
+
+  await t.test('gst invoice: amountInWords does not drop digits above 999 crore (v2.2.2 fix)', () => {
+    // Pre-fix: threeDigits()'s ones[Math.floor(n/100)] silently returned ''
+    // once n/100 >= 20 (ones[] only has 20 entries), so a crore-count above
+    // 999 understated the amount by an order of magnitude or more instead
+    // of erroring — e.g. 2345 crore rendered as "Hundred Forty Five Crore".
+    const content = createGstInvoice({
+      supplier: { name: 'S', address: 'a', gstin: 'G1', state: 'Haryana' },
+      buyer: { name: 'B', address: 'b', gstin: 'G2', state: 'Haryana' },
+      invoiceNumber: 'LARGE-001',
+      invoiceDate: '2026-07-24',
+      placeOfSupply: 'HR',
+      items: [{ description: 'Large contract', hsnSac: '998314', quantity: 1, unit: 'Nos', rate: 23_450_000_000, taxRate: 0 }],
+    })
+    const amtEl = content.find(e => e.type === 'paragraph' && (e as any).text?.includes('Amount in words')) as any
+    assert.match(amtEl.text, /Two Thousand Three Hundred Forty Five Crore/, `expected the full "2345 Crore" magnitude, got: "${amtEl.text}"`)
+  })
+
+  await t.test('gst invoice: line items sum to the printed totals (v2.2.2 fix — rounding drift)', () => {
+    // Pre-fix: each line rounded independently for display (via formatINR's
+    // toFixed), but totals accumulated from the raw unrounded floats and
+    // rounded once at the end — so three ₹0.01 lines at 18% GST displayed a
+    // grand total ₹0.01 higher than what the printed lines actually add up
+    // to. Round-then-sum (not sum-then-round) keeps the printed document
+    // internally consistent.
+    const item = { description: 'Usage', hsnSac: '998314', quantity: 1, unit: 'Nos', rate: 0.01, taxRate: 18 }
+    const content = createGstInvoice({
+      supplier: { name: 'S', address: 'a', gstin: 'G1', state: 'Haryana' },
+      buyer: { name: 'B', address: 'b', gstin: 'G2', state: 'Haryana' },
+      invoiceNumber: 'ROUND-001',
+      invoiceDate: '2026-07-24',
+      placeOfSupply: 'HR',
+      items: [item, item, item],
+    })
+    const tables = content.filter(e => e.type === 'table') as any[]
+    const itemTable = tables[1]
+    const rows = itemTable.rows as any[]
+    const parseINR = (text: string) => Number(text.replace(/[₹,]/g, ''))
+    const lineTaxables = rows.slice(1, 4).map(r => parseINR(r.cells[6].text))
+    const lineTaxes = rows.slice(1, 4).map(r => parseINR(r.cells[8].text))
+    const lineTotals = rows.slice(1, 4).map(r => parseINR(r.cells[9].text))
+    const totalTaxable = parseINR(rows[4].cells[1].text)
+    const totalTax = parseINR(rows[5].cells[1].text)
+    const grandTotal = parseINR(rows[6].cells[1].text)
+    const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0)
+    assert.ok(Math.abs(sum(lineTaxables) - totalTaxable) < 0.001, `line taxables ${lineTaxables} sum to ${sum(lineTaxables)} but Total Taxable shows ${totalTaxable}`)
+    assert.ok(Math.abs(sum(lineTaxes) - totalTax) < 0.001, `line taxes ${lineTaxes} sum to ${sum(lineTaxes)} but Total Tax shows ${totalTax}`)
+    assert.ok(Math.abs(sum(lineTotals) - grandTotal) < 0.001, `line totals ${lineTotals} sum to ${sum(lineTotals)} but Grand Total shows ${grandTotal}`)
+  })
+
+  await t.test('gst invoice: inter-state detection ignores state-name case and whitespace (v2.2.2 fix)', () => {
+    // Pre-fix: `supplier.state !== buyer.state` was a raw string comparison
+    // — "Maharashtra" vs "maharashtra " (same real state, different
+    // casing/whitespace from two systems) was misclassified as inter-state,
+    // putting the wrong IGST-vs-CGST/SGST columns on the invoice — a
+    // compliance issue, not a cosmetic one.
+    const content = createGstInvoice({
+      supplier: { name: 'S', address: 'a', gstin: 'G1', state: 'Maharashtra' },
+      buyer: { name: 'B', address: 'b', gstin: 'G2', state: 'maharashtra ' },
+      invoiceNumber: 'STATE-001',
+      invoiceDate: '2026-07-24',
+      placeOfSupply: 'MH',
+      items: [{ description: 'Service', hsnSac: '998314', quantity: 1, unit: 'Job', rate: 1000, taxRate: 18 }],
+    })
+    const tables = content.filter(e => e.type === 'table') as any[]
+    const headerCells = tables[1].rows[0].cells as any[]
+    const cgstCell = headerCells.find((c: any) => c.text.includes('CGST'))
+    const igstCell = headerCells.find((c: any) => c.text.includes('IGST'))
+    assert.ok(cgstCell, 'same state (case/whitespace aside) must show CGST+SGST columns')
+    assert.ok(!igstCell, 'same state (case/whitespace aside) must NOT be classified as inter-state')
+  })
+
   await t.test('report: renders as valid PDF', async () => {
     const content = createReport({
       title: 'Q1 2026 Sales Report',

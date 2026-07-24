@@ -151,6 +151,54 @@ test('Phase 9A — Cryptographic Signatures', async (t) => {
     )
   })
 
+  await t.test('v2.2.2 fix: SIGNATURE_CERT_AND_ENCRYPTION guard also holds via the low-level pretext-pdf/signing API', async () => {
+    // Pre-fix: the SIGNATURE_CERT_AND_ENCRYPTION guard above only lived in
+    // validate/document.ts, reachable exclusively through render()'s
+    // pipeline. applySignature/applyEncryption/applyPostProcessing are also
+    // exported standalone from pretext-pdf/signing for manual composition
+    // (documented in the CHANGELOG for exactly this use case) — calling them
+    // directly, in either combination, bypassed the guard entirely: the
+    // encryption step rewrites the PDF's bytes, silently invalidating the
+    // signature's messageDigest with no error raised anywhere.
+    const { applySignature, applyEncryption, applyPostProcessing } = await import('../src/signing/index.js')
+    const { p12Bytes, passphrase } = buildSelfSignedP12()
+    const rawBytes = await render({ content: [{ type: 'paragraph', text: 'Doc' }] })
+
+    // Manual chain: sign, then try to encrypt the already-signed bytes.
+    const signedBytes = await applySignature(rawBytes, { p12: p12Bytes, passphrase })
+    await assert.rejects(
+      () => applyEncryption(signedBytes, { userPassword: 'x' }),
+      (err: any) => {
+        assert.ok(err instanceof PretextPdfError)
+        assert.equal(err.code, 'SIGNATURE_CERT_AND_ENCRYPTION')
+        return true
+      },
+      'applyEncryption must refuse bytes that already carry a signature',
+    )
+
+    // applyPostProcessing with a doc requesting both must also refuse, before
+    // ever attempting to sign.
+    await assert.rejects(
+      () => applyPostProcessing(rawBytes, {
+        content: [{ type: 'paragraph', text: 'Doc' }],
+        signature: { p12: p12Bytes, passphrase },
+        encryption: { userPassword: 'x' },
+      } as any),
+      (err: any) => {
+        assert.ok(err instanceof PretextPdfError)
+        assert.equal(err.code, 'SIGNATURE_CERT_AND_ENCRYPTION')
+        return true
+      },
+      'applyPostProcessing must refuse a doc requesting both signature.p12 and encryption',
+    )
+
+    // Regression: each function still works fine on its own (no false positive).
+    const signedOnly = await applySignature(rawBytes, { p12: p12Bytes, passphrase })
+    assert.ok(signedOnly.length > 0, 'signing alone must still succeed')
+    const encryptedOnly = await applyEncryption(rawBytes, { userPassword: 'x' })
+    assert.ok(encryptedOnly.length > 0, 'encryption alone (no prior signature) must still succeed')
+  })
+
   await t.test('invisible-only signature: renders without p12, no crypto deps needed', async () => {
     // invisible: true without p12 draws no visual box and triggers no cryptographic
     // signing — the PDF is returned as-is. This path exercises the early-exit guard

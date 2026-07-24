@@ -30,6 +30,30 @@ export const SVG_MAX_BYTES = 5 * 1024 * 1024
 /** Maximum number of XML elements (open tags) — heuristic DoS guard for deeply nested SVGs. */
 export const MAX_SVG_ELEMENTS = 5000
 
+/**
+ * Normalize a URL-ish value before checking it against a dangerous scheme.
+ * Two independent evasions this closes (both confirmed working against the
+ * pre-fix sanitizer):
+ * - Whitespace injected INSIDE the scheme name (`java\tscript:`, `java\nscript:`,
+ *   ` javascript:`) defeats a literal `javascript:` match while WHATWG URL
+ *   parsing (and every browser) strips ASCII tab/newline/CR from anywhere in
+ *   a URL string before scheme detection — replicate that stripping here.
+ * - Numeric HTML character references (`&#106;avascript:`, `&#x6a;avascript:`)
+ *   defeat a literal match while any real HTML/XML consumer decodes them
+ *   before use — decode them here for the same reason.
+ * Only used to DECIDE whether to strip; the original unmodified text is what
+ * actually gets removed or kept, so this never alters surviving output.
+ */
+function normalizeUrlLikeValue(raw: string): string {
+  let v = raw.replace(/[\t\n\r]/g, '')
+  v = v.replace(/&#x([0-9a-f]+);/gi, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+  v = v.replace(/&#(\d+);/g, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)))
+  return v
+}
+
+const DANGEROUS_URL_SCHEME_RE = /^\s*(?:javascript|vbscript|data):/i
+const EXTERNAL_URL_SCHEME_RE = /^\s*https?:/i
+
 export function sanitizeSvg(svg: string): string {
   // Guard oversized inputs — regex passes on 5 MB+ strings create ReDoS risk.
   // Throw rather than pass through: an oversized SVG must never reach the
@@ -44,9 +68,20 @@ export function sanitizeSvg(svg: string): string {
   if (elementCount > MAX_SVG_ELEMENTS) {
     throw new PretextPdfError('SVG_LOAD_FAILED', `SVG exceeds maximum element count of ${MAX_SVG_ELEMENTS} (got ${elementCount})`)
   }
-  // Remove self-closing <script/> then paired <script>...</script> blocks
-  let s = svg.replace(/<script\b[^>]*\/>/gi, '')
-  s = s.replace(/<script[\s\S]*?<\/script>/gi, '')
+  let s = svg
+  // Remove self-closing <script/> then paired <script>...</script> blocks.
+  // Looped to a fixpoint: a "decoy" split tag like `<scr<script>X</script>ipt>`
+  // strips only the inner decoy pair on a single pass, which RECONSTRUCTS a
+  // live `<script>...</script>` from the leftover fragments (`<scr` + `ipt>`).
+  // A single pass is provably insufficient — this must repeat until no
+  // `<script` tag remains, mirroring the fixpoint already used below for
+  // `expression(...)`.
+  let prevScript: string
+  do {
+    prevScript = s
+    s = s.replace(/<script\b[^>]*\/>/gi, '')
+    s = s.replace(/<script[\s\S]*?<\/script>/gi, '')
+  } while (s !== prevScript)
   // Remove event handler attributes (onload, onclick, onerror, etc.)
   // Use [\w\r\n\t ]+ for the name portion so that whitespace injected INSIDE the
   // attribute name (e.g. on\nload=, on\tclick=) is also stripped. The original
@@ -64,15 +99,23 @@ export function sanitizeSvg(svg: string): string {
     '$1'
   )
   // v1.6.0: strip <foreignObject> entirely — it's an HTML escape hatch and
-  // the only XML-in-SVG construct that can host arbitrary tags.
-  s = s.replace(/<foreignObject\b[^>]*\/>/gi, '')
-  s = s.replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, '')
+  // the only XML-in-SVG construct that can host arbitrary tags. Same
+  // decoy-split reconstruction risk as <script> — looped to a fixpoint.
+  let prevForeign: string
+  do {
+    prevForeign = s
+    s = s.replace(/<foreignObject\b[^>]*\/>/gi, '')
+    s = s.replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, '')
+  } while (s !== prevForeign)
   // v1.6.0: strip dangerous hrefs from <a> (xlink:href or plain href).
   // Drop only the attribute, not the whole <a>, so the surrounding text content
-  // (children of <a>) still renders.
+  // (children of <a>) still renders. Normalizes the captured value (strips
+  // injected whitespace, decodes numeric entities) before the scheme check so
+  // `java\tscript:`/`&#106;avascript:`-style evasions are still caught.
   s = s.replace(
-    /\s+(?:xlink:)?href\s*=\s*["'](?:javascript|vbscript|data):[^"']*["']/gi,
-    ''
+    /\s+(?:xlink:)?href\s*=\s*(["'])([^"']*)\1/gi,
+    (match: string, _quote: string, value: string) =>
+      DANGEROUS_URL_SCHEME_RE.test(normalizeUrlLikeValue(value)) ? '' : match
   )
   // v1.6.0: strip CSS expression(...) inside <style> blocks.
   // Multi-pass to handle nested parens. Each pass strips expression() calls
@@ -90,11 +133,16 @@ export function sanitizeSvg(svg: string): string {
   // v1.7.1: strip @import rules — SVGs embedded in PDFs have no business
   // importing external stylesheets; also an outbound network-leak vector.
   s = s.replace(/@import\s+[^;{}]*/gi, '')
-  // v1.7.1: strip url(javascript:|vbscript:|data:) values — JS-execution and
-  // data-leak vectors that can appear inside <style> blocks.
-  s = s.replace(/url\s*\(\s*["']?(?:javascript|vbscript|data):[^)"']*["']?\s*\)/gi, '')
-  // v1.7.1: strip url(http(s)://...) values — defense-in-depth; SVGs in PDFs
-  // should not hot-link external stylesheet resources at render time.
-  s = s.replace(/url\s*\(\s*["']?https?:\/\/[^)"']*["']?\s*\)/gi, '')
+  // v1.7.1: strip url(javascript:|vbscript:|data:) and url(http(s)://...)
+  // values — JS-execution/data-leak vectors and (defense-in-depth) external
+  // hotlinking, both inside <style> blocks. Consolidated into one pass that
+  // normalizes the captured value (strips injected whitespace, decodes
+  // numeric entities) before checking the scheme, same evasion class as the
+  // <a href> guard above.
+  s = s.replace(/url\s*\(\s*([^)]*?)\s*\)/gi, (match: string, rawValue: string) => {
+    const unquoted = rawValue.replace(/^["']|["']$/g, '')
+    const normalized = normalizeUrlLikeValue(unquoted)
+    return DANGEROUS_URL_SCHEME_RE.test(normalized) || EXTERNAL_URL_SCHEME_RE.test(normalized) ? '' : match
+  })
   return s
 }

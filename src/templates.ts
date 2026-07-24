@@ -156,16 +156,34 @@ export interface GstInvoiceData {
   qrUpiData?: string
 }
 
+// Rounds to the nearest paise, mirroring how the value will actually be
+// displayed. Applied to every line-item figure BEFORE it's accumulated into
+// a total, so a printed total always equals the sum of the printed lines \u2014
+// summing raw unrounded floats and rounding only the total once (the old
+// behavior) can make small per-line amounts (e.g. metered/usage billing at
+// sub-rupee rates) fail to add up on the printed invoice.
+function round2(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
 function formatINR(n: number): string {
-  const [integer = '0', decimal = '00'] = n.toFixed(2).split('.')
+  const sign = n < 0 ? '-' : ''
+  const [integer = '0', decimal = '00'] = Math.abs(n).toFixed(2).split('.')
   const lastThree = integer.slice(-3)
   const rest = integer.slice(0, -3)
   const formatted = rest ? rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + lastThree : lastThree
-  return `\u20B9${formatted}.${decimal}`
+  return `${sign}\u20B9${formatted}.${decimal}`
 }
 
 export function createGstInvoice(data: GstInvoiceData): ContentElement[] {
-  const interState = data.isInterState ?? (data.supplier.state !== data.buyer.state)
+  // Compare state names case- and whitespace-insensitively — the same real
+  // state entered as "Maharashtra" vs "maharashtra" (or with trailing
+  // whitespace) by two different systems must not be misclassified as an
+  // inter-state supply, which puts the wrong IGST-vs-CGST/SGST columns on
+  // the invoice and can cause the buyer's Input Tax Credit claim to be
+  // rejected.
+  const normalizeStateName = (s: string): string => s.trim().toLowerCase()
+  const interState = data.isInterState ?? (normalizeStateName(data.supplier.state) !== normalizeStateName(data.buyer.state))
   const elements: ContentElement[] = []
 
   elements.push({ type: 'heading', level: 1, text: 'TAX INVOICE', align: 'center' })
@@ -192,9 +210,14 @@ export function createGstInvoice(data: GstInvoiceData): ContentElement[] {
   let totalTax = 0
 
   const itemRows: TableRow[] = data.items.map((item, idx) => {
-    const taxable = item.quantity * item.rate
-    const tax = taxable * (item.taxRate / 100)
-    const lineTotal = taxable + tax
+    // Round each line to the nearest paise BEFORE accumulating into the
+    // running totals, so the totals equal the sum of what's actually
+    // printed on each line. Summing raw unrounded floats and rounding only
+    // once at the end (the old behavior) can make small per-line amounts
+    // (e.g. metered/usage billing) fail to add up on the printed invoice.
+    const taxable = round2(item.quantity * item.rate)
+    const tax = round2(taxable * (item.taxRate / 100))
+    const lineTotal = round2(taxable + tax)
     totalTaxable += taxable
     totalTax += tax
     return row(
@@ -211,7 +234,12 @@ export function createGstInvoice(data: GstInvoiceData): ContentElement[] {
     )
   })
 
-  const grandTotal = totalTaxable + totalTax
+  // Re-round the accumulated totals too — summing many already-rounded
+  // paise values can still drift by a fraction of a paisa in floating point
+  // (e.g. 0.01 + 0.01 + 0.01 is not always exactly 0.03).
+  totalTaxable = round2(totalTaxable)
+  totalTax = round2(totalTax)
+  const grandTotal = round2(totalTaxable + totalTax)
 
   elements.push({
     type: 'table',
@@ -272,19 +300,36 @@ export function createGstInvoice(data: GstInvoiceData): ContentElement[] {
 }
 
 function amountInWords(amount: number): string {
-  if (!Number.isFinite(amount) || amount < 0) return 'Rupees Zero Only'
+  if (!Number.isFinite(amount)) return 'Rupees Zero Only'
   if (amount === 0) return 'Rupees Zero Only'
+  // Word out the magnitude and prefix "Minus" for negative amounts, rather
+  // than collapsing to "Rupees Zero Only" — a negative grand total (e.g. a
+  // credit/discount line) must not show one figure in the amount column and
+  // a contradicting "zero" in the legally-significant amount-in-words line.
+  const isNegative = amount < 0
+  const absAmount = Math.abs(amount)
+
   const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
     'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
   const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
 
   const twoDigits = (n: number): string => n < 20 ? (ones[n] ?? '') : (tens[Math.floor(n / 10)] ?? '') + (n % 10 ? ' ' + (ones[n % 10] ?? '') : '')
   const threeDigits = (n: number): string => n >= 100 ? (ones[Math.floor(n / 100)] ?? '') + ' Hundred' + (n % 100 ? ' ' + twoDigits(n % 100) : '') : twoDigits(n)
+  // The crore *group* (rupees / 1,00,00,000) is only guaranteed to be a
+  // 0-999 "threeDigits"-shaped value up to ~99,999 crore. Beyond that,
+  // threeDigits' `ones[Math.floor(n/100)]` silently returns '' once
+  // n/100 >= 20 (the ones[] array only has 20 entries), which was
+  // understating multi-thousand-crore amounts by an order of magnitude
+  // instead of throwing or visibly failing. Extend one more level (Crore's
+  // own "Thousand" group) — sufficient headroom for any realistic invoice
+  // (999,999 crore is already a ~$120B invoice) while staying correct.
+  const croreGroupWords = (n: number): string =>
+    n >= 1000 ? threeDigits(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 ? ' ' + threeDigits(n % 1000) : '') : threeDigits(n)
 
-  const rupees = Math.floor(amount)
-  const paise = Math.round((amount - rupees) * 100)
+  const rupees = Math.floor(absAmount)
+  const paise = Math.round((absAmount - rupees) * 100)
   let words = ''
-  if (rupees >= 10_000_000) words += threeDigits(Math.floor(rupees / 10_000_000)) + ' Crore '
+  if (rupees >= 10_000_000) words += croreGroupWords(Math.floor(rupees / 10_000_000)) + ' Crore '
   if (rupees % 10_000_000 >= 100_000) words += threeDigits(Math.floor((rupees % 10_000_000) / 100_000)) + ' Lakh '
   if (rupees % 100_000 >= 1_000) words += threeDigits(Math.floor((rupees % 100_000) / 1_000)) + ' Thousand '
   const rem = rupees % 1_000
@@ -295,7 +340,7 @@ function amountInWords(amount: number): string {
   const rupeeWords = words.trim() || 'Zero'
   let result = 'Rupees ' + rupeeWords
   if (paise > 0) result += ' and ' + twoDigits(paise) + ' Paise'
-  return result + ' Only'
+  return (isNegative ? 'Minus ' : '') + result + ' Only'
 }
 
 // ─── Report ───────────────────────────────────────────────────────────────────

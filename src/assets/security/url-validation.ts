@@ -25,6 +25,44 @@ import { normalizeIpv4Hostname } from './ipv4-normalize.js'
  *   `normalizeIpv4Hostname` before regex matching.
  * Throws IMAGE_LOAD_FAILED or SVG_LOAD_FAILED on violations.
  */
+/**
+ * If `raw` is a maximally-compressed IPv6 address of the form
+ * `::[ffff:]{0:}*HHHH:HHHH` — all leading groups zero, with at most one
+ * optional `ffff` marker group, and the final 2 groups encoding an IPv4
+ * address — return that IPv4 address in dotted-decimal form, else null.
+ *
+ * Covers the deprecated "IPv4-compatible" address family (`::/96`, e.g.
+ * `[::169.254.169.254]` — WHATWG normalizes this to `::a9fe:a9fe`, no `ffff`
+ * marker at all) and the SIIT/RFC 6052 family (`::ffff:0:0/96`, e.g.
+ * `[::ffff:0:127.0.0.1]` → `::ffff:0:7f00:1`), plus any equivalent
+ * zero-padding WHATWG's IPv6 serializer happens to produce (verified
+ * empirically — `new URL()` never emits a literal dotted-decimal suffix for
+ * bracketed hosts, always hex groups, and the amount of interstitial `0:`
+ * padding varies with how the longest zero-run happens to compress). A
+ * single general check here avoids an ever-growing list of fixed-shape
+ * regexes for each padding variant.
+ */
+function extractEmbeddedIpv4FromCompressedIpv6(raw: string): string | null {
+  if (!raw.startsWith('::')) return null
+  const groups = raw.slice(2).split(':')
+  if (groups.length < 2) return null
+  const last2 = groups.slice(-2)
+  const leading = groups.slice(0, -2)
+  let ffffSeen = false
+  for (const g of leading) {
+    if (/^0+$/.test(g)) continue
+    if (!ffffSeen && /^ffff$/i.test(g)) {
+      ffffSeen = true
+      continue
+    }
+    return null // some other non-zero, non-ffff group — not this address family
+  }
+  if (!/^[0-9a-f]{1,4}$/i.test(last2[0]!) || !/^[0-9a-f]{1,4}$/i.test(last2[1]!)) return null
+  const hi = parseInt(last2[0]!, 16)
+  const lo = parseInt(last2[1]!, 16)
+  return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`
+}
+
 function isPrivateAddress(h: string, raw: string): boolean {
   // Defense-in-depth: if `h` is an alternative IPv4 notation, fold to its
   // canonical dotted form before regex matching. Callers should normally
@@ -34,6 +72,16 @@ function isPrivateAddress(h: string, raw: string): boolean {
   const normalized = normalizeIpv4Hostname(h)
   if (normalized && normalized !== h) {
     h = normalized
+  }
+  // Defense-in-depth: fold any embedded-IPv4 compressed-IPv6 form (see
+  // extractEmbeddedIpv4FromCompressedIpv6) so the IPv4 private-range checks
+  // below actually see it. Without this, `[::169.254.169.254]` (normalized
+  // by WHATWG to `::a9fe:a9fe`) and `[::ffff:0:127.0.0.1]` (normalized to
+  // `::ffff:0:7f00:1`) sail through untouched by every existing IPv4 and
+  // IPv6-prefix check — confirmed bypass, closed here.
+  const embeddedIpv4 = extractEmbeddedIpv4FromCompressedIpv6(raw)
+  if (embeddedIpv4) {
+    h = embeddedIpv4
   }
   return _isPrivateAddressInner(h, raw)
 }

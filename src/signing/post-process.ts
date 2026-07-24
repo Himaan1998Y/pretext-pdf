@@ -125,12 +125,41 @@ export async function applySignature(
 }
 
 /**
+ * Cheap structural check for "these bytes already carry a digital signature."
+ * `/ByteRange` is a PDF signature-dictionary key (ISO 32000 §12.8.1) that
+ * appears in no other PDF structure — a reliable, low-cost marker without
+ * fully parsing the document.
+ */
+function isAlreadySigned(pdfBytes: Uint8Array): boolean {
+  return Buffer.from(pdfBytes).toString('latin1').includes('/ByteRange')
+}
+
+/**
  * Apply AES-128 or AES-256 encryption to pre-rendered PDF bytes.
+ *
+ * Refuses to encrypt bytes that already carry a digital signature (a
+ * `/ByteRange` marker): encryption rewrites the PDF's bytes and object
+ * offsets, so any pre-existing signature's `messageDigest` no longer matches
+ * the file it's supposedly covering — a signature that silently stops
+ * proving what it claims to. `render()`'s own pipeline already guards this
+ * combination at the `doc.signature`+`doc.encryption` level (see
+ * `validate/document.ts`'s `SIGNATURE_CERT_AND_ENCRYPTION` check), but this
+ * function is also exported standalone from `pretext-pdf/signing` for manual
+ * pipeline composition — callers there never go through `render()`'s
+ * validation at all, and could chain `applySignature()` then
+ * `applyEncryption()` directly with no guard in between. Check here too so
+ * the guarantee holds regardless of entry point.
  */
 export async function applyEncryption(
   pdfBytes: Uint8Array,
   enc: NonNullable<PdfDocument['encryption']>
 ): Promise<Uint8Array> {
+  if (isAlreadySigned(pdfBytes)) {
+    throw new PretextPdfError(
+      'SIGNATURE_CERT_AND_ENCRYPTION',
+      'Cannot encrypt a PDF that already carries a digital signature — encryption rewrites the file bytes, which would invalidate the signature\'s digest. Encrypt first, then sign the encrypted bytes, or use only one of the two.'
+    )
+  }
   const encDoc = await PDFDocument.load(pdfBytes)
   encDoc.encrypt({
     userPassword:  enc.userPassword  ?? '',
@@ -147,12 +176,18 @@ export async function applyEncryption(
 
 /**
  * Apply signature and encryption post-processing to raw pipeline bytes.
- * Called by both render() in index.ts and PdfBuilder.build() in builder.ts.
+ * Called by both render() in index.ts and PdfBuilder.build() in builder.ts,
+ * and directly by callers composing `pretext-pdf/signing` without going
+ * through render()'s validation — so this same guard from
+ * validate/document.ts is re-checked here rather than assumed.
  */
 export async function applyPostProcessing(
   rawBytes: Uint8Array,
   doc: PdfDocument
 ): Promise<Uint8Array> {
+  if (doc.signature?.p12 !== undefined && doc.encryption !== undefined) {
+    throw new PretextPdfError('SIGNATURE_CERT_AND_ENCRYPTION', 'Cannot use both signature.p12 (cryptographic signing) and encryption together — the encryption step would invalidate the cryptographic signature.')
+  }
   const signedBytes = doc.signature?.p12 ? await applySignature(rawBytes, doc.signature, doc.allowedFileDirs) : rawBytes
   return doc.encryption ? await applyEncryption(signedBytes, doc.encryption) : signedBytes
 }

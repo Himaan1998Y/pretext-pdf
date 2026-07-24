@@ -7,6 +7,102 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.2.2] — 2026-07-24
+
+Hardening release from a targeted adversarial sweep of the test suite for
+"shallow assertion" tests (checks that a PDF exists / didn't throw, rather
+than that the claimed behavior actually happened) — the same failure pattern
+behind over a dozen past "audit fix" releases in this CHANGELOG. This pass
+prioritized money math, signing/encryption, and security paths, and found
+real, confirmed bugs (not just missing tests) in all three.
+
+### Security
+
+- **SVG sanitizer: decoy-tag splitting defeated `<script>`/`<foreignObject>`
+  stripping.** A single non-greedy regex pass only strips the *innermost*
+  matching pair — a payload like `<scr<script>DECOY</script>ipt>alert(1)
+  </script>` had its decoy pair stripped, which reconstructed a live
+  `<script>alert(1)</script>` from the leftover fragments. Confirmed working
+  exploit. Fixed by looping both `<script>` and `<foreignObject>` stripping
+  to a fixpoint (same technique already used for `expression(...)`).
+- **SVG sanitizer: whitespace/entity injection defeated dangerous-scheme
+  stripping.** A tab/newline/CR inside a scheme name (`java\tscript:`) or an
+  HTML numeric character reference (`&#106;avascript:`) bypassed the
+  `javascript:`/`vbscript:`/`data:`/`https?:` regexes in `<a href>` and CSS
+  `url(...)` stripping — real evasions any HTML/XML/URL consumer would still
+  resolve. Fixed by normalizing (stripping injected whitespace, decoding
+  numeric entities) before the scheme check, only used to decide whether to
+  strip — the original text is what's actually removed or kept.
+- **SSRF: legacy IPv4-in-IPv6 address forms bypassed the private-range
+  guard.** `[::169.254.169.254]` (WHATWG-normalized to `::a9fe:a9fe`, the
+  deprecated IPv4-compatible `::/96` family — no `ffff` marker at all) and
+  `[::ffff:0:127.0.0.1]` (SIIT/RFC 6052 `::ffff:0:0/96`, normalized to
+  `::ffff:0:7f00:1` — an extra zero group the old regex didn't account for)
+  both sailed through `resolveAndValidateUrl` untouched, confirmed via direct
+  call with no DNS involved — pure string crafting reaches the AWS/cloud
+  metadata endpoint address and RFC1918 ranges. Fixed with a general
+  extractor that recognizes any `::[ffff:]{0:}*HHHH:HHHH` compressed form
+  rather than the narrow fixed-shape regexes that only covered the plain
+  `::ffff:XXXX:YYYY` case.
+- **Signing: `SIGNATURE_CERT_AND_ENCRYPTION` guard was bypassable via the
+  documented low-level `pretext-pdf/signing` API.** The guard only lived in
+  `validate/document.ts`, reachable exclusively through `render()`.
+  `applySignature`/`applyEncryption`/`applyPostProcessing` are also exported
+  standalone from `pretext-pdf/signing` for manual pipeline composition (the
+  CHANGELOG has recommended this since v2.0.0) — calling `applySignature`
+  then `applyEncryption` directly, with no `render()` in between, produced a
+  PDF that was both encrypted and "signed," with the signature's
+  `messageDigest` silently no longer matching the actual (now-encrypted)
+  bytes and zero error raised anywhere. Fixed by checking in
+  `applyEncryption` itself (refuses bytes that already carry a `/ByteRange`
+  signature marker) and in `applyPostProcessing` (fails fast on a `doc`
+  requesting both), so the guarantee holds regardless of entry point.
+
+### Fixed
+
+- **`formatINR` produced malformed currency for negative amounts** —
+  `formatINR(-500)` rendered as `"₹-,500.00"` (stray comma, empty digit
+  group) instead of `"-₹500.00"`.
+- **`amountInWords` collapsed negative totals to `"Rupees Zero Only"`** —
+  a negative grand total (e.g. a credit/discount line) showed a nonzero
+  negative figure in the amount column and a contradicting "zero" in the
+  legally-significant amount-in-words line on the same invoice. Now prefixes
+  `"Minus"` and words out the actual magnitude.
+- **`amountInWords` silently dropped digits above ~999 crore** —
+  `threeDigits()`'s digit lookup only covers 0-999; a crore-count above that
+  (e.g. 2345 crore) understated the amount by an order of magnitude or more
+  (`"Two Thousand Three Hundred Forty Five Crore"` rendered as just
+  `"Hundred Forty Five Crore"`) instead of erroring or rendering correctly.
+- **GST invoice line items didn't sum to the printed totals** — each line
+  rounded independently for display, but totals accumulated from the raw
+  unrounded floats and rounded once at the end, so e.g. three ₹0.01 lines at
+  18% GST displayed a grand total ₹0.01 higher than what the printed lines
+  actually add up to. Now rounds each line to the nearest paise before
+  accumulating, so totals always equal the sum of what's printed.
+- **Inter-state/intra-state GST classification was case- and
+  whitespace-sensitive** — `supplier.state !== buyer.state` as a raw string
+  comparison misclassified the same real state (`"Maharashtra"` vs
+  `"maharashtra "`) as inter-state, putting the wrong IGST-vs-CGST/SGST
+  columns on the invoice — a real Input Tax Credit compliance issue, not
+  cosmetic. Now compares case- and whitespace-normalized.
+
+### Testing
+
+- Added `test/vendor-letter-spacing.test.ts`-style direct regression
+  coverage for every fix above: `test/svg-sanitizer.test.ts` (decoy-splitting
+  and scheme-evasion cases), `test/security-ipv4-bypass.test.ts` (the
+  embedded-IPv4 compressed-IPv6 family), `test/templates.test.ts` (all 4
+  money-math fixes, asserting exact printed values), and
+  `test/signatures-crypto.test.ts` (the guard via the low-level `signing`
+  API directly, plus regression checks that signing-alone and
+  encryption-alone still work).
+- The adversarial sweep covered all 65 test files (~1000 tests) across 6
+  parallel review passes; the findings above were the confirmed
+  bugs — a larger list of shallow-assertion (test-only) gaps was also
+  found and is being triaged separately.
+
+---
+
 ## [2.2.1] — 2026-07-23
 
 Bug fix in the vendored layout engine, found by an independent audit of the

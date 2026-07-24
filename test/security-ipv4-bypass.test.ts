@@ -79,6 +79,51 @@ describe('v1.5.2 — SSRF: IPv4 alternative-notation bypass', () => {
   })
 })
 
+describe('v2.2.2 — SSRF: embedded-IPv4 compressed-IPv6 bypass', () => {
+  // WHATWG URL always maximally compresses bracketed IPv6 hosts to hex-group
+  // form — it never emits a literal dotted-decimal suffix for these families.
+  // Empirically verified (node -e "new URL('https://[::169.254.169.254]/x').hostname"):
+  //   [::169.254.169.254]        -> ::a9fe:a9fe        (deprecated IPv4-compatible, ::/96, no ffff)
+  //   [::ffff:0:127.0.0.1]       -> ::ffff:0:7f00:1     (SIIT/RFC 6052, ::ffff:0:0/96, extra zero group)
+  //   [::ffff:0:0:127.0.0.1]     -> ::ffff:0:0:7f00:1   (same family, extra zero padding)
+  // None of these matched the pre-fix regexes (which only handled the plain
+  // IPv4-mapped `::ffff:XXXX:YYYY` shape, exactly 2 groups after `ffff:`),
+  // so every one of them reached the fetch layer unblocked — confirmed via
+  // direct call to resolveAndValidateUrl before the fix landed.
+  const blockedCases: Array<[string, string]> = [
+    ['https://[::127.0.0.1]/x.png', 'IPv4-compatible (deprecated) loopback, no ffff marker'],
+    ['https://[::10.0.0.1]/x.png', 'IPv4-compatible RFC1918 10/8'],
+    ['https://[::192.168.1.1]/x.png', 'IPv4-compatible RFC1918 192.168/16'],
+    ['https://[::169.254.169.254]/x.png', 'IPv4-compatible AWS/cloud metadata endpoint'],
+    ['https://[::ffff:0:127.0.0.1]/x.png', 'SIIT/RFC 6052 loopback (extra zero group before ffff-mapped IPv4)'],
+    ['https://[::ffff:0:169.254.169.254]/x.png', 'SIIT/RFC 6052 metadata endpoint'],
+    ['https://[::ffff:0:0:127.0.0.1]/x.png', 'SIIT with extra zero-padding variant'],
+    ['https://[::ffff:127.0.0.1]/x.png', 'plain IPv4-mapped (regression guard — already worked pre-fix)'],
+    ['https://[64:ff9b::127.0.0.1]/x.png', 'NAT64 (regression guard — already worked pre-fix, different code path)'],
+  ]
+
+  for (const [url, label] of blockedCases) {
+    test(`blocks ${label}: ${url}`, async () => {
+      await assert.rejects(
+        () => assertSafeUrl(url, 'IMAGE_LOAD_FAILED', 'Image'),
+        /private or internal addresses/,
+        `Expected ${url} to be blocked but it was allowed`,
+      )
+    })
+  }
+
+  test('still allows a real public IPv6 address (Google DNS)', async () => {
+    await assert.doesNotReject(() => assertSafeUrl('https://[2001:4860:4860::8888]/x.png', 'IMAGE_LOAD_FAILED', 'Image'))
+  })
+
+  test('still allows a real public IPv6 address that happens to end in two low hex groups', async () => {
+    // Regression guard: the embedded-IPv4 extraction only applies to
+    // addresses starting with `::` (all leading groups zero) — a normal
+    // global-unicast address must not be misidentified as this family.
+    await assert.doesNotReject(() => assertSafeUrl('https://[2001:db8::1]/x.png', 'IMAGE_LOAD_FAILED', 'Image'))
+  })
+})
+
 describe('v1.5.2 — normalizeIpv4Hostname helper', () => {
   test('returns null for non-IPv4 inputs', () => {
     assert.equal(normalizeIpv4Hostname('example.com'), null)

@@ -214,3 +214,77 @@ describe('SVG sanitizer — size and element-count guards (T4)', () => {
     assert.doesNotThrow(() => sanitizeSvg(input), 'SVG at exactly SVG_MAX_BYTES must not throw')
   })
 })
+
+describe('SVG sanitizer — v2.2.2 confirmed-bypass hardening', () => {
+  // A single non-greedy regex pass strips only the INNERMOST matching pair.
+  // A "decoy" pair split across the real tag reconstructs a live tag from
+  // the leftover fragments once the decoy is removed: `<scr` + `<script>` +
+  // `DECOY` + `</script>` + `ipt>` + payload + `</script>` — stripping the
+  // decoy pair (`<script>DECOY</script>`) leaves `<scr` + `ipt>` = a live
+  // `<script>` tag around the real payload. Confirmed working exploit
+  // against the pre-fix sanitizer (single pass left a live <script> in the
+  // output). Fixed by looping both <script> and <foreignObject> stripping
+  // to a fixpoint, same technique already used for expression(...).
+  test('strips <script> reconstructed via decoy-tag splitting', () => {
+    const input = '<svg><scr<script>DECOY</script>ipt>alert(document.cookie)</script></svg>'
+    const out = sanitizeSvg(input)
+    assert.ok(!/<script/i.test(out), `live <script> survived decoy-split reconstruction: ${out}`)
+    assert.ok(!/alert\(document\.cookie\)/.test(out), `payload text survived: ${out}`)
+  })
+
+  test('strips <foreignObject> reconstructed via decoy-tag splitting', () => {
+    const input = '<svg><foreign<foreignObject>DECOY</foreignObject>Object xmlns="http://www.w3.org/1999/xhtml"><div>XSS</div></foreignObject></svg>'
+    const out = sanitizeSvg(input)
+    assert.ok(!/<foreignObject/i.test(out), `live <foreignObject> survived decoy-split reconstruction: ${out}`)
+    assert.ok(!/<div>XSS/.test(out), `payload content survived: ${out}`)
+  })
+
+  test('multiple nested decoy layers still fully strip (fixpoint, not single extra pass)', () => {
+    const input = '<svg><scr<scr<script>D2</script>ipt>D1</script>ipt>alert(1)</script></svg>'
+    const out = sanitizeSvg(input)
+    assert.ok(!/<script/i.test(out), `nested decoy layers left a live <script>: ${out}`)
+  })
+
+  // WHATWG URL parsing (and every browser) strips ASCII tab/newline/CR from
+  // anywhere in a URL string before scheme detection, and any real HTML/XML
+  // consumer decodes numeric character references before use. A literal
+  // scheme-name regex match doesn't replicate either step, so both are
+  // confirmed evasions against the pre-fix sanitizer.
+  for (const [label, href] of [
+    ['tab inside scheme name', 'java\tscript:alert(1)'],
+    ['newline inside scheme name', 'java\nscript:alert(1)'],
+    ['CR inside scheme name', 'java\rscript:alert(1)'],
+    ['leading whitespace before scheme', ' javascript:alert(1)'],
+    ['decimal numeric entity', '&#106;avascript:alert(1)'],
+    ['hex numeric entity', '&#x6a;avascript:alert(1)'],
+  ] as const) {
+    test(`strips <a href> with ${label}`, () => {
+      const input = `<svg><a href="${href}">click</a></svg>`
+      const out = sanitizeSvg(input)
+      assert.ok(!/href\s*=/i.test(out), `dangerous href survived (${label}): ${out}`)
+    })
+  }
+
+  test('strips CSS url(javascript:...) with tab inside scheme name', () => {
+    const input = '<svg><style>body{background:url(java\tscript:alert(1))}</style></svg>'
+    const out = sanitizeSvg(input)
+    assert.ok(!/javascript:/i.test(out.replace(/[\t\n\r]/g, '')), `dangerous url() survived: ${out}`)
+  })
+
+  test('strips CSS url(https://...) with tab inside scheme name', () => {
+    const input = '<svg><style>body{background:url(htt\tps://evil.example/x)}</style></svg>'
+    const out = sanitizeSvg(input)
+    assert.ok(!/https?:/i.test(out.replace(/[\t\n\r]/g, '')), `external url() survived: ${out}`)
+  })
+
+  test('regression: normal <script>/<foreignObject>/href stripping still works', () => {
+    const out = sanitizeSvg('<svg><script>alert(1)</script><foreignObject><div>x</div></foreignObject><a href="javascript:alert(1)">x</a><rect/></svg>')
+    assert.ok(!/<script|<foreignObject|href\s*=/i.test(out))
+    assert.ok(/<rect\/>/i.test(out), 'sibling <rect/> must survive')
+  })
+
+  test('regression: safe SVG content is unaffected', () => {
+    const input = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" fill="red"/></svg>'
+    assert.equal(sanitizeSvg(input), input)
+  })
+})
