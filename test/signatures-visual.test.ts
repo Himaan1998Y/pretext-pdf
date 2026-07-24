@@ -66,9 +66,14 @@ test('Phase 8E — Signature Placeholder', async (t) => {
     // If truncation is applied, signerName='A'*100 and signerName='A'*101 must produce
     // byte-identical PDFs (same glyphs drawn, same font subset). This directly tests the
     // invariant, unlike a byte-size ratio which is vacuous due to glyph deduplication.
+    // renderDate is pinned explicitly: render() defaults /CreationDate to `new Date()`
+    // when omitted, so two separate calls straddling a clock-second boundary (more
+    // likely under CI load than locally) would otherwise produce non-identical bytes
+    // for a reason unrelated to the truncation behavior this test actually checks.
     const content: PdfDocument['content'] = [{ type: 'paragraph', text: 'Truncation test.' }]
-    const pdf100 = await render({ signature: { signerName: 'A'.repeat(100) }, content })
-    const pdf101 = await render({ signature: { signerName: 'A'.repeat(101) }, content })
+    const renderDate = new Date('2026-01-01T00:00:00Z')
+    const pdf100 = await render({ signature: { signerName: 'A'.repeat(100) }, content, renderDate })
+    const pdf101 = await render({ signature: { signerName: 'A'.repeat(101) }, content, renderDate })
     assert.deepEqual(
       pdf100, pdf101,
       'signerName must be truncated to 100 chars — 101-char and 100-char inputs must produce identical PDFs'
