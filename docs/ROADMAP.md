@@ -1,6 +1,6 @@
 # pretext-pdf — Roadmap
 
-**Last updated:** 2026-07-24 · **Current version:** 2.2.2
+**Last updated:** 2026-07-24 · **Current version:** 2.2.3
 
 This is a **living document**. See [Update discipline](#update-discipline) at the bottom for how and when this file is touched.
 
@@ -8,7 +8,7 @@ This is a **living document**. See [Update discipline](#update-discipline) at th
 
 ## Now
 
-Active work: a full adversarial sweep of the test suite (all 65 files, ~1000 tests) for "shallow assertion" tests. `v2.2.2` shipped the confirmed bugs the sweep found (3 security bypasses, 4 money-math bugs, 1 signing/encryption guard bypass — see CHANGELOG). The broader inventory of shallow-assertion-only findings (no confirmed live bug, just missing regression coverage) across the rest of the suite is still being triaged and fixed — see the Tier 1 item below.
+Active work: a full adversarial sweep of the test suite (all 65 files, ~1000 tests) for "shallow assertion" tests. `v2.2.2` shipped the confirmed bugs the sweep found (3 security bypasses, 4 money-math bugs, 1 signing/encryption guard bypass — see CHANGELOG). Rewriting `toc.test.ts` with real PDF-text assertions (instead of "renders without error") then caught an actual engine bug — TOC page numbers were wrong whenever the TOC itself needed 2+ real pages — fixed in `v2.2.3`. The broader inventory of remaining shallow-assertion-only findings (no confirmed live bug behind them yet) is still being triaged and fixed — see the Tier 1 item below.
 
 `v2.1.1` (CI pipeline repair + `undici` CVE fix), `v2.2.0` (vendor engine upgrade), and `v2.2.1` (terminal letter-spacing fix) all shipped through the real tagged pipeline before this.
 
@@ -22,7 +22,7 @@ Ordered backlog. No dates — tiers only. Effort tags: **S** (≤½ day) · **M*
 
 | Item | Why | Effort |
 | --- | --- | --- |
-| **Triage and fix the remaining shallow-assertion findings from the 2026-07-24 sweep** | The confirmed live bugs are fixed (v2.2.2), but the sweep also surfaced a large inventory of test-only gaps with no confirmed bug behind them yet — most notably `toc.test.ts` (page-number accuracy, level filtering, and title show/hide are all asserted only via `%PDF` header despite explicit inline comments describing the intended check), `hyperlinks.test.ts` (no test verifies `/Annots`/`/URI` actually reach the output, and no injection guard exists for unbalanced-parens URLs despite that exact bug class being fixed elsewhere in this codebase for bookmarks/forms/metadata), and a broken `expectError()` 3-arg call pattern in `validate.test.ts`/`validate-strict.test.ts` where `tsconfig.json` excluding `test/` from type-checking let a silently-dead assertion argument ship. | L |
+| **Triage and fix the remaining shallow-assertion findings from the 2026-07-24 sweep** | `toc.test.ts` is done (v2.2.3 — also caught a real engine bug, see CHANGELOG). Still open: `hyperlinks.test.ts` (no test verifies `/Annots`/`/URI` actually reach the output, and no injection guard exists for unbalanced-parens URLs despite that exact bug class being fixed elsewhere in this codebase for bookmarks/forms/metadata), and a broken `expectError()` 3-arg call pattern in `validate.test.ts`/`validate-strict.test.ts` where `tsconfig.json` excluding `test/` from type-checking let a silently-dead assertion argument ship (plus vacuous "Discriminated unions" tests in `validate-strict.test.ts` that assert on a local variable never passed to the library). | M |
 | **Automate the `NPM_TOKEN` expiry reminder** | `docs/RELEASING.md` (added in v2.2.1) documents rotating it proactively, but that only helps if someone reads it before a release. Nothing currently pings anyone as expiry approaches — a scheduled check (even a simple cron comparing `gh secret list`'s "updated" date against a threshold) would close this for real. | S |
 | **Re-scope the upstream `pretext` tracking decision** | The old Tier 2 item ("rebase PR #81 or close") assumed a small, trackable delta. The fork is now 410 commits behind `upstream/main` and 295 commits ahead — effectively fully diverged. The real question is whether tracking upstream is still worth the overhead at all, not whether to rebase one PR. | M |
 | **`CONTRIBUTING.md`: "how to add a new element type" walkthrough** | Still missing (carried over from the pre-2026-05 roadmap — verified not done). Lowers time-to-first-PR for external contributors. `src/validate/elements/README.md` already documents the validator-signature contract; this item is about a full add-a-type walkthrough spanning schema, validate, measure, render. | M |
@@ -66,6 +66,7 @@ The authoritative record is [CHANGELOG.md](../CHANGELOG.md). This section is a *
 
 | Milestone | Version | Date | Theme |
 | --- | --- | --- | --- |
+| TOC multi-page page-number bug | 2.2.3 | 2026-07-24 | Fixed wrong TOC page numbers whenever the TOC itself spans 2+ real pages (draft pagination pass assumed zero TOC height, never corrected); found by rewriting `toc.test.ts` with real PDF-text assertions instead of "renders without error" |
 | Adversarial test-suite sweep — confirmed bugs | 2.2.2 | 2026-07-24 | 3 security bypasses (SVG decoy-tag/scheme evasion, IPv4-in-IPv6 SSRF, signature+encryption guard bypass via low-level API), 4 GST money-math bugs (negative amounts, crore-overflow digit-dropping, rounding drift, case-sensitive state comparison), all found and fixed from a targeted "shallow assertion" sweep, not a manual audit |
 | Terminal letter-spacing fix | 2.2.1 | 2026-07-23 | Restored a vendored-engine mechanism silently dropped by an old fork commit; found by independent audit of v2.2.0; added a regression test pinning the behavior |
 | Vendor engine upgrade to pretext v0.0.8 | 2.2.0 | 2026-07-22 | Browser-parity dash-break for force-broken unbreakable runs; retired 2 cherry-picks (`PR #119`, `PR #105`) superseded by upstream's own rework; independently audited before release |
@@ -129,6 +130,8 @@ This document gets out-of-sync loudly, not silently. The rules:
 ---
 
 ## History
+
+**2026-07-24 (continued)** · Started fixing the queued shallow-assertion inventory, beginning with `toc.test.ts`. Rewrote it to make real PDF-text assertions via `pdfjs-dist` (page numbers, level filtering, title show/hide) instead of "renders without error." This immediately caught a real engine bug the old test couldn't have: TOC page numbers were wrong whenever the TOC itself needed 2+ real pages, because the two-pass TOC builder's draft pagination pass assumed the TOC took zero space and never corrected for its real footprint. Fixed with a second pagination pass that corrects the page numbers after the real TOC content is spliced in (v2.2.3). `hyperlinks.test.ts` and the broken `expectError()`/vacuous-test findings in `validate.test.ts`/`validate-strict.test.ts` remain queued.
 
 **2026-07-24** · Ran a targeted adversarial sweep of the full test suite (65 files, ~1000 tests, 6 parallel review passes) hunting for "shallow assertion" tests — the exact failure pattern behind a dozen-plus past "audit fix" releases. Prioritized money math, signing/encryption, and security paths first. Found and fixed 8 confirmed real bugs, not just test gaps (v2.2.2): 3 security bypasses (SVG sanitizer decoy-tag reconstruction + scheme-evasion, a legacy IPv4-in-IPv6 SSRF bypass, and a `SIGNATURE_CERT_AND_ENCRYPTION` guard bypass reachable via the documented low-level `pretext-pdf/signing` API), and 4 GST invoice money-math bugs (malformed negative currency + a figures/words mismatch, silent digit-dropping above ~999 crore, line-items-don't-sum-to-total rounding drift, and case/whitespace-sensitive inter-state tax classification). Added direct regression tests for all 8. The remaining, larger inventory of shallow-assertion-only findings (`toc.test.ts` above all — page-number accuracy, level filtering, and title show/hide are each asserted only via a generic `%PDF` header check despite explicit comments describing the real intended check) is queued as a new Tier 1 item rather than fixed in the same pass, to keep this release scoped to confirmed bugs.
 

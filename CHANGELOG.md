@@ -7,6 +7,42 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.2.3] — 2026-07-24
+
+### Fixed
+
+- **TOC page numbers were wrong whenever the TOC itself spanned 2+ pages.**
+  The two-pass TOC builder (`src/pipeline-toc.ts`) ran a "draft" pagination
+  pass treating the TOC as a zero-height placeholder to learn each heading's
+  page number, then spliced in the real (larger) TOC content afterward. That
+  draft page number is only correct if the real TOC ends up needing exactly
+  as many pages as the zero-height placeholder implied — true by coincidence
+  for a short single-page TOC, false as soon as the TOC needs 2+ real pages
+  (e.g. any document with ~30 or more headings): every heading after the TOC
+  was shown as being several pages earlier than where it actually renders.
+  Confirmed concretely — in a 35-heading test document, heading 10 was shown
+  as "page 1" while it actually rendered on physical page 3.
+
+  Fixed with a second, cheap (layout-only, not full-render) pagination pass
+  over the spliced-in real TOC content, which is then used to correct the
+  page numbers already drawn into the TOC entries. Bookmarks/`/Outlines`
+  navigation was never affected — it resolves via direct page references
+  computed separately during final rendering, not the printed TOC digits.
+
+### Testing
+
+- Rewrote `test/toc.test.ts` from "renders without error" checks (several of
+  which had inline comments describing the real intended assertion that was
+  never actually written) to genuine PDF-text-based verification via
+  `pdfjs-dist`: TOC entries actually list the right headings with the right
+  page numbers, `minLevel`/`maxLevel` filtering actually excludes headings
+  from the TOC's own listing (not just checks the page renders), and title
+  show/hide is checked against the actual rendered text. This is what caught
+  the multi-page offset bug above — the previous version of this test file
+  could not have caught it.
+
+---
+
 ## [2.2.2] — 2026-07-24
 
 Hardening release from a targeted adversarial sweep of the test suite for
