@@ -104,12 +104,25 @@ elsewhere) — see the note at the end of this entry for what that found.
   silently change one, and it had drifted out of sync with the new
   watermark rejection above.
 
+### Dependencies
+
+- **`c8` (devDependency, test coverage only — never shipped in the published
+  package) upgraded 10.1.3 → 12.0.0**, closing a real HIGH-severity finding:
+  `npm audit --audit-level=high` flagged `brace-expansion` (pulled in via
+  `test-exclude` → `glob` → `minimatch`) for an unbounded-expansion DoS
+  (`GHSA-mh99-v99m-4gvg`) with no non-breaking fix available. Verified c8's
+  CLI still supports every flag used by the `coverage`/`coverage:check`
+  scripts, and the full test suite still passes.
+
 **Audit note**: the 5-perspective review confirmed all three fixes are real
 and correct, found no other instance of either bug class anywhere else in
 `src/`, found no security regression, and found the change consistent with
 established codebase conventions. It also caught the non-ASCII URL gap
 described above — which is now fixed and covered by a regression test
-(`test/hyperlinks.test.ts`) — before this reached npm.
+(`test/hyperlinks.test.ts`) — before this reached npm. Separately, CI's own
+badge-verification gate caught the README `tests` badge drifting stale at
+1021 (the true count after this release's new tests is 1024) — fixed
+before the tag was re-cut.
 
 ---
 
