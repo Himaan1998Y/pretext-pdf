@@ -121,3 +121,63 @@ export async function fetchWithTimeout(
   }
   throw new PretextPdfError(errorCode, `${label}: too many redirects (max ${MAX_REDIRECTS})`)
 }
+
+/**
+ * Read a fetch Response body with a hard byte cap — protects against a
+ * remote server (malicious or just huge) exhausting memory during image/SVG
+ * loading. Two layers, since either alone is insufficient:
+ *
+ *   1. `Content-Length` is checked up front and rejected immediately if it
+ *      already exceeds the cap, without reading any body bytes.
+ *   2. The body is read via a streaming reader that aborts (and cancels the
+ *      underlying stream) the moment actual bytes exceed the cap — this is
+ *      the layer that matters, since `Content-Length` is caller-supplied and
+ *      can be absent or simply wrong (chunked transfer-encoding, a
+ *      misconfigured origin, or a deliberately-lying server).
+ */
+export async function readBodyWithLimit(
+  res: Response,
+  maxBytes: number,
+  errorCode: 'IMAGE_LOAD_FAILED' | 'SVG_LOAD_FAILED',
+  label: string,
+): Promise<Uint8Array> {
+  const declared = res.headers.get('content-length')
+  if (declared && Number(declared) > maxBytes) {
+    throw new PretextPdfError(errorCode, `${label}: declared size ${declared} bytes exceeds the ${maxBytes}-byte limit`)
+  }
+
+  if (!res.body) {
+    const buf = new Uint8Array(await res.arrayBuffer())
+    if (buf.byteLength > maxBytes) {
+      throw new PretextPdfError(errorCode, `${label}: response is ${buf.byteLength} bytes, exceeding the ${maxBytes}-byte limit`)
+    }
+    return buf
+  }
+
+  const reader = res.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => undefined)
+        throw new PretextPdfError(errorCode, `${label}: response exceeded the ${maxBytes}-byte limit while streaming (no Content-Length was declared, or it understated the actual size)`)
+      }
+      chunks.push(value)
+    }
+  } catch (err) {
+    if (err instanceof PretextPdfError) throw err
+    throw new PretextPdfError(errorCode, `${label}: failed to read response body: ${err instanceof Error ? err.message : String(err)}`)
+  }
+
+  const out = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    out.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return out
+}

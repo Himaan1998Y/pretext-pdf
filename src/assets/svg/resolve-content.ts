@@ -11,8 +11,8 @@ import type { SvgElement } from '../../types.js'
 import { PretextPdfError } from '../../errors.js'
 import { redactPath } from '../util/redact-path.js'
 import { assertPathAllowed } from '../security/path-allowlist.js'
-import { fetchWithTimeout } from '../security/fetch.js'
-import { sanitizeSvg } from './sanitize.js'
+import { fetchWithTimeout, readBodyWithLimit } from '../security/fetch.js'
+import { sanitizeSvg, SVG_MAX_BYTES } from './sanitize.js'
 
 /**
  * Resolve SVG content string from either an inline `svg` field or a `src` file/URL.
@@ -39,7 +39,11 @@ export async function resolveSvgContent(el: SvgElement, allowedFileDirs?: string
     if (!resp.ok) {
       throw new PretextPdfError('SVG_LOAD_FAILED', `SVG URL returned HTTP ${resp.status}`)
     }
-    return sanitizeSvg(await resp.text())
+    // Reuses SVG_MAX_BYTES (sanitize.ts's own ReDoS guard) as the download
+    // cap too — no point downloading past the size the sanitizer will reject
+    // at anyway.
+    const bytes = await readBodyWithLimit(resp, SVG_MAX_BYTES, 'SVG_LOAD_FAILED', 'SVG')
+    return sanitizeSvg(new TextDecoder().decode(bytes))
   }
 
   const [fs, pathMod] = await Promise.all([import('fs'), import('path')])

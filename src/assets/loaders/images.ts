@@ -13,7 +13,10 @@ import type { ImageElement } from '../../types.js'
 import { PretextPdfError } from '../../errors.js'
 import { redactPath } from '../util/redact-path.js'
 import { assertPathAllowed } from '../security/path-allowlist.js'
-import { fetchWithTimeout } from '../security/fetch.js'
+import { fetchWithTimeout, readBodyWithLimit } from '../security/fetch.js'
+
+/** Maximum bytes read from a remote image URL — bounds memory use against a huge/malicious response. */
+export const IMAGE_MAX_BYTES = 20 * 1024 * 1024
 
 /**
  * Resolve the image format from the element spec, magic bytes, or file extension.
@@ -67,14 +70,7 @@ export async function loadImageBytes(el: ImageElement, key: string, allowedDirs?
     if (!resp.ok) {
       throw new PretextPdfError('IMAGE_LOAD_FAILED', `Image "${key}": URL returned HTTP ${resp.status}`)
     }
-    try {
-      return new Uint8Array(await resp.arrayBuffer())
-    } catch (err) {
-      throw new PretextPdfError(
-        'IMAGE_LOAD_FAILED',
-        `Image "${key}": failed to read response body: ${err instanceof Error ? err.message : String(err)}`
-      )
-    }
+    return readBodyWithLimit(resp, IMAGE_MAX_BYTES, 'IMAGE_LOAD_FAILED', `Image "${key}"`)
   }
 
   const fs = await import('fs')

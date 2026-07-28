@@ -7,6 +7,38 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.2.5] — 2026-07-28
+
+### Security
+
+- **No maximum download size when fetching external image/SVG URLs** —
+  `loadImageBytes()`/`resolveSvgContent()` read the entire response body via
+  `resp.arrayBuffer()`/`resp.text()` with no size limit, only the existing
+  10s timeout. A large or malicious response (intentionally huge, or just an
+  uncapped upstream) would be buffered entirely into memory regardless of
+  size before any other check ran. Fixed with a shared `readBodyWithLimit()`
+  (`src/assets/security/fetch.ts`): rejects immediately if `Content-Length`
+  already exceeds the cap, and separately aborts the stream mid-read the
+  moment actual bytes exceed it — the second layer is the one that matters,
+  since `Content-Length` is caller-supplied and can be absent, wrong, or a
+  deliberate lie. Images are capped at 20MB (`IMAGE_MAX_BYTES`); SVGs reuse
+  the existing 5MB `SVG_MAX_BYTES` (previously only enforced post-download,
+  at sanitize time — now also enforced during the download itself, so an
+  oversized SVG is rejected without ever being fully buffered).
+
+### Testing
+
+- Added `test/asset-byte-cap.test.ts`: exercises `readBodyWithLimit()`
+  directly against synthetic `Response` objects (a declared-oversized
+  `Content-Length`, and a streamed body with no declared length at all) —
+  `fetchWithTimeout()` rejects `http://` outright and requires a real
+  `https://` target, so a local test server can't reach the streaming-read
+  path, making direct synthetic-`Response` testing the only practical way to
+  cover this. Includes a regression proof that a 200MB streamed body is
+  rejected in well under 5 seconds rather than being fully buffered first.
+
+---
+
 ## [2.2.4] — 2026-07-25
 
 Closes out the 2026-07-24 shallow-assertion sweep's last two lower-priority
