@@ -7,6 +7,44 @@ Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [2.2.6] — 2026-07-29
+
+Follow-up to 2.2.5's byte cap, found during an independent adversarial
+review of that release before it shipped downstream.
+
+### Security
+
+- **The byte cap alone didn't bound how long a download could take.**
+  `fetchWithTimeout`'s 10s `AbortController` timer only covers getting the
+  initial response — it's cleared as soon as headers arrive, before the body
+  is ever read. A server that returns 200 immediately then drips the body
+  arbitrarily slowly, staying under the byte cap forever, would hang
+  `readBodyWithLimit`'s read indefinitely — tying up a render with no time
+  bound at all, on top of the (already-fixed) memory bound. Fixed with an
+  independent timer around the whole read phase (`bodyTimeoutMs`, defaulting
+  to 10s, now a parameter of `readBodyWithLimit` rather than hardcoded — this
+  is also what makes the new test fast instead of needing a real 10s wait).
+  Handles both ways a cancelled stream can settle: `reader.cancel()` doesn't
+  reliably cause the pending `read()` to reject — some implementations
+  resolve it as `done: true` instead, which without an explicit post-loop
+  check would have silently returned a truncated-but-"successful" buffer.
+- **`readBodyWithLimit`'s `!res.body` fallback still called the unbounded
+  `resp.arrayBuffer()`** before checking size — contradicting the byte cap's
+  own "never fully buffered" invariant, even though a real fetch `Response`
+  should always have a body stream per spec (likely unreachable in
+  practice). Now treated as an error instead of a fallback, so the function
+  has no size-unbounded path at all, reachable or not.
+
+### Testing
+
+- `test/asset-byte-cap.test.ts`: added a stalled-stream test (sends a few
+  bytes, then never enqueues or closes again) proving the read now rejects
+  once the timeout elapses rather than hanging, plus a regression test that
+  a body finishing comfortably inside the window is unaffected, and a test
+  for the `!res.body` case now rejecting instead of falling back.
+
+---
+
 ## [2.2.5] — 2026-07-28
 
 ### Security

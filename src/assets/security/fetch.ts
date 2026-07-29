@@ -122,41 +122,58 @@ export async function fetchWithTimeout(
   throw new PretextPdfError(errorCode, `${label}: too many redirects (max ${MAX_REDIRECTS})`)
 }
 
+/** Max time allowed to read the body once headers have arrived — independent of, and in addition to, fetchWithTimeout's own 10s header/connect timeout. */
+const BODY_READ_TIMEOUT_MS = 10_000
+
 /**
- * Read a fetch Response body with a hard byte cap — protects against a
- * remote server (malicious or just huge) exhausting memory during image/SVG
- * loading. Two layers, since either alone is insufficient:
+ * Read a fetch Response body with a hard byte cap AND a hard time cap —
+ * protects against a remote server (malicious or just huge/slow) exhausting
+ * memory or holding a render slot open during image/SVG loading. Three
+ * layers, since none alone is sufficient:
  *
  *   1. `Content-Length` is checked up front and rejected immediately if it
  *      already exceeds the cap, without reading any body bytes.
  *   2. The body is read via a streaming reader that aborts (and cancels the
  *      underlying stream) the moment actual bytes exceed the cap — this is
- *      the layer that matters, since `Content-Length` is caller-supplied and
- *      can be absent or simply wrong (chunked transfer-encoding, a
- *      misconfigured origin, or a deliberately-lying server).
+ *      the layer that matters for SIZE, since `Content-Length` is
+ *      caller-supplied and can be absent or simply wrong.
+ *   3. A timer independently bounds the whole read to BODY_READ_TIMEOUT_MS.
+ *      `fetchWithTimeout`'s own AbortController only bounds getting the
+ *      initial response — its timer is cleared as soon as headers arrive, so
+ *      it does NOT bound how long reading the body afterward takes. Without
+ *      this, a server that returns 200 immediately then drips the body
+ *      arbitrarily slowly — staying under the byte cap forever — would hang
+ *      this read indefinitely, tying up a render slot with no bound at all.
  */
 export async function readBodyWithLimit(
   res: Response,
   maxBytes: number,
   errorCode: 'IMAGE_LOAD_FAILED' | 'SVG_LOAD_FAILED',
   label: string,
+  bodyTimeoutMs: number = BODY_READ_TIMEOUT_MS,
 ): Promise<Uint8Array> {
   const declared = res.headers.get('content-length')
   if (declared && Number(declared) > maxBytes) {
     throw new PretextPdfError(errorCode, `${label}: declared size ${declared} bytes exceeds the ${maxBytes}-byte limit`)
   }
 
+  // A response with no body stream at all is anomalous for a real image/SVG
+  // fetch (the Fetch spec guarantees `.body` for any response carrying
+  // content) — treated as an error rather than an unbounded arrayBuffer()
+  // fallback, so this function never has a size-unbounded code path.
   if (!res.body) {
-    const buf = new Uint8Array(await res.arrayBuffer())
-    if (buf.byteLength > maxBytes) {
-      throw new PretextPdfError(errorCode, `${label}: response is ${buf.byteLength} bytes, exceeding the ${maxBytes}-byte limit`)
-    }
-    return buf
+    throw new PretextPdfError(errorCode, `${label}: response has no readable body`)
   }
 
   const reader = res.body.getReader()
   const chunks: Uint8Array[] = []
   let total = 0
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    void reader.cancel().catch(() => undefined)
+  }, bodyTimeoutMs)
+
   try {
     while (true) {
       const { done, value } = await reader.read()
@@ -168,9 +185,21 @@ export async function readBodyWithLimit(
       }
       chunks.push(value)
     }
+    // reader.cancel() doesn't always cause read() to reject — some stream
+    // implementations resolve the pending read as `done: true` instead, which
+    // would otherwise silently return a truncated-but-"successful" buffer.
+    // Checked on both the normal-exit and error-exit paths.
+    if (timedOut) {
+      throw new PretextPdfError(errorCode, `${label}: response body took longer than ${bodyTimeoutMs}ms to download`)
+    }
   } catch (err) {
+    if (timedOut) {
+      throw new PretextPdfError(errorCode, `${label}: response body took longer than ${bodyTimeoutMs}ms to download`)
+    }
     if (err instanceof PretextPdfError) throw err
     throw new PretextPdfError(errorCode, `${label}: failed to read response body: ${err instanceof Error ? err.message : String(err)}`)
+  } finally {
+    clearTimeout(timer)
   }
 
   const out = new Uint8Array(total)
